@@ -17,41 +17,27 @@
     use of the MaidSafe
     Software.                                                                 */
 
-extern crate rand;
-extern crate crypto;
-extern crate test;
-use crypto::digest::Digest;
-use crypto::sha2::Sha512  as Sha512;
-
-use self::rand::{ Rng, OsRng };
 extern crate self_encryption;
 pub use self_encryption::*;
-
+/// DataMap integratoin tests
 #[test]
-  fn test_hash_sha_512() {
-    let mut hasher = Sha512::new();
-    hasher.input_str("abc");
-    let hex = hasher.result_str();
-    assert_eq!(hex.as_slice(),
-        concat!("ddaf35a193617abacc417349ae2041311",
-          "2e6fa4e89a97ea20a9eeee64b55d39a",
-          "2192992a274fc1a836ba3c23a3feebbd45",
-          "4d4423643ce80e2a9ac94fa54ca49f"));
+fn data_map_empty(){
+  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
+  assert!(dm.empty() == false);
   }
 
 #[test]
-  fn test_aes_cbc() {
-    let message = "Hello World!";
+fn data_map_content_only(){
+  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
+  assert!(dm.len() == 2);
+  assert!(dm.has_chunks() == false);
+  }
 
-    let mut key: [u8; 32] = [0; 32];
-    let mut iv: [u8; 16] = [0; 16];
+/// Self Enryptor integration tests
+#[test]
+fn check_write() {
+  let mut se = SelfEncryptor::new();
+  se.write("dsd", 3u32, 5u64);
+  assert_eq!(se.len(), 8u64);
+}
 
-    let mut rng = OsRng::new().ok().unwrap();
-    rng.fill_bytes(&mut key);
-    rng.fill_bytes(&mut iv);
-
-    let encrypted_data = self_encryption::encryption::encrypt(message.as_bytes(), &key, &iv).ok().unwrap();
-    let decrypted_data = self_encryption::encryption::decrypt(&encrypted_data[..], &key, &iv).ok().unwrap();
-
-    assert!(message.as_bytes() == &decrypted_data[..]);
-  } 
