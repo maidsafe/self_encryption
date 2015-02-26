@@ -3,6 +3,14 @@
 name = "self_encryption"
 version = "0.0.1"
 authors = ["David Irvine <david.irvine@maidsafe.net>"]
+description = "This is Pre Pre alpha, and ony useful for testing, no code worth looking
+at."
+documentation = "https://github.com/dirvine/self_encryption"
+repository = "https://github.com/dirvine/self_encryption"
+readme = "https://github.com/dirvine/self_encryption/blob/master/README.md"
+license = "GPL3"
+license-file = "COPYING"
+
 
 [dependencies]
 rust-crypto = "*"
