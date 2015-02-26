@@ -79,19 +79,6 @@ pub fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, 
     Ok(final_result)
 }
 
-
-
-/* fn rng_ex() { */
-/*   let mut rng = rand::thread_rng(); */
-/*   let mut nums = Vec::<u32>::new(); */
-/*   let size = 1000000usize; */
-/*   nums.reserve(size); */
-/*   for _ in range(0usize, size) { */
-/*     nums.push(rng.gen::<u32>()); */
-/*   } */
-/*    */
-/* } */
-/*  */
 ///! Unit tests!
 #[test]
   fn test_hash_sha_512() {

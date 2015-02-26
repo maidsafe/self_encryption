@@ -17,7 +17,7 @@
     use of the MaidSafe
     Software.                                                                 */
 
-//! A file self encryptor
+//! A file **content** self encryptor
 //! 
 //! This library will provide convergent encryption on file based data and produce a 
 //! ```DataMap``` type and several chunks of data. Each chunk is max 1Mb in size
@@ -51,9 +51,11 @@ use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
 pub mod encryption;
-mod datamap;
+pub mod datamap;
 
-
+/// This is the encrypto object and all file handling should be done via this as the low level 
+/// mechanism to read and write *content* this librar has no knowledge of file metadata. This is
+/// a library to ensure content is secured 
 pub struct SelfEncryptor {
   /* this_data_map: DataMap, */
   /* sequencer: Vec<u8>, */
@@ -65,10 +67,11 @@ pub struct SelfEncryptor {
 
 
 impl SelfEncryptor {
+  /// constructor for encryptor object
   pub fn new() -> SelfEncryptor {
     SelfEncryptor{tempdir: SelfEncryptor::CreateTempDir(), file_size: 0, closed: false }
-    }
-
+  }
+  /// Write method mirrors a posiix type write mechanism
   pub fn write(&mut self, data: &str ,length: u32, position: u64) {
     let new_size = cmp::max(self.file_size, length as u64 + position);
     /* self.Preparewindow(length, position, true); */
@@ -77,23 +80,25 @@ impl SelfEncryptor {
     /*   } */
     /*   */
     self.file_size = new_size;
-    }
-  
+  }
+  /// current file size as is known by encryptor
+  pub fn len(&self)->u64 {
+    self.file_size
+  } 
+  /// Prepere a sliding window to ensure there are enouch chunk slots for write
+  /// will possibly readin some chunks from external storage
   fn Preparewindow(&mut self, length: u32, position: u64, write: bool) {
-    }
-  
+  }
+  /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
+  /// a randome key and IV
   fn CreateTempDir() ->TempDir {
     match TempDir::new("self_encryptor") {
       Ok(dir) => dir,
         Err(e) => panic!("couldn't create temporary directory: {}", e)
     }
-    }
+  }
   
   }
-
-
-
-
 
 
 #[test]
