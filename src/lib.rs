@@ -50,10 +50,22 @@ use std::cmp;
 use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
-pub mod encryption;
+mod encryption;
+/// Holds pre and post encryption hashes as well as original chunk size
 pub mod datamap;
 
-/// This is the encrypto object and all file handling should be done via this as the low level 
+static MaxChunkSize: u32 = 1024*1024;
+static MinChunkSize: u32 = 1024;
+  /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
+  /// a randome key and IV
+  pub fn create_temp_dir() ->TempDir {
+    match TempDir::new("self_encryptor") {
+      Ok(dir) => dir,
+        Err(e) => panic!("couldn't create temporary directory: {}", e)
+    }
+  }
+
+/// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this librar has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
@@ -68,10 +80,10 @@ pub struct SelfEncryptor {
 
 impl SelfEncryptor {
   /// constructor for encryptor object
-  pub fn new() -> SelfEncryptor {
-    SelfEncryptor{tempdir: SelfEncryptor::CreateTempDir(), file_size: 0, closed: false }
-  }
-  /// Write method mirrors a posiix type write mechanism
+  pub fn new(tempdir: TempDir, file_size: u64, closed: bool)-> SelfEncryptor {
+    SelfEncryptor{tempdir: tempdir, file_size: file_size, closed: closed}
+    }
+  /// Write method mirrors a posix type write mechanism
   pub fn write(&mut self, data: &str ,length: u32, position: u64) {
     let new_size = cmp::max(self.file_size, length as u64 + position);
     /* self.Preparewindow(length, position, true); */
@@ -87,23 +99,25 @@ impl SelfEncryptor {
   } 
   /// Prepere a sliding window to ensure there are enouch chunk slots for write
   /// will possibly readin some chunks from external storage
-  fn Preparewindow(&mut self, length: u32, position: u64, write: bool) {
+  fn prepare_window(&mut self, length: u32, position: u64, write: bool) {
   }
-  /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
-  /// a randome key and IV
-  fn CreateTempDir() ->TempDir {
-    match TempDir::new("self_encryptor") {
-      Ok(dir) => dir,
-        Err(e) => panic!("couldn't create temporary directory: {}", e)
-    }
-  }
-  
+  // Helper methods
+
+  fn get_chunk_size(&self, chunk: u32)->u32 {
+    /* if self.file_size < 3 * MinChunkSize { 0 } */
+    /* if self.file_size < 3 * MaxChunkSize { if chunk < 2 { self.file_size / 3 } } else { */
+    /*   self.file_size - (2 * self.file_size / 3) } */
+0
+    }  
   }
 
 
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new();
+  let mut se = SelfEncryptor::new(create_temp_dir(),  0, false);
+  let mut se_ctr = SelfEncryptor{tempdir: create_temp_dir(), file_size: 0, closed: false};
   se.write("dsd", 3u32, 5u64);
+  se_ctr.write("fkghguguykghj", 30u32, 50u64);
   assert_eq!(se.file_size, 8u64);
+  assert_eq!(se_ctr.file_size, 80u64);
 }

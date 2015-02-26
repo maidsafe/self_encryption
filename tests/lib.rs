@@ -36,7 +36,7 @@ fn data_map_content_only(){
 /// Self Enryptor integration tests
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new();
+  let mut se = SelfEncryptor::new(create_temp_dir(),  0, false);
   se.write("dsd", 3u32, 5u64);
   assert_eq!(se.len(), 8u64);
 }
