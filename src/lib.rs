@@ -102,13 +102,55 @@ impl SelfEncryptor {
   fn prepare_window(&mut self, length: u32, position: u64, write: bool) {
   }
   // Helper methods
+  fn get_num_chunks(&self)->u32 {
+    if self.file_size  < (3 * MinChunkSize as u64) { return 0 }
+    if self.file_size  < (3 * MaxChunkSize as u64) { return 3 }
+    if self.file_size  % MaxChunkSize as u64 == 0 {
+      return (self.file_size / MaxChunkSize as u64) as u32 
+      } else {
+      return (self.file_size / MaxChunkSize as u64 + 1) as u32
+        }
+    }
 
   fn get_chunk_size(&self, chunk: u32)->u32 {
-    /* if self.file_size < 3 * MinChunkSize { 0 } */
-    /* if self.file_size < 3 * MaxChunkSize { if chunk < 2 { self.file_size / 3 } } else { */
-    /*   self.file_size - (2 * self.file_size / 3) } */
-0
-    }  
+    if self.file_size < 3 * MinChunkSize as u64 { return 0u32 }
+    if self.file_size < 3 * MaxChunkSize as u64 { 
+      if chunk < 2 { 
+        return (self.file_size / 3) as u32 
+      } else {
+        return (self.file_size - (2 * self.file_size / 3)) as u32 
+      }
+    }
+    if chunk < SelfEncryptor::get_num_chunks(self) - 2 { return MaxChunkSize }
+    let remainder :u32 = self.file_size as u32 % MaxChunkSize;
+    let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk;
+    if remainder == 0 { return MaxChunkSize }
+    if remainder < MinChunkSize {
+       if penultimate { return MaxChunkSize - MinChunkSize 
+         } else { 
+           return MinChunkSize + remainder } 
+      } else {
+        if penultimate { return MaxChunkSize } else { return remainder }
+        }
+    
+  }
+
+  fn get_start_end_position(&self, chunk :u32)->(u64, u64) {
+   if self.get_num_chunks() == 0 { return (0,0) } 
+   let mut start :u64;
+   let penultimate = (self.get_num_chunks() - 2) == chunk;
+   let last = (self.get_chunk_size(0) - 1) == chunk; 
+   if last {
+     start = (self.get_chunk_size(0) * (chunk - 2) + self.get_chunk_size(chunk - 2) +
+       self.get_chunk_size(chunk - 1)) as u64;
+   } else if penultimate {
+     start = (self.get_chunk_size(0) * (chunk - 1) + self.get_chunk_size(chunk - 1)) as u64;
+   } else {
+     start = (self.get_chunk_size(0) * chunk) as u64;
+   }
+    (start, (start + self.get_chunk_size(chunk) as u64))
+    }
+
   }
 
 
