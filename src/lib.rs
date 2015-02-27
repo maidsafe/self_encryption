@@ -145,13 +145,12 @@ impl SelfEncryptor {
        self.get_chunk_size(chunk - 1)) as u64;
    } else if penultimate {
      start = (self.get_chunk_size(0) * (chunk - 1) + self.get_chunk_size(chunk - 1)) as u64;
-   } else 
+   } else {
      start = (self.get_chunk_size(0) * chunk) as u64;
    }
     (start, (start + self.get_chunk_size(chunk) as u64))
     }
-
-  }
+}
 
 
 #[test]
