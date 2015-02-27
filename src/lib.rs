@@ -65,13 +65,24 @@ static MINCHUNKSIZE: u32 = 1024;
     }
   }
 
+enum ChunkStatus {
+    ToBeHashed,
+    ToBeEncrypted,
+  }
+enum ChunkLocation {
+    InSequencer,
+    OnDisk,  // therefor only being used as read cache`
+    Remote
+
+}
+
+struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation, name: String, content: String }
+
 /// This is the encryption object and all file handling should be done via this as the low level 
-/// mechanism to read and write *content* this librar has no knowledge of file metadata. This is
+/// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
-  /* this_data_map: DataMap, */
-  /* sequencer: Vec<u8>, */
-  /* chunks: HashMap::new(), */
+  sequencer: Vec<Chunks>,
   tempdir : TempDir, 
   file_size: u64,
   closed: bool,
@@ -80,13 +91,14 @@ pub struct SelfEncryptor {
 
 impl SelfEncryptor {
   /// constructor for encryptor object
-  pub fn new(tempdir: TempDir, file_size: u64, closed: bool)-> SelfEncryptor {
-    SelfEncryptor{tempdir: tempdir, file_size: file_size, closed: closed}
+  pub fn new()-> SelfEncryptor {
+    SelfEncryptor{sequencer: Vec::with_capacity(100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   /// Write method mirrors a posix type write mechanism
   pub fn write(&mut self, data: &str ,length: u32, position: u64) {
+    if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     let new_size = cmp::max(self.file_size, length as u64 + position);
-    /* self.Preparewindow(length, position, true); */
+    self.prepare_window(length, position, true);
     /* for i in 0u64..length as u64 { */
     /*   self.sequencer[position + i] = data[i] as u8; */
     /*   } */
@@ -136,7 +148,7 @@ impl SelfEncryptor {
     
   }
 
-  fn get_start_end_position(&self, chunk :u32)->(u64, u64) {
+  fn get_start_end_positions(&self, chunk :u32)->(u64, u64) {
    if self.get_num_chunks() == 0 { return (0,0) } 
    let mut start :u64;
    let penultimate = (self.get_num_chunks() - 2) == chunk;
@@ -174,10 +186,32 @@ impl SelfEncryptor {
 
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(create_temp_dir(),  0, false);
-  let mut se_ctr = SelfEncryptor{tempdir: create_temp_dir(), file_size: 0, closed: false};
+  let mut se = SelfEncryptor::new();
+  let mut se_ctr = SelfEncryptor{sequencer: Vec::with_capacity(3*MAXCHUNKSIZE as usize), tempdir: create_temp_dir(), file_size: 0, closed: false};
   se.write("dsd", 3u32, 5u64);
   se_ctr.write("fkghguguykghj", 30u32, 50u64);
   assert_eq!(se.file_size, 8u64);
   assert_eq!(se_ctr.file_size, 80u64);
+}
+
+#[test]
+fn check_helper_3_min_chunks() {
+  let mut se = SelfEncryptor::new();
+  se.write("dsd", (MINCHUNKSIZE * 3), 0);
+  assert_eq!(se.get_num_chunks(), 3);
+  assert_eq!(se.get_chunk_size(0), 1024);
+  assert_eq!(se.get_chunk_size(1), 1024);
+  assert_eq!(se.get_chunk_size(2), 1024);
+  assert_eq!(se.get_next_chunk_number(0), 1);
+  assert_eq!(se.get_next_chunk_number(1), 2);
+  assert_eq!(se.get_next_chunk_number(2), 0);
+  assert_eq!(se.get_previous_chunk_number(0), 2);
+  assert_eq!(se.get_previous_chunk_number(1), 0);
+  assert_eq!(se.get_previous_chunk_number(2), 1);
+  assert_eq!(se.get_start_end_positions(0).0, 0u64);
+  assert_eq!(se.get_start_end_positions(0).1, MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MINCHUNKSIZE as u64);
 }
