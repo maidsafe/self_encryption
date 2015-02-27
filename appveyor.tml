@@ -1,13 +1,23 @@
+branches:
+  except:
+    - gh-pages
+
+platform:
+  - x64
+environment:
+  RUST_INSTALL_DIR: C:\Rust
+  matrix:
+    - RUST_INSTALL_TRIPLE: i686-pc-windows-gnu
+    - RUST_INSTALL_TRIPLE: x86_64-pc-windows-gnu
+
 install:
-  - ps: Start-FileDownload 'https://static.rust-lang.org/dist/rust-nightly-i686-pc-windows-gnu.exe'
-  - rust-nightly-i686-pc-windows-gnu.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
-  - SET PATH=%PATH%;C:\Program Files (x86)\Rust\bin
-  - rustc -V
-  - cargo -V
-  - git submodule update --init --recursive
+  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-nightly-$Env:RUST_INSTALL_TRIPLE.exe"
+  - cmd: rust-nightly-%RUST_INSTALL_TRIPLE%.exe /VERYSILENT /NORESTART /COMPONENTS="rust,gcc,cargo" /DIR="%RUST_INSTALL_DIR%"
+  - cmd: SET PATH=%PATH%;%RUST_INSTALL_DIR%\bin
+  - rustc --version
+  - cargo --version
 
 build: false
-
 test_script:
-  - cargo test --verbose --no-default-features --features "window"
-  - cargo test --verbose --no-default-features --features "headless"
+  - cargo build --verbose
+  - cargo test --verbose

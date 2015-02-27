@@ -54,8 +54,8 @@ mod encryption;
 /// Holds pre and post encryption hashes as well as original chunk size
 pub mod datamap;
 
-static MaxChunkSize: u32 = 1024*1024;
-static MinChunkSize: u32 = 1024;
+static MAXCHUNKSIZE: u32 = 1024*1024;
+static MINCHUNKSIZE: u32 = 1024;
   /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
   /// a randome key and IV
   pub fn create_temp_dir() ->TempDir {
@@ -103,35 +103,36 @@ impl SelfEncryptor {
   }
   // Helper methods
   fn get_num_chunks(&self)->u32 {
-    if self.file_size  < (3 * MinChunkSize as u64) { return 0 }
-    if self.file_size  < (3 * MaxChunkSize as u64) { return 3 }
-    if self.file_size  % MaxChunkSize as u64 == 0 {
-      return (self.file_size / MaxChunkSize as u64) as u32 
-      } else {
-      return (self.file_size / MaxChunkSize as u64 + 1) as u32
-        }
+    if self.file_size  < (3 * MINCHUNKSIZE as u64) { return 0 }
+    if self.file_size  < (3 * MAXCHUNKSIZE as u64) { return 3 }
+    if self.file_size  % MAXCHUNKSIZE as u64 == 0 {
+      return (self.file_size / MAXCHUNKSIZE as u64) as u32 
+    } else {
+      return (self.file_size / MAXCHUNKSIZE as u64 + 1) as u32
     }
+  }
 
   fn get_chunk_size(&self, chunk: u32)->u32 {
-    if self.file_size < 3 * MinChunkSize as u64 { return 0u32 }
-    if self.file_size < 3 * MaxChunkSize as u64 { 
+    if self.file_size < 3 * MINCHUNKSIZE as u64 { return 0u32 }
+    if self.file_size < 3 * MAXCHUNKSIZE as u64 { 
       if chunk < 2 { 
         return (self.file_size / 3) as u32 
       } else {
         return (self.file_size - (2 * self.file_size / 3)) as u32 
       }
     }
-    if chunk < SelfEncryptor::get_num_chunks(self) - 2 { return MaxChunkSize }
-    let remainder :u32 = self.file_size as u32 % MaxChunkSize;
+    if chunk < self.get_num_chunks() - 2 { return MAXCHUNKSIZE }
+    let remainder :u32 = self.file_size as u32 % MAXCHUNKSIZE;
     let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk;
-    if remainder == 0 { return MaxChunkSize }
-    if remainder < MinChunkSize {
-       if penultimate { return MaxChunkSize - MinChunkSize 
-         } else { 
-           return MinChunkSize + remainder } 
-      } else {
-        if penultimate { return MaxChunkSize } else { return remainder }
-        }
+    if remainder == 0 { return MAXCHUNKSIZE }
+    if remainder < MINCHUNKSIZE {
+       if penultimate { 
+         return MAXCHUNKSIZE - MINCHUNKSIZE 
+       } else { 
+         return MINCHUNKSIZE + remainder } 
+     } else {
+       if penultimate { return MAXCHUNKSIZE } else { return remainder }
+     }
     
   }
 
@@ -150,6 +151,24 @@ impl SelfEncryptor {
    }
     (start, (start + self.get_chunk_size(chunk) as u64))
     }
+  
+  fn get_next_chunk_number(&self, chunk : u32)->u32 {
+    if self.get_num_chunks() == 0 { return 0u32 }
+    (self.get_num_chunks() + chunk + 1) % self.get_num_chunks()
+    }
+
+  fn get_previous_chunk_number(&self, chunk :u32)->u32 {
+    if self.get_num_chunks() == 0 { return 0u32 }
+    (self.get_num_chunks() + chunk - 1) % self.get_num_chunks()
+       
+  }
+
+  fn get_chunk_number(&self, position: u64)->u32 {
+    if self.get_num_chunks() == 0 { return 0u32 }
+    (position / self.get_chunk_size(0) as u64) as u32
+    }
+     
+
 }
 
 
