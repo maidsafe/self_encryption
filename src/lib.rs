@@ -45,6 +45,7 @@
 
 extern crate rand;
 extern crate crypto;
+use self::rand::{ Rng, OsRng };
 use std::collections::HashMap;
 use std::cmp;
 use std::old_io::TempDir;
@@ -76,33 +77,36 @@ enum ChunkLocation {
 
 }
 
-struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation, name: String, content: String }
+struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation, datamap: datamap::DataMap, content: String }
+
+impl Chunks {
+
+}
 
 /// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
-  sequencer: Vec<Chunks>,
+  sequencer: Vec<u8>,
   tempdir : TempDir, 
   file_size: u64,
   closed: bool,
   }
 
-
 impl SelfEncryptor {
   /// constructor for encryptor object
   pub fn new()-> SelfEncryptor {
-    SelfEncryptor{sequencer: Vec::with_capacity(100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+    SelfEncryptor{sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   /// Write method mirrors a posix type write mechanism
-  pub fn write(&mut self, data: &str ,length: u32, position: u64) {
+  pub fn write(&mut self, data: &str, position: u64) {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
-    let new_size = cmp::max(self.file_size, length as u64 + position);
-    self.prepare_window(length, position, true);
-    /* for i in 0u64..length as u64 { */
-    /*   self.sequencer[position + i] = data[i] as u8; */
-    /*   } */
-    /*   */
+    let new_size = cmp::max(self.file_size , data.len() as u64 + position);
+    self.prepare_window(data.len() as u64, position, true);
+    for i in 0..data.len()   {
+        self.sequencer[position as usize + i] = data.as_bytes()[i];
+      }
+
     self.file_size = new_size;
   }
   /// current file size as is known by encryptor
@@ -111,7 +115,10 @@ impl SelfEncryptor {
   } 
   /// Prepere a sliding window to ensure there are enouch chunk slots for write
   /// will possibly readin some chunks from external storage
-  fn prepare_window(&mut self, length: u32, position: u64, write: bool) {
+  fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
+    if  (length + position) as usize > self.sequencer.len() {
+    self.sequencer.resize((length + position) as usize, 0u8);
+    }
   }
   // Helper methods
   fn get_num_chunks(&self)->u32 {
@@ -134,7 +141,7 @@ impl SelfEncryptor {
       }
     }
     if chunk < self.get_num_chunks() - 2 { return MAXCHUNKSIZE }
-    let remainder :u32 = self.file_size as u32 % MAXCHUNKSIZE;
+    let remainder :u32 = (self.file_size % MAXCHUNKSIZE as u64) as u32;
     let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk;
     if remainder == 0 { return MAXCHUNKSIZE }
     if remainder < MINCHUNKSIZE {
@@ -183,13 +190,17 @@ impl SelfEncryptor {
 
 }
 
+fn random_string(length: u64) -> String {
+        (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
+        /* (0..length).map(|_| rand::random::<char>()).collect() */
+  }
 
 #[test]
 fn check_write() {
   let mut se = SelfEncryptor::new();
   let mut se_ctr = SelfEncryptor{sequencer: Vec::with_capacity(3*MAXCHUNKSIZE as usize), tempdir: create_temp_dir(), file_size: 0, closed: false};
-  se.write("dsd", 3u32, 5u64);
-  se_ctr.write("fkghguguykghj", 30u32, 50u64);
+  se.write(random_string(3).as_slice(), 5u64);
+  se_ctr.write(random_string(30).as_slice(), 50u64);
   assert_eq!(se.file_size, 8u64);
   assert_eq!(se_ctr.file_size, 80u64);
 }
@@ -197,7 +208,7 @@ fn check_write() {
 #[test]
 fn check_helper_3_min_chunks() {
   let mut se = SelfEncryptor::new();
-  se.write("dsd", (MINCHUNKSIZE * 3), 0);
+  se.write(random_string(MINCHUNKSIZE as u64 * 3).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
   assert_eq!(se.get_chunk_size(1), 1024);
@@ -214,4 +225,97 @@ fn check_helper_3_min_chunks() {
   assert_eq!(se.get_start_end_positions(1).1, 2 * MINCHUNKSIZE as u64);
   assert_eq!(se.get_start_end_positions(2).0, 2 * MINCHUNKSIZE as u64);
   assert_eq!(se.get_start_end_positions(2).1, 3 * MINCHUNKSIZE as u64);
+}
+#[test]
+fn check_helper_3_min_chunks_plus1() {
+  let mut se = SelfEncryptor::new();
+  se.write(random_string((MINCHUNKSIZE as u64 * 3) + 1).as_slice(), 0);
+  assert_eq!(se.get_num_chunks(), 3);
+  assert_eq!(se.get_chunk_size(0), 1024);
+  assert_eq!(se.get_chunk_size(1), 1024);
+  assert_eq!(se.get_chunk_size(2), 1025);
+  assert_eq!(se.get_next_chunk_number(0), 1);
+  assert_eq!(se.get_next_chunk_number(1), 2);
+  assert_eq!(se.get_next_chunk_number(2), 0);
+  assert_eq!(se.get_previous_chunk_number(0), 2);
+  assert_eq!(se.get_previous_chunk_number(1), 0);
+  assert_eq!(se.get_previous_chunk_number(2), 1);
+  assert_eq!(se.get_start_end_positions(0).0, 0u64);
+  assert_eq!(se.get_start_end_positions(0).1, MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MINCHUNKSIZE as u64);
+}
+
+#[test]
+fn check_helper_3_max_chunks() {
+  let mut se = SelfEncryptor::new();
+  se.write(random_string(MAXCHUNKSIZE as u64 * 3).as_slice(), 0);
+  assert_eq!(se.get_num_chunks(), 3);
+  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE);
+  assert_eq!(se.get_next_chunk_number(0), 1);
+  assert_eq!(se.get_next_chunk_number(1), 2);
+  assert_eq!(se.get_next_chunk_number(2), 0);
+  assert_eq!(se.get_previous_chunk_number(0), 2);
+  assert_eq!(se.get_previous_chunk_number(1), 0);
+  assert_eq!(se.get_previous_chunk_number(2), 1);
+  assert_eq!(se.get_start_end_positions(0).0, 0u64);
+  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MAXCHUNKSIZE as u64);
+}
+#[test]
+fn check_helper_3_max_chunks_plus1() {
+  let mut se = SelfEncryptor::new();
+  se.write(random_string((MAXCHUNKSIZE as u64 * 3) + 1).as_slice(), 0);
+  assert_eq!(se.get_num_chunks(), 4);
+  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE - MINCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(3), MINCHUNKSIZE +1);
+  assert_eq!(se.get_next_chunk_number(0), 1);
+  assert_eq!(se.get_next_chunk_number(1), 2);
+  assert_eq!(se.get_next_chunk_number(2), 3);
+  assert_eq!(se.get_next_chunk_number(3), 0);
+  assert_eq!(se.get_previous_chunk_number(0), 3);
+  assert_eq!(se.get_previous_chunk_number(1), 0);
+  assert_eq!(se.get_previous_chunk_number(2), 1);
+  assert_eq!(se.get_previous_chunk_number(3), 2);
+  assert_eq!(se.get_start_end_positions(0).0, 0u64);
+  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, ((3 * MAXCHUNKSIZE) - MINCHUNKSIZE) as u64);
+}
+#[test]
+fn check_helper_3_and_a_bit_max_chunks() {
+  let mut se = SelfEncryptor::new();
+  se.write(random_string((MAXCHUNKSIZE as u64 * 7) + 1024).as_slice(), 0);
+  assert_eq!(se.get_num_chunks(), 8);
+  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(3), MAXCHUNKSIZE);
+  assert_eq!(se.get_next_chunk_number(0), 1);
+  assert_eq!(se.get_next_chunk_number(1), 2);
+  assert_eq!(se.get_next_chunk_number(2), 3);
+  assert_eq!(se.get_next_chunk_number(3), 4);
+  assert_eq!(se.get_previous_chunk_number(0), 7);
+  assert_eq!(se.get_previous_chunk_number(1), 0);
+  assert_eq!(se.get_previous_chunk_number(2), 1);
+  assert_eq!(se.get_previous_chunk_number(3), 2);
+  assert_eq!(se.get_start_end_positions(0).0, 0u64);
+  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(3).0, 3 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(7).1, ((7 * MAXCHUNKSIZE) as u64 + 1024));
 }

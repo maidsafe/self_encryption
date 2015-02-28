@@ -18,7 +18,9 @@
     Software.                                                                 */
 
 extern crate self_encryption;
+extern crate rand;
 pub use self_encryption::*;
+use self::rand::{ Rng, OsRng };
 /// DataMap integratoin tests
 #[test]
 fn data_map_empty(){
@@ -33,11 +35,14 @@ fn data_map_content_only(){
   assert!(dm.has_chunks() == false);
   }
 
+fn random_string(length: u64) -> String {
+        (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
+  }
 /// Self Enryptor integration tests
 #[test]
 fn check_write() {
   let mut se = SelfEncryptor::new();
-  se.write("dsd", 3u32, 5u64);
+  se.write(random_string(3).as_slice(), 5u64);
   assert_eq!(se.len(), 8u64);
 }
 
