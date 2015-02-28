@@ -98,6 +98,7 @@ impl SelfEncryptor {
   pub fn new()-> SelfEncryptor {
     SelfEncryptor{sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
+  
   /// Write method mirrors a posix type write mechanism
   pub fn write(&mut self, data: &str, position: u64) {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
@@ -109,17 +110,30 @@ impl SelfEncryptor {
 
     self.file_size = new_size;
   }
+  
   /// current file size as is known by encryptor
   pub fn len(&self)->u64 {
     self.file_size
   } 
+  
   /// Prepere a sliding window to ensure there are enouch chunk slots for write
   /// will possibly readin some chunks from external storage
   fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
     if  (length + position) as usize > self.sequencer.len() {
     self.sequencer.resize((length + position) as usize, 0u8);
     }
+    if self.file_size < (3 * MINCHUNKSIZE) as u64 { return }
+    let first_chunk = self.get_chunk_number(position);
+    let last_chunk = self.get_chunk_number(position + length);
+    if write && self.sequencer.len() < (position + length) as usize {
+      self.sequencer.resize((length + position) as usize, 0u8);
+    }  
+    if self.file_size < (3 * MAXCHUNKSIZE) as u64 {
+      
+      }
+
   }
+
   // Helper methods
   fn get_num_chunks(&self)->u32 {
     if self.file_size  < (3 * MINCHUNKSIZE as u64) { return 0 }

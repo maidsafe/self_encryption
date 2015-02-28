@@ -1,7 +1,5 @@
-extern crate serialize;
 
 /// data map records vector
-//#[derive(RustDecodable, RustEncodable)]
 pub struct ChunkDetails {
   chunk_num: u32,
   hash: Vec<u8>,
@@ -10,7 +8,6 @@ pub struct ChunkDetails {
   }
 
 /// Holds pre and post encryption hashes as well as original chunk size
-//#[derive(RustDecodable, RustEncodable)]
 pub enum DataMap {
   Chunks(Vec<ChunkDetails>),
   Content(Vec<u8>),
