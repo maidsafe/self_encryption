@@ -41,7 +41,8 @@
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://doc.rust-lang.org/log/")]
 #![warn(missing_docs)]
-
+// FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
+#![feature(old_io)]
 
 extern crate rand;
 extern crate crypto;
@@ -107,6 +108,7 @@ impl SelfEncryptor {
   //! the get and put functors should be passed to this library to 
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
+  /// This is the only constructor, if new file use DataMap::None as forst param
   pub fn new<Get: 'static , Put: 'static>(datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
     where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
     let get_ptr = Box::new(get);
@@ -127,16 +129,20 @@ impl SelfEncryptor {
 
     self.file_size = new_size;
   }
-  
+  /// return string, this is a change fomr existing API wehre we used c type const char * 
   pub fn read(&mut self, position: u64, length: u64)-> String {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     self.prepare_window(length, position, false);
     let mut data = String::with_capacity(length as usize);
-      for i in range(0, length) {
+      for i in (0..length) {
             data.push(self.sequencer[(position + i) as usize] as char);
       }
       data
       // TODO(dirvine)  this can be reduced to a single line with functional style (map range)  :01/03/2015
+  }
+  pub fn truncate(&self, position: u64) {
+    
+    
   }
   
   /// current file size as is known by encryptor
@@ -160,17 +166,15 @@ impl SelfEncryptor {
       first_chunk = 0;
       last_chunk = 3; 
     } else {
-      for i in range(1,2) {
+      for _ in (1..2) {
         if last_chunk < self.get_num_chunks() { last_chunk += 1; }
       }  
     }
     // [TODO]: Thread next - 2015-02-28 06:09pm 
-    for i in range(first_chunk, last_chunk) {
+    for i in (first_chunk..last_chunk) {
     let mut tmp_chunks = Vec::new();
-      let mut found: bool = false;
       for itr in  self.chunks.iter() {
         if itr.number == i  {
-          found = true;
           let mut pos = self.get_start_end_positions(i).0;
           if itr.location == ChunkLocation::Remote  { 
             let vec : Vec<u8> = self.decrypt_chunk(i);
@@ -274,15 +278,15 @@ fn random_string(length: u64) -> String {
 
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string(3).as_slice(), 5u64);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string(3), 5u64);
   assert_eq!(se.file_size, 8u64);
 }
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string(MIN_CHUNK_SIZE as u64 * 3).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string(MIN_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
   assert_eq!(se.get_chunk_size(1), 1024);
@@ -302,8 +306,8 @@ fn check_helper_3_min_chunks() {
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string((MIN_CHUNK_SIZE as u64 * 3) + 1).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
   assert_eq!(se.get_chunk_size(1), 1024);
@@ -324,8 +328,8 @@ fn check_helper_3_min_chunks_plus1() {
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string(MAX_CHUNK_SIZE as u64 * 3).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
   assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
@@ -345,8 +349,8 @@ fn check_helper_3_max_chunks() {
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string((MAX_CHUNK_SIZE as u64 * 3) + 1).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 4);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
   assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
@@ -367,10 +371,11 @@ fn check_helper_3_max_chunks_plus1() {
   assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
   assert_eq!(se.get_start_end_positions(2).1, ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
 }
+
 #[test]
 fn check_helper_3_and_a_bit_max_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
-  se.write(random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
   assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
