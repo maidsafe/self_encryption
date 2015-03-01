@@ -40,3 +40,6 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
 - [ ] Coverage analysis (coveralls ?)
+
+#Video of the process 
+[self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
