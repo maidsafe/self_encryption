@@ -21,7 +21,7 @@
 //! 
 //! This library will provide convergent encryption on file based data and produce a 
 //! ```DataMap``` type and several chunks of data. Each chunk is max 1Mb in size
-//! and has a name. Thsi name is the ``Sah512``` of the content. This allows the chunks
+//! and has a name. This name is the ``Sah512``` of the content. This allows the chunks
 //! to be confirmed and if using size and Hash checks then there is a high degree of certainty
 //! in the data validity. 
 //! 
@@ -55,8 +55,8 @@ mod encryption;
 /// Holds pre and post encryption hashes as well as original chunk size
 pub mod datamap;
 
-static MAXCHUNKSIZE: u32 = 1024*1024;
-static MINCHUNKSIZE: u32 = 1024;
+static MAX_CHUNK_SIZE: u32 = 1024*1024;
+static MIN_CHUNK_SIZE: u32 = 1024;
   /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
   /// a randome key and IV
   pub fn create_temp_dir() ->TempDir {
@@ -69,15 +69,18 @@ static MINCHUNKSIZE: u32 = 1024;
 enum ChunkStatus {
     ToBeHashed,
     ToBeEncrypted,
+    AlreadyEncrypted
   }
+#[derive(PartialEq)]   
 enum ChunkLocation {
     InSequencer,
     OnDisk,  // therefor only being used as read cache`
     Remote
 
 }
-
-struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation, datamap: datamap::DataMap, content: String }
+pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
+ 
+struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 
 impl Chunks {
 
@@ -87,6 +90,10 @@ impl Chunks {
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
+  datamap: datamap::DataMap,
+  get: Box<FnMut(Vec<u8>)->Chunk + 'static>, 
+  put: Box<FnMut(Chunk)->() + 'static>,
+  chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
   tempdir : TempDir, 
   file_size: u64,
@@ -95,8 +102,11 @@ pub struct SelfEncryptor {
 
 impl SelfEncryptor {
   /// constructor for encryptor object
-  pub fn new()-> SelfEncryptor {
-    SelfEncryptor{sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+  pub fn new<Get: 'static , Put: 'static>(datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
+    where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
+    let get_ptr = Box::new(get);
+    let put_ptr = Box::new(put);
+    SelfEncryptor{datamap: datamap, get: get_ptr, put: put_ptr,  chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
   /// Write method mirrors a posix type write mechanism
@@ -120,51 +130,85 @@ impl SelfEncryptor {
   /// will possibly readin some chunks from external storage
   fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
     if  (length + position) as usize > self.sequencer.len() {
-    self.sequencer.resize((length + position) as usize, 0u8);
+      self.sequencer.resize((length + position) as usize, 0u8);
     }
-    if self.file_size < (3 * MINCHUNKSIZE) as u64 { return }
-    let first_chunk = self.get_chunk_number(position);
-    let last_chunk = self.get_chunk_number(position + length);
+    if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 { return }
+    let mut first_chunk = self.get_chunk_number(position);
+    let mut last_chunk = self.get_chunk_number(position + length);
     if write && self.sequencer.len() < (position + length) as usize {
       self.sequencer.resize((length + position) as usize, 0u8);
     }  
-    if self.file_size < (3 * MAXCHUNKSIZE) as u64 {
-      
-      }
+    if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
+      first_chunk = 0;
+      last_chunk = 3; 
+    } else {
+      for i in range(1,2) {
+        if last_chunk < self.get_num_chunks() { last_chunk += 1; }
+      }  
+    }
+    // [TODO]: Thread next - 2015-02-28 06:09pm 
+    let mut tmp_chunks = Vec::new();
+    for i in range(first_chunk, last_chunk) {
+      let mut found: bool = false;
+      for itr in  self.chunks.iter() {
+        if itr.number == i  {
+          found = true;
+          let mut pos = self.get_start_end_positions(i).0;
+          if itr.location == ChunkLocation::Remote  { 
+            let vec : Vec<u8> = self.decrypt_chunk(i);
+            for itr2 in vec.iter() {
+              self.sequencer[pos as usize] = *itr2;
+              pos += 1;
+            }
+          }
 
+        } else {
+          if write { tmp_chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed, location: ChunkLocation::InSequencer}); }
+          else { tmp_chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted, location: ChunkLocation::InSequencer}); }  
+
+        }
+      }
+      self.chunks.append(&mut tmp_chunks);
+    }
   }
+
+  
+
+  fn decrypt_chunk(&self, chunk : u32)->Vec<u8> {
+    Vec::<u8>::new()
+    }
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
-    if self.file_size  < (3 * MINCHUNKSIZE as u64) { return 0 }
-    if self.file_size  < (3 * MAXCHUNKSIZE as u64) { return 3 }
-    if self.file_size  % MAXCHUNKSIZE as u64 == 0 {
-      return (self.file_size / MAXCHUNKSIZE as u64) as u32 
+    if self.file_size  < (3 * MIN_CHUNK_SIZE as u64) { return 0 }
+    if self.file_size  < (3 * MAX_CHUNK_SIZE as u64) { return 3 }
+    if self.file_size  % MAX_CHUNK_SIZE as u64 == 0 {
+      return (self.file_size / MAX_CHUNK_SIZE as u64) as u32 
     } else {
-      return (self.file_size / MAXCHUNKSIZE as u64 + 1) as u32
+      return (self.file_size / MAX_CHUNK_SIZE as u64 + 1) as u32
     }
   }
 
   fn get_chunk_size(&self, chunk: u32)->u32 {
-    if self.file_size < 3 * MINCHUNKSIZE as u64 { return 0u32 }
-    if self.file_size < 3 * MAXCHUNKSIZE as u64 { 
+    if self.file_size < 3 * MIN_CHUNK_SIZE as u64 { return 0u32 }
+    if self.file_size < 3 * MAX_CHUNK_SIZE as u64 { 
       if chunk < 2 { 
         return (self.file_size / 3) as u32 
       } else {
         return (self.file_size - (2 * self.file_size / 3)) as u32 
       }
     }
-    if chunk < self.get_num_chunks() - 2 { return MAXCHUNKSIZE }
-    let remainder :u32 = (self.file_size % MAXCHUNKSIZE as u64) as u32;
+    if chunk < self.get_num_chunks() - 2 { return MAX_CHUNK_SIZE }
+    let remainder :u32 = (self.file_size % MAX_CHUNK_SIZE as u64) as u32;
     let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk;
-    if remainder == 0 { return MAXCHUNKSIZE }
-    if remainder < MINCHUNKSIZE {
+    if remainder == 0 { return MAX_CHUNK_SIZE }
+    if remainder < MIN_CHUNK_SIZE {
        if penultimate { 
-         return MAXCHUNKSIZE - MINCHUNKSIZE 
+         return MAX_CHUNK_SIZE - MIN_CHUNK_SIZE 
        } else { 
-         return MINCHUNKSIZE + remainder } 
+         return MIN_CHUNK_SIZE + remainder } 
      } else {
-       if penultimate { return MAXCHUNKSIZE } else { return remainder }
+       if penultimate { return MAX_CHUNK_SIZE } else { return remainder }
      }
     
   }
@@ -209,20 +253,18 @@ fn random_string(length: u64) -> String {
         /* (0..length).map(|_| rand::random::<char>()).collect() */
   }
 
+
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new();
-  let mut se_ctr = SelfEncryptor{sequencer: Vec::with_capacity(3*MAXCHUNKSIZE as usize), tempdir: create_temp_dir(), file_size: 0, closed: false};
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
   se.write(random_string(3).as_slice(), 5u64);
-  se_ctr.write(random_string(30).as_slice(), 50u64);
   assert_eq!(se.file_size, 8u64);
-  assert_eq!(se_ctr.file_size, 80u64);
 }
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut se = SelfEncryptor::new();
-  se.write(random_string(MINCHUNKSIZE as u64 * 3).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
+  se.write(random_string(MIN_CHUNK_SIZE as u64 * 3).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
   assert_eq!(se.get_chunk_size(1), 1024);
@@ -234,16 +276,16 @@ fn check_helper_3_min_chunks() {
   assert_eq!(se.get_previous_chunk_number(1), 0);
   assert_eq!(se.get_previous_chunk_number(2), 1);
   assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 3 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MIN_CHUNK_SIZE as u64);
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut se = SelfEncryptor::new();
-  se.write(random_string((MINCHUNKSIZE as u64 * 3) + 1).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
+  se.write(random_string((MIN_CHUNK_SIZE as u64 * 3) + 1).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
   assert_eq!(se.get_chunk_size(1), 1024);
@@ -255,21 +297,21 @@ fn check_helper_3_min_chunks_plus1() {
   assert_eq!(se.get_previous_chunk_number(1), 0);
   assert_eq!(se.get_previous_chunk_number(2), 1);
   assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MINCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MINCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MIN_CHUNK_SIZE as u64);
 }
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut se = SelfEncryptor::new();
-  se.write(random_string(MAXCHUNKSIZE as u64 * 3).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
+  se.write(random_string(MAX_CHUNK_SIZE as u64 * 3).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 3);
-  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
   assert_eq!(se.get_next_chunk_number(0), 1);
   assert_eq!(se.get_next_chunk_number(1), 2);
   assert_eq!(se.get_next_chunk_number(2), 0);
@@ -277,21 +319,21 @@ fn check_helper_3_max_chunks() {
   assert_eq!(se.get_previous_chunk_number(1), 0);
   assert_eq!(se.get_previous_chunk_number(2), 1);
   assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 3 * MAXCHUNKSIZE as u64);
+  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut se = SelfEncryptor::new();
-  se.write(random_string((MAXCHUNKSIZE as u64 * 3) + 1).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
+  se.write(random_string((MAX_CHUNK_SIZE as u64 * 3) + 1).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 4);
-  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE - MINCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(3), MINCHUNKSIZE +1);
+  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE +1);
   assert_eq!(se.get_next_chunk_number(0), 1);
   assert_eq!(se.get_next_chunk_number(1), 2);
   assert_eq!(se.get_next_chunk_number(2), 3);
@@ -301,21 +343,21 @@ fn check_helper_3_max_chunks_plus1() {
   assert_eq!(se.get_previous_chunk_number(2), 1);
   assert_eq!(se.get_previous_chunk_number(3), 2);
   assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, ((3 * MAXCHUNKSIZE) - MINCHUNKSIZE) as u64);
+  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
 }
 #[test]
 fn check_helper_3_and_a_bit_max_chunks() {
-  let mut se = SelfEncryptor::new();
-  se.write(random_string((MAXCHUNKSIZE as u64 * 7) + 1024).as_slice(), 0);
+  let mut se = SelfEncryptor::new(datamap::DataMap::None, |x| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |x|{});
+  se.write(random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024).as_slice(), 0);
   assert_eq!(se.get_num_chunks(), 8);
-  assert_eq!(se.get_chunk_size(0), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(1), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(2), MAXCHUNKSIZE);
-  assert_eq!(se.get_chunk_size(3), MAXCHUNKSIZE);
+  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
+  assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
   assert_eq!(se.get_next_chunk_number(0), 1);
   assert_eq!(se.get_next_chunk_number(1), 2);
   assert_eq!(se.get_next_chunk_number(2), 3);
@@ -325,11 +367,11 @@ fn check_helper_3_and_a_bit_max_chunks() {
   assert_eq!(se.get_previous_chunk_number(2), 1);
   assert_eq!(se.get_previous_chunk_number(3), 2);
   assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 3 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(3).0, 3 * MAXCHUNKSIZE as u64);
-  assert_eq!(se.get_start_end_positions(7).1, ((7 * MAXCHUNKSIZE) as u64 + 1024));
+  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
+  assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
 }
