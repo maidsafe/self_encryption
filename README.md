@@ -15,7 +15,9 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 [Documentation](http://dirvine.github.io/self_encryption/self_encryption/)
 
 [MaidSafe System Documention](http://systemdocs.maidsafe.net/)
+
 [MaidSafe web site](http:://www.maidsafe.net)
+
 [MaidSafe Community site](http:://www.maidsafe.org)
 
 ![image of self encryption] (https://github.com/dirvine/self_encryption/blob/master/img/self-encryption.png?raw=true)

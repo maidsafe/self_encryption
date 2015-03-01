@@ -101,7 +101,12 @@ pub struct SelfEncryptor {
   }
 
 impl SelfEncryptor {
-  /// constructor for encryptor object
+  //! constructor for encryptor object
+  //! Each SelfEncryptor is used for a single file.
+  //! The parameters are a DataMap a Get and Put functor. 
+  //! the get and put functors should be passed to this library to 
+  //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
+  //! when necessary.
   pub fn new<Get: 'static , Put: 'static>(datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
     where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
     let get_ptr = Box::new(get);
@@ -110,6 +115,8 @@ impl SelfEncryptor {
     }
   
   /// Write method mirrors a posix type write mechanism
+  /// loosly mimics filsystem interface for easy connection to FUSE like 
+  /// programs as well as fine grained access to system level libraries for developers.
   pub fn write(&mut self, data: &str, position: u64) {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     let new_size = cmp::max(self.file_size , data.len() as u64 + position);
@@ -119,6 +126,17 @@ impl SelfEncryptor {
       }
 
     self.file_size = new_size;
+  }
+  
+  pub fn read(&mut self, position: u64, length: u64)-> String {
+    if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
+    self.prepare_window(length, position, false);
+    let mut data = String::with_capacity(length as usize);
+      for i in range(0, length) {
+            data.push(self.sequencer[(position + i) as usize] as char);
+      }
+      data
+      // TODO(dirvine)  this can be reduced to a single line with functional style (map range)  :01/03/2015
   }
   
   /// current file size as is known by encryptor
@@ -147,8 +165,8 @@ impl SelfEncryptor {
       }  
     }
     // [TODO]: Thread next - 2015-02-28 06:09pm 
-    let mut tmp_chunks = Vec::new();
     for i in range(first_chunk, last_chunk) {
+    let mut tmp_chunks = Vec::new();
       let mut found: bool = false;
       for itr in  self.chunks.iter() {
         if itr.number == i  {

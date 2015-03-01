@@ -22,11 +22,11 @@ extern crate crypto;
 use crypto::digest::Digest;
 use crypto::sha2::Sha512  as Sha512;
 
-use crypto::{ symmetriccipher, buffer, aes, blockmodes };
+use crypto::{ symmetriccipher, buffer, aes, aessafe, blockmodes };
 use crypto::buffer::{ ReadBuffer, WriteBuffer, BufferResult };
 
 use self::rand::{ Rng, OsRng };
-
+// TODO(dirvine) Look at aessafe 256X8 cbc it shoudl be very much faster  :01/03/2015
 
 pub fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
