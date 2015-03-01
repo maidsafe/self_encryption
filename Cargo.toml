@@ -12,6 +12,6 @@ homepage = "http://www.maidsafe.net"
 
 [dependencies]
 rust-crypto = "*"
-semver = "0.1.14"
+#semver = "*" 
 rand = "0.1.3"
 
