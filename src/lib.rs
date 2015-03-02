@@ -225,8 +225,13 @@ impl SelfEncryptor {
   
 
   fn decrypt_chunk(&self, chunk_number : u32)->Vec<u8> {
-    Vec::<u8>::new()
-    }
+    let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
+    // [TODO]: work out passing functors properly - 2015-03-02 07:00pm 
+    let content = Vec::<u8>::new(); //  self.get_chunk(name);
+        Vec::<u8>::new()
+
+        
+        }
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
