@@ -105,8 +105,8 @@ impl Chunks {
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
   my_datamap: datamap::DataMap,
-  get: Box<FnMut(Vec<u8>)->Chunk + 'static>, 
-  put: Box<FnMut(Chunk)->() + 'static>,
+  get_chunk: Box<FnMut(Vec<u8>)->Chunk + 'static>, 
+  put_chunk: Box<FnMut(Chunk)->() + 'static>,
   chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
   tempdir : TempDir, 
@@ -122,11 +122,11 @@ impl SelfEncryptor {
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
   /// This is the only constructor, if new file use DataMap::None as first param
-  pub fn new<Get: 'static , Put: 'static>(my_datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
+  pub fn new<Get: 'static , Put: 'static>(my_datamap: datamap::DataMap, get_chunk: Get, put_chunk: Put)-> SelfEncryptor 
     where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
-    let get_ptr = Box::new(get);
-    let put_ptr = Box::new(put);
-    SelfEncryptor{my_datamap: my_datamap, get: get_ptr, put: put_ptr,  chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+    let get_ptr = Box::new(get_chunk);
+    let put_ptr = Box::new(put_chunk);
+    SelfEncryptor{my_datamap: my_datamap, get_chunk: get_ptr, put_chunk: put_ptr, chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
   /// Write method mirrors a posix type write mechanism
@@ -217,8 +217,13 @@ impl SelfEncryptor {
   
 
   fn decrypt_chunk(&self, chunk_number : u32)->Vec<u8> {
-    Vec::<u8>::new()
-    }
+    let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
+    // [TODO]: work out passing functors properly - 2015-03-02 07:00pm 
+    let content = Vec::<u8>::new(); //  self.get_chunk(name);
+        Vec::<u8>::new()
+
+        
+        }
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
