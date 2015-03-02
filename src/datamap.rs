@@ -1,13 +1,15 @@
 
 /// data map records vector
+#[derive(PartialEq, Eq, PartialOrd, Ord)] 
 pub struct ChunkDetails {
-  chunk_num: u32,
-  hash: Vec<u8>,
-  pre_hash: Vec<u8>,
-  source_size: u64
+  pub chunk_num: u32,
+  pub hash: Vec<u8>,
+  pub pre_hash: Vec<u8>,
+  pub source_size: u64
   }
 
 /// Holds pre and post encryption hashes as well as original chunk size
+#[derive(PartialEq, Eq, PartialOrd, Ord)] 
 pub enum DataMap {
   Chunks(Vec<ChunkDetails>),
   Content(Vec<u8>),
@@ -23,6 +25,18 @@ impl DataMap {
        DataMap::Content(ref content) => content.len() as u64, 
        DataMap::None => 0u64
         }
+    }
+  pub fn get_sorted_chunks(&self)->&Vec<ChunkDetails> {
+    self.sort();
+      match *self {
+       DataMap::Chunks(ref chunks) => &chunks, 
+       _                           => panic!("no chunks")
+        }
+    }
+
+  pub fn sort(&self) {
+    assert!(self.has_chunks());
+    self.sort(); 
     }
     /// chunks or all content stored in a single field
  pub  fn has_chunks(&self)->bool {

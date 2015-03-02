@@ -42,7 +42,7 @@
        html_root_url = "http://doc.rust-lang.org/log/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
-#![feature(old_io, collections)]
+#![feature(old_io, collections, slicing_syntax)]
 
 extern crate rand;
 extern crate crypto;
@@ -67,12 +67,14 @@ pub static MIN_CHUNK_SIZE: u32 = 1024;
     }
   }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)] 
 enum ChunkStatus {
     ToBeHashed,
     ToBeEncrypted,
     AlreadyEncrypted
   }
-#[derive(PartialEq)]   
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)] 
 enum ChunkLocation {
     InSequencer,
     OnDisk,  // therefor only being used as read cache`
@@ -80,18 +82,29 @@ enum ChunkLocation {
 
 }
 pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
- 
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)] 
 struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 
-impl Chunks {
+/* impl PartialEq for Chunks { */
+/*     fn eq(&self, other: &Rhs) -> bool { */
+/*       self.number == other.number */
+/*     } */
+/*   } */
+/* impl PartialOrd for Chunks { */
+/*     fn le(mut self) { */
+/*       self.sort_by(|a, b| a.number.cmp(&b.number)); */
+/*     } */
+/*   } */
 
+impl Chunks {
 }
 
 /// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
-  datamap: datamap::DataMap,
+  my_datamap: datamap::DataMap,
   get: Box<FnMut(Vec<u8>)->Chunk + 'static>, 
   put: Box<FnMut(Chunk)->() + 'static>,
   chunks: Vec<Chunks>,
@@ -108,12 +121,12 @@ impl SelfEncryptor {
   //! the get and put functors should be passed to this library to 
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
-  /// This is the only constructor, if new file use DataMap::None as forst param
-  pub fn new<Get: 'static , Put: 'static>(datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
+  /// This is the only constructor, if new file use DataMap::None as first param
+  pub fn new<Get: 'static , Put: 'static>(my_datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
     where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
     let get_ptr = Box::new(get);
     let put_ptr = Box::new(put);
-    SelfEncryptor{datamap: datamap, get: get_ptr, put: put_ptr,  chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+    SelfEncryptor{my_datamap: my_datamap, get: get_ptr, put: put_ptr,  chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
   /// Write method mirrors a posix type write mechanism
@@ -194,10 +207,12 @@ impl SelfEncryptor {
     }
   }
  // [TODO]: use fixed width arrays here, derived from key size of cipher used (compile time) - 2015-03-02 01:01am 
- // [TODO]: take a slice of datamap here and spawm on threads - 2015-03-02 01:02am
   fn get_pad_iv_key(&self, chunk_number: u32)->(Vec<u8>, Vec<u8>, Vec<u8>) {
-     
-     (Vec::new(), Vec::new(), Vec::new()) 
+    let vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
+    let n_1_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[self.get_previous_chunk_number(chunk_number - 1) as usize].pre_hash.clone();
+    let n_2_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[self.get_previous_chunk_number(chunk_number - 2) as usize].pre_hash.clone();
+
+     (vec + &n_1_vec[48..64] + &n_2_vec[..] , n_1_vec[0..32].to_vec() , n_1_vec[32..48].to_vec()) 
   }
   
 
