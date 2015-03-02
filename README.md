@@ -32,6 +32,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [ ] Windows CI set-up (ci.AppVeyor.com)
 - [ ] API stable version 1.0
 - [ ] Read/Write file in memory based buffer
+- [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk
     - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
@@ -39,3 +40,6 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
 - [ ] Coverage analysis (coveralls ?)
+
+#Video of the process 
+[self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
