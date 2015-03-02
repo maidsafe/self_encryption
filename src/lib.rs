@@ -26,7 +26,19 @@
 //! in the data validity. 
 //! 
 //! # Use
+//! To use this lib you must implement two trait functions (another later), these are to allow 
+//! get_chunk and put_chunk from storage.
 //!
+//! ```rust
+//!
+//! impl Storage for SelfEncryptor {
+//!   fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
+//!   // .... your code here 
+//!   }
+//!   fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
+//!   // .... your code here 
+//!   }
+//! }
 //!
 //! ### Examples
 //!
@@ -97,16 +109,15 @@ struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 /*     } */
 /*   } */
 
-impl Chunks {
+trait Storage {
+    fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>);
+    fn get_chunk(&self, name: Vec<u8>)->Vec<u8>;
 }
-
 /// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
 pub struct SelfEncryptor {
   my_datamap: datamap::DataMap,
-  get: Box<FnMut(Vec<u8>)->Chunk + 'static>, 
-  put: Box<FnMut(Chunk)->() + 'static>,
   chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
   tempdir : TempDir, 
@@ -122,11 +133,8 @@ impl SelfEncryptor {
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
   /// This is the only constructor, if new file use DataMap::None as first param
-  pub fn new<Get: 'static , Put: 'static>(my_datamap: datamap::DataMap, get: Get, put: Put)-> SelfEncryptor 
-    where Get: FnMut(Vec<u8>)->Chunk, Put: FnMut(Chunk)->() {
-    let get_ptr = Box::new(get);
-    let put_ptr = Box::new(put);
-    SelfEncryptor{my_datamap: my_datamap, get: get_ptr, put: put_ptr,  chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+  pub fn new<Storage>(my_datamap: datamap::DataMap)-> SelfEncryptor { 
+    SelfEncryptor{my_datamap: my_datamap, chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
   /// Write method mirrors a posix type write mechanism
