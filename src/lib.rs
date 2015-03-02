@@ -42,12 +42,12 @@
        html_root_url = "http://doc.rust-lang.org/log/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
-#![feature(old_io)]
+#![feature(old_io, collections)]
 
 extern crate rand;
 extern crate crypto;
-use self::rand::{ Rng, OsRng };
-use std::collections::HashMap;
+//use self::rand::Rng;
+//use std::collections::HashMap;
 use std::cmp;
 use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
@@ -56,8 +56,8 @@ mod encryption;
 /// Holds pre and post encryption hashes as well as original chunk size
 pub mod datamap;
 
-static MAX_CHUNK_SIZE: u32 = 1024*1024;
-static MIN_CHUNK_SIZE: u32 = 1024;
+pub static MAX_CHUNK_SIZE: u32 = 1024*1024;
+pub static MIN_CHUNK_SIZE: u32 = 1024;
   /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
   /// a randome key and IV
   pub fn create_temp_dir() ->TempDir {
@@ -193,10 +193,15 @@ impl SelfEncryptor {
       self.chunks.append(&mut tmp_chunks);
     }
   }
-
+ // [TODO]: use fixed width arrays here, derived from key size of cipher used (compile time) - 2015-03-02 01:01am 
+ // [TODO]: take a slice of datamap here and spawm on threads - 2015-03-02 01:02am
+  fn get_pad_iv_key(&self, chunk_number: u32)->(Vec<u8>, Vec<u8>, Vec<u8>) {
+     
+     (Vec::new(), Vec::new(), Vec::new()) 
+  }
   
 
-  fn decrypt_chunk(&self, chunk : u32)->Vec<u8> {
+  fn decrypt_chunk(&self, chunk_number : u32)->Vec<u8> {
     Vec::<u8>::new()
     }
 
@@ -211,18 +216,18 @@ impl SelfEncryptor {
     }
   }
 
-  fn get_chunk_size(&self, chunk: u32)->u32 {
+  fn get_chunk_size(&self, chunk_number: u32)->u32 {
     if self.file_size < 3 * MIN_CHUNK_SIZE as u64 { return 0u32 }
     if self.file_size < 3 * MAX_CHUNK_SIZE as u64 { 
-      if chunk < 2 { 
+      if chunk_number < 2 { 
         return (self.file_size / 3) as u32 
       } else {
         return (self.file_size - (2 * self.file_size / 3)) as u32 
       }
     }
-    if chunk < self.get_num_chunks() - 2 { return MAX_CHUNK_SIZE }
+    if chunk_number < self.get_num_chunks() - 2 { return MAX_CHUNK_SIZE }
     let remainder :u32 = (self.file_size % MAX_CHUNK_SIZE as u64) as u32;
-    let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk;
+    let penultimate :bool = (SelfEncryptor::get_num_chunks(self) - 2) == chunk_number;
     if remainder == 0 { return MAX_CHUNK_SIZE }
     if remainder < MIN_CHUNK_SIZE {
        if penultimate { 
@@ -235,30 +240,30 @@ impl SelfEncryptor {
     
   }
 
-  fn get_start_end_positions(&self, chunk :u32)->(u64, u64) {
+  fn get_start_end_positions(&self, chunk_number :u32)->(u64, u64) {
    if self.get_num_chunks() == 0 { return (0,0) } 
    let mut start :u64;
-   let penultimate = (self.get_num_chunks() - 2) == chunk;
-   let last = (self.get_chunk_size(0) - 1) == chunk; 
+   let penultimate = (self.get_num_chunks() - 2) == chunk_number;
+   let last = (self.get_chunk_size(0) - 1) == chunk_number; 
    if last {
-     start = (self.get_chunk_size(0) * (chunk - 2) + self.get_chunk_size(chunk - 2) +
-       self.get_chunk_size(chunk - 1)) as u64;
+     start = (self.get_chunk_size(0) * (chunk_number - 2) + self.get_chunk_size(chunk_number - 2) +
+       self.get_chunk_size(chunk_number - 1)) as u64;
    } else if penultimate {
-     start = (self.get_chunk_size(0) * (chunk - 1) + self.get_chunk_size(chunk - 1)) as u64;
+     start = (self.get_chunk_size(0) * (chunk_number - 1) + self.get_chunk_size(chunk_number - 1)) as u64;
    } else {
-     start = (self.get_chunk_size(0) * chunk) as u64;
+     start = (self.get_chunk_size(0) * chunk_number) as u64;
    }
-    (start, (start + self.get_chunk_size(chunk) as u64))
+    (start, (start + self.get_chunk_size(chunk_number) as u64))
     }
   
-  fn get_next_chunk_number(&self, chunk : u32)->u32 {
+  fn get_next_chunk_number(&self, chunk_number : u32)->u32 {
     if self.get_num_chunks() == 0 { return 0u32 }
-    (self.get_num_chunks() + chunk + 1) % self.get_num_chunks()
+    (self.get_num_chunks() + chunk_number + 1) % self.get_num_chunks()
     }
 
-  fn get_previous_chunk_number(&self, chunk :u32)->u32 {
+  fn get_previous_chunk_number(&self, chunk_number :u32)->u32 {
     if self.get_num_chunks() == 0 { return 0u32 }
-    (self.get_num_chunks() + chunk - 1) % self.get_num_chunks()
+    (self.get_num_chunks() + chunk_number - 1) % self.get_num_chunks()
        
   }
 
@@ -270,9 +275,13 @@ impl SelfEncryptor {
 
 }
 
+#[cfg(test)]
+
+mod test {
+  use super::*;
+
 fn random_string(length: u64) -> String {
-        (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
-        /* (0..length).map(|_| rand::random::<char>()).collect() */
+        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 
 
@@ -373,7 +382,7 @@ fn check_helper_3_max_chunks_plus1() {
 }
 
 #[test]
-fn check_helper_3_and_a_bit_max_chunks() {
+fn check_helper_7_and_a_bit_max_chunks() {
   let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
@@ -397,4 +406,5 @@ fn check_helper_3_and_a_bit_max_chunks() {
   assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
   assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
   assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+}
 }
