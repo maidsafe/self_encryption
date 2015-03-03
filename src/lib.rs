@@ -29,24 +29,6 @@
 //! To use this lib you must implement two trait functions (another later), these are to allow 
 //! get_chunk and put_chunk from storage.
 //!
-//! ```rust
-//!
-//! impl Storage for SelfEncryptor {
-//!   fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
-//!   // .... your code here 
-//!   }
-//!   fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
-//!   // .... your code here 
-//!   }
-//! }
-//!
-//! ### Examples
-//!
-//! ```rust
-//! extern crate self_encryption;
-//!
-//! # fn main() {}
-//! ```
 //!
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
@@ -98,21 +80,26 @@ pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 
-/* impl PartialEq for Chunks { */
-/*     fn eq(&self, other: &Rhs) -> bool { */
-/*       self.number == other.number */
-/*     } */
-/*   } */
-/* impl PartialOrd for Chunks { */
-/*     fn le(mut self) { */
-/*       self.sort_by(|a, b| a.number.cmp(&b.number)); */
-/*     } */
-/*   } */
-
 trait Storage {
-    fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>);
-    fn get_chunk(&self, name: Vec<u8>)->Vec<u8>;
+    fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
+      println!("Default implementaiton please provide your own");
+      }
+    fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
+      println!("Default implementaiton please provide your own");
+      Vec::<u8>::new()
+      }
 }
+impl Storage for SelfEncryptor {
+  fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
+  // .... your code here 
+    println!("Default implementation you need to provide your own "); 
+   }
+   fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
+   // .... your code here 
+        Vec::<u8>::new()
+   }
+}
+
 /// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
@@ -133,7 +120,7 @@ impl SelfEncryptor {
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
   /// This is the only constructor, if new file use DataMap::None as first param
-  pub fn new<Storage>(my_datamap: datamap::DataMap)-> SelfEncryptor { 
+  pub fn new(my_datamap: datamap::DataMap)-> SelfEncryptor { 
     SelfEncryptor{my_datamap: my_datamap, chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
@@ -227,11 +214,13 @@ impl SelfEncryptor {
   fn decrypt_chunk(&self, chunk_number : u32)->Vec<u8> {
     let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm 
-    let content = Vec::<u8>::new(); //  self.get_chunk(name);
-        Vec::<u8>::new()
+    let kvp = &self.get_pad_iv_key(chunk_number);
+    let enc = &encryption::decrypt(&self.get_chunk(name)[..], &kvp.2[..],
+    &kvp.1[..]).ok().unwrap();
+    encryption::xor(&enc, &kvp.0)
+  }
 
-        
-        }
+
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
@@ -315,14 +304,14 @@ fn random_string(length: u64) -> String {
 
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.file_size, 8u64);
 }
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string(MIN_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
@@ -343,7 +332,7 @@ fn check_helper_3_min_chunks() {
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), 1024);
@@ -365,7 +354,7 @@ fn check_helper_3_min_chunks_plus1() {
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
@@ -386,7 +375,7 @@ fn check_helper_3_max_chunks() {
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 4);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
@@ -411,7 +400,7 @@ fn check_helper_3_max_chunks_plus1() {
 
 #[test]
 fn check_helper_7_and_a_bit_max_chunks() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
   assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);

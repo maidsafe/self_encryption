@@ -40,7 +40,7 @@ fn random_string(length: u64) -> String {
 /// Self Enryptor integration tests
 #[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None, |_| {Chunk{name: Vec::<u8>::new(), content: Vec::<u8>::new() }} , |_|{});
+  let mut se = SelfEncryptor::new(datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.len(), 8u64);
 }
