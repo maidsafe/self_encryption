@@ -121,7 +121,9 @@ impl SelfEncryptor {
   //! when necessary.
   /// This is the only constructor, if new file use DataMap::None as first param
   pub fn new(my_datamap: datamap::DataMap)-> SelfEncryptor { 
-    SelfEncryptor{my_datamap: my_datamap, chunks: Vec::new(), sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), tempdir: create_temp_dir(), file_size: 0, closed: false}
+    SelfEncryptor{my_datamap: my_datamap, chunks: Vec::new(), 
+                 sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), 
+                 tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
   
   /// Write method mirrors a posix type write mechanism
@@ -146,7 +148,7 @@ impl SelfEncryptor {
             data.push(self.sequencer[(position + i) as usize] as char);
       }
       data
-      // TODO(dirvine)  this can be reduced to a single line with functional style (map range)  :01/03/2015
+      // TODO(dirvine)  this can be reduced to a single line (map range)  :01/03/2015
   }
   pub fn truncate(&self, position: u64) {
     
@@ -193,19 +195,24 @@ impl SelfEncryptor {
           }
 
         } else {
-          if write { tmp_chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed, location: ChunkLocation::InSequencer}); }
-          else { tmp_chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted, location: ChunkLocation::InSequencer}); }  
+          if write { tmp_chunks.push(Chunks{number: i, 
+                          status: ChunkStatus::ToBeHashed, location: ChunkLocation::InSequencer}); }
+          else { tmp_chunks.push(Chunks{number: i, 
+                    status: ChunkStatus::AlreadyEncrypted, location: ChunkLocation::InSequencer}); }  
 
         }
       }
       self.chunks.append(&mut tmp_chunks);
     }
   }
- // [TODO]: use fixed width arrays here, derived from key size of cipher used (compile time) - 2015-03-02 01:01am 
+ // [TODO]: use fixed width arrays here, derived 
+ // from key size of cipher used (compile time) - 2015-03-02 01:01am 
   fn get_pad_iv_key(&self, chunk_number: u32)->(Vec<u8>, Vec<u8>, Vec<u8>) {
     let vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
-    let n_1_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[self.get_previous_chunk_number(chunk_number - 1) as usize].pre_hash.clone();
-    let n_2_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[self.get_previous_chunk_number(chunk_number - 2) as usize].pre_hash.clone();
+    let n_1_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()
+                       [self.get_previous_chunk_number(chunk_number - 1) as usize].pre_hash.clone();
+    let n_2_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()
+                       [self.get_previous_chunk_number(chunk_number - 2) as usize].pre_hash.clone();
 
      (vec + &n_1_vec[48..64] + &n_2_vec[..] , n_1_vec[0..32].to_vec() , n_1_vec[32..48].to_vec()) 
   }
@@ -266,7 +273,8 @@ impl SelfEncryptor {
      start = (self.get_chunk_size(0) * (chunk_number - 2) + self.get_chunk_size(chunk_number - 2) +
        self.get_chunk_size(chunk_number - 1)) as u64;
    } else if penultimate {
-     start = (self.get_chunk_size(0) * (chunk_number - 1) + self.get_chunk_size(chunk_number - 1)) as u64;
+     start = (self.get_chunk_size(0) * (chunk_number - 1) + 
+                                                      self.get_chunk_size(chunk_number - 1)) as u64;
    } else {
      start = (self.get_chunk_size(0) * chunk_number) as u64;
    }
@@ -298,7 +306,7 @@ mod test {
   use super::*;
 
 fn random_string(length: u64) -> String {
-        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
+      (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 
 
