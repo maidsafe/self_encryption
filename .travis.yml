@@ -5,4 +5,5 @@ env:
 language: rust
 
 after_script:
+  - mv target/doc doc
   - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
