@@ -33,15 +33,12 @@
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-       html_root_url = "http://doc.rust-lang.org/log/")]
+       html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
 #![feature(old_io, collections, slicing_syntax)]
 
 extern crate rand;
-extern crate crypto;
-//use self::rand::Rng;
-//use std::collections::HashMap;
 use std::cmp;
 use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
