@@ -39,6 +39,7 @@
 #![feature(old_io, collections, slicing_syntax)]
 
 extern crate rand;
+extern crate crypto;
 use std::cmp;
 use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
