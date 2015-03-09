@@ -1,9 +1,9 @@
 install:
 - choco install -y mingw rust
-- rustc -V
-- cargo -V
+- rustc.exe -V
+- cargo.exe -V
 build: false
 test_script:
-- cargo build --verbose
-- cargo test --verbose
+- cargo.exe build --verbose
+- cargo.exe test --verbose
 
