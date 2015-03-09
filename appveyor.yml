@@ -1,23 +1,16 @@
-branches:
-  except:
-    - gh-pages
-
-platform:
-  - x64
-environment:
-  RUST_INSTALL_DIR: C:\Rust
-  matrix:
-    - RUST_INSTALL_TRIPLE: i686-pc-windows-gnu
-    - RUST_INSTALL_TRIPLE: x86_64-pc-windows-gnu
-
 install:
-  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-nightly-$Env:RUST_INSTALL_TRIPLE.exe"
-  - cmd: rust-nightly-%RUST_INSTALL_TRIPLE%.exe /VERYSILENT /NORESTART /COMPONENTS="rust,gcc,cargo" /DIR="%RUST_INSTALL_DIR%"
-  - cmd: SET PATH=%PATH%;%RUST_INSTALL_DIR%\bin
-  - rustc --version
-  - cargo --version
-
+- ps: Start-FileDownload 'https://static.rust-lang.org/dist/rust-nightly-i686-pc-windows-gnu.exe'
+- ps: Start-FileDownload 'https://static.rust-lang.org/cargo-dist/cargo-nightly-i686-pc-windows-gnu.tar.gz'
+- choco install winpcap
+- rust-nightly-i686-pc-windows-gnu.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
+- 7z e cargo-nightly-i686-pc-windows-gnu.tar.gz
+- 7z x cargo-nightly-i686-pc-windows-gnu.tar
+- SET PATH=%PATH%;C:\Program Files (x86)\Rust\bin
+- SET PATH=%PATH%;%CD%\cargo-nightly-i686-pc-windows-gnu\bin
+- rustc -V
+- cargo -V
 build: false
 test_script:
-  - cargo build --verbose
-  - cargo test --verbose
+- cargo build --verbose
+- cargo test --verbose
+

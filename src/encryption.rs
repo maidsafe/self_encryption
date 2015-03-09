@@ -26,10 +26,6 @@ use crypto::buffer::{ ReadBuffer, WriteBuffer, BufferResult };
 /* use self::rand::{ Rng, OsRng }; */
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-pub fn xor(data: &Vec<u8>, pad: &Vec<u8>)->Vec<u8> {
-  data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
-  }
-
 
 pub fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
@@ -92,23 +88,6 @@ mod test {
   use rand::Rng;
 
 ///! Unit tests!
-
-#[test] 
-  fn test_xor() {
-    let mut data: Vec<u8> = vec!(); 
-    let mut pad: Vec<u8> = vec!();
-  for _ in range(0, 800) {
-    data.push(super::rand::random::<u8>());
-    }
-  for _ in range(0, 333) {
-    pad.push(super::rand::random::<u8>());
-    }
-
-
-   assert_eq!(data, xor(&xor(&data,&pad), &pad));
-    
-    
-    }
 
 #[test]
   fn test_hash_sha_512() {

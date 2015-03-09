@@ -33,15 +33,13 @@
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-       html_root_url = "http://doc.rust-lang.org/log/")]
+       html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
 #![feature(old_io, collections, slicing_syntax)]
 
 extern crate rand;
 extern crate crypto;
-//use self::rand::Rng;
-//use std::collections::HashMap;
 use std::cmp;
 use std::old_io::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
@@ -52,14 +50,17 @@ pub mod datamap;
 
 pub static MAX_CHUNK_SIZE: u32 = 1024*1024;
 pub static MIN_CHUNK_SIZE: u32 = 1024;
-  /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
-  /// a randome key and IV
-  pub fn create_temp_dir() ->TempDir {
-    match TempDir::new("self_encryptor") {
-      Ok(dir) => dir,
-        Err(e) => panic!("couldn't create temporary directory: {}", e)
-    }
+pub fn xor(data: &Vec<u8>, pad: &Vec<u8>)->Vec<u8> {
+  data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
+}
+/// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with 
+/// a randome key and IV
+pub fn create_temp_dir() ->TempDir {
+  match TempDir::new("self_encryptor") {
+    Ok(dir) => dir,
+    Err(e) => panic!("couldn't create temporary directory: {}", e)
   }
+}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 enum ChunkStatus {
@@ -224,7 +225,7 @@ impl SelfEncryptor {
     let kvp = &self.get_pad_iv_key(chunk_number);
     let enc = &encryption::decrypt(&self.get_chunk(name)[..], &kvp.2[..],
     &kvp.1[..]).ok().unwrap();
-    encryption::xor(&enc, &kvp.0)
+    xor(&enc, &kvp.0)
   }
 
 
@@ -309,6 +310,18 @@ fn random_string(length: u64) -> String {
       (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 
+#[test] 
+fn test_xor() {
+  let mut data: Vec<u8> = vec!(); 
+  let mut pad: Vec<u8> = vec!();
+  for _ in range(0, 800) {
+    data.push(super::rand::random::<u8>());
+  }
+  for _ in range(0, 333) {
+    pad.push(super::rand::random::<u8>());
+  }
+  assert_eq!(data, xor(&xor(&data,&pad), &pad));
+}
 
 #[test]
 fn check_write() {
