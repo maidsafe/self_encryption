@@ -116,5 +116,32 @@ mod test {
     let decrypted_data = decrypt(&encrypted_data[..], &key, &iv).ok().unwrap();
 
     assert!(message.as_bytes() == &decrypted_data[..]);
-  } 
+  }
+}
+
+trait Storage {
+    fn get(&mut self) -> u32;
+    fn put(&self);
+}
+
+struct SelfEncryption<'a> {
+    storage: &'a mut (Storage + 'a),
+}
+
+impl <'a> SelfEncryption<'a> {
+    fn new(my_storage: &'a mut Storage) -> SelfEncryption<'a> {
+        SelfEncryption{storage: my_storage,}
+    }
+    fn get_storage(&'a mut self) -> &'a mut Storage { self.storage }
+}
+
+fn main() {
+    struct MyStorage;
+    impl Storage for MyStorage {
+        fn get(&mut self) -> u32 { 999u32 }
+        fn put(&self) { }
+    }
+    let mut my_storage = MyStorage;
+    let mut my_encryptor = SelfEncryption::new(&mut my_storage as &mut Storage);
+    assert_eq!(999 , my_encryptor.get_storage().get( ));
 }
