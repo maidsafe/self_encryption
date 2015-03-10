@@ -64,9 +64,9 @@ pub fn create_temp_dir() ->TempDir {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 enum ChunkStatus {
-    ToBeHashed,
-    ToBeEncrypted,
-    AlreadyEncrypted
+  ToBeHashed,
+  ToBeEncrypted,
+  AlreadyEncrypted
   }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
@@ -79,32 +79,19 @@ enum ChunkLocation {
 pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
-struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 
-trait Storage {
-    fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
-      println!("Default implementaiton please provide your own");
-      }
-    fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
-      println!("Default implementaiton please provide your own");
-      Vec::<u8>::new()
-      }
+struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
+pub trait Storage {
+      fn get(&self, name: Vec<u8>) -> Vec<u8>;
+      fn put(&self, name: Vec<u8>, data: Vec<u8>);
 }
-impl Storage for SelfEncryptor {
-  fn put_chunk(&self, name: Vec<u8>, content: Vec<u8>) {
-  // .... your code here 
-    println!("Default implementation you need to provide your own "); 
-   }
-   fn get_chunk(&self, name: Vec<u8>)->Vec<u8> {
-   // .... your code here 
-        Vec::<u8>::new()
-   }
-}
+
 
 /// This is the encryption object and all file handling should be done via this as the low level 
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
 /// a library to ensure content is secured 
-pub struct SelfEncryptor {
+pub struct SelfEncryptor<'a> {
+  storage: &'a mut (Storage + 'a),
   my_datamap: datamap::DataMap,
   chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
@@ -113,7 +100,7 @@ pub struct SelfEncryptor {
   closed: bool,
   }
 
-impl SelfEncryptor {
+impl<'a> SelfEncryptor<'a> {
   //! constructor for encryptor object
   //! Each SelfEncryptor is used for a single file.
   //! The parameters are a DataMap a Get and Put functor. 
@@ -121,8 +108,8 @@ impl SelfEncryptor {
   //! allow the SelfEncryptor to store encrypted chunks and retrieve these 
   //! when necessary.
   /// This is the only constructor, if new file use DataMap::None as first param
-  pub fn new(my_datamap: datamap::DataMap)-> SelfEncryptor { 
-    SelfEncryptor{my_datamap: my_datamap, chunks: Vec::new(), 
+  pub fn new(my_storage:&'a mut Storage, my_datamap: datamap::DataMap)-> SelfEncryptor { 
+    SelfEncryptor{storage: my_storage, my_datamap: my_datamap, chunks: Vec::new(), 
                  sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize), 
                  tempdir: create_temp_dir(), file_size: 0, closed: false}
     }
@@ -223,7 +210,7 @@ impl SelfEncryptor {
     let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm 
     let kvp = &self.get_pad_iv_key(chunk_number);
-    let enc = &encryption::decrypt(&self.get_chunk(name)[..], &kvp.2[..],
+    let enc = &encryption::decrypt(&self.storage.get(name), &kvp.2[..],
     &kvp.1[..]).ok().unwrap();
     xor(&enc, &kvp.0)
   }
