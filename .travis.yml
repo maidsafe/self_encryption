@@ -3,6 +3,12 @@ env:
     - secure: k3n5bwXWBcROmmU+i2Th0kzs8rkufkPPiNJLSPtF/M221hv462VKVR8aF2MWb2cvB1zeWajBGnRfgCaC7C5ZHlaLQExEQuO+QKkr2aoSwZW1UH76s5HSM1GocZoTx8qfjHV1U72p4mLs3qQ6m9ns5bp4dA/WzYKWjV/4dF8VoII=
 
 language: rust
+
+install:
+- wget https://github.com/jedisct1/libsodium/releases/download/1.0.0/libsodium-1.0.0.tar.gz
+- tar xvfz libsodium-1.0.0.tar.gz
+- cd libsodium-1.0.0 && ./configure --prefix=/usr && make && sudo make install && cd ..
+
 script:
 - cargo build --verbose
 - cargo test --verbose
