@@ -38,10 +38,33 @@ fn random_string(length: u64) -> String {
         (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 /// Self Enryptor integration tests
-#[test]
+/*#[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None);
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.len(), 8u64);
+}*/
+
+
+pub struct MyStorage {
+    name: Vec<u8>
 }
 
+impl Storage for MyStorage {
+   //let mut name: Vec<u8> = vec![0x11];
+   fn get(&self, name: Vec<u8>) -> Vec<u8> {
+       name
+       }
+   fn put(&self, name: Vec<u8>, data: Vec<u8>){}
+   }
+
+#[test]
+fn check_write() {
+  let name = vec![0x11];
+  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+
+  se.write(&random_string(3), 5u64);
+  assert_eq!(se.file_size, 8u64);
+  assert_eq!(se.get_storage().get(name),vec![0x11]);
+}
