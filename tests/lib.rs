@@ -63,8 +63,7 @@ fn check_write() {
   let name = vec![0x11];
   let mut my_storage = MyStorage{name: vec![0x11]};
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-
   se.write(&random_string(3), 5u64);
-  assert_eq!(se.file_size, 8u64);
+  assert_eq!(se.len(), 8u64);
   assert_eq!(se.get_storage().get(name),vec![0x11]);
 }
