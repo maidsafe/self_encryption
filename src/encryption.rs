@@ -116,5 +116,7 @@ mod test {
     let decrypted_data = decrypt(&encrypted_data[..], &key, &iv).ok().unwrap();
 
     assert!(message.as_bytes() == &decrypted_data[..]);
-  } 
+  }
 }
+
+
