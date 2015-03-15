@@ -46,12 +46,12 @@ impl DataMap {
 
   pub fn sort(&self) {
     assert!(self.has_chunks());
-    self.sort(); 
+//    self.sort(); 
   }
   /// chunks or all content stored in a single field
   pub  fn has_chunks(&self)->bool {
     match *self {
-      DataMap::Chunks(ref chunks) => true, 
+      DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks) > 0, 
         _ => false, 
     }
   }

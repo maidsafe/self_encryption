@@ -31,17 +31,19 @@
 //!
 //!
 
+#![allow(dead_code, unused_variables)]
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
-#![warn(missing_docs)]
-// FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
-#![feature(old_io, collections)]
+//#![warn(missing_docs)]
+#![feature(collections, rustc_private)]
 
 extern crate rand;
 extern crate crypto;
+extern crate rustc_back;
+
 use std::cmp;
-use std::old_io::TempDir;
+use rustc_back::tempdir::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
 mod encryption;
@@ -56,7 +58,7 @@ pub fn xor(data: &Vec<u8>, pad: &Vec<u8>)->Vec<u8> {
 /// Will use a tempdir to stream un procesed data, although this is done vie AES streaming with
 /// a randome key and IV
 pub fn create_temp_dir() ->TempDir {
-  match TempDir::new("self_encryptor") {
+  match rustc_back::tempdir::TempDir::new("self_encryptor") {
     Ok(dir) => dir,
     Err(e) => panic!("couldn't create temporary directory: {}", e)
   }
