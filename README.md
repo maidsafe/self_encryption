@@ -30,8 +30,8 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [x] Docs creation
 - [x] Docs hosting (github.io)
 - [ ] Windows CI set-up (ci.AppVeyor.com)
-- [ ] API stable version 1.0
 - [ ] Read/Write file in memory based buffer
+- [ ] API stable version 0.1.0
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk
