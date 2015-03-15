@@ -24,7 +24,7 @@ pub use self_encryption::*;
 #[test]
 fn data_map_empty(){
   let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert!(dm.empty() == false);
+  assert_eq!(dm.len(), 2);
   }
 
 #[test]

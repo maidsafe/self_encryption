@@ -36,7 +36,7 @@
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
-#![feature(old_io, collections, slicing_syntax)]
+#![feature(old_io, collections)]
 
 extern crate rand;
 extern crate crypto;
