@@ -29,8 +29,12 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [x] Travis integration
 - [x] Docs creation
 - [x] Docs hosting (github.io)
-- [ ] Windows CI set-up (ci.AppVeyor.com)
+- [x] Windows CI set-up (ci.AppVeyor.com)
 - [ ] Read/Write file in memory based buffer
+- [ ] Implement disk based interface as example
+- [ ] Full unit tests in lib.rs
+- [ ] Integrations tests in tests module
+- [ ] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
