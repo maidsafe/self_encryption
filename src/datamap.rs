@@ -13,6 +13,17 @@ pub struct ChunkDetails {
   pub source_size: u64
   }
 
+impl Clone for ChunkDetails {
+  fn clone(&self) -> ChunkDetails {
+    return ChunkDetails {
+      chunk_num: self.chunk_num,
+      hash: self.hash.to_vec(),
+      pre_hash: self.pre_hash.to_vec(),
+      source_size: self.source_size
+    };
+  }
+}
+
 /// Holds pre and post encryption hashes as well as original chunk size
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 pub enum DataMap {
@@ -36,18 +47,17 @@ impl DataMap {
   }
   /// we require this to be a sorted list to allow get_pad_iv_key to get the correct 
   /// pre encryption hashes for decrypt/encrypt
-  pub fn get_sorted_chunks(&self)->&Vec<ChunkDetails> {
-    self.sort();
+  pub fn get_sorted_chunks(&self)->Vec<ChunkDetails> {
     match *self {
-      DataMap::Chunks(ref chunks) => &chunks, 
+      DataMap::Chunks(ref chunks) =>  {
+                                        let mut result = chunks.to_vec();
+                                        DataMap::chunks_sort(result.as_mut_slice());
+                                        result
+                                      }, 
         _                           => panic!("no chunks")
     }
   }
 
-  pub fn sort(&self) {
-    assert!(self.has_chunks());
-//    self.sort(); 
-  }
   /// chunks or all content stored in a single field
   pub  fn has_chunks(&self)->bool {
     match *self {
@@ -62,5 +72,21 @@ impl DataMap {
     }
     return size
   }
+  // using bubble sort
+  // TODO : change to use other quick sort algorithm to improve the performance
+  fn chunks_sort(chunks: &mut [ChunkDetails]) {
+    let (mut i, len) = (0, chunks.len());
+    while i < len {
+        let (mut j, mut cur_min) = (i + 1, i);
+        while j < len {
+            if chunks[j].pre_hash < chunks[cur_min].pre_hash {
+                cur_min = j;
+            }
+            j = j + 1;
+        }
+        chunks.swap(i, cur_min);
+        i = i + 1;
+    }
   }
+}
 
