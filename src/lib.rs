@@ -44,6 +44,8 @@ extern crate rustc_back;
 
 use std::cmp;
 use rustc_back::tempdir::TempDir;
+use crypto::sha2::Sha512 as Sha512;
+use crypto::digest::Digest;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
 mod encryption;
@@ -150,6 +152,75 @@ impl<'a> SelfEncryptor<'a> {
       data
       // TODO(dirvine)  this can be reduced to a single line (map range)  :01/03/2015
   }
+
+  /// return datamap
+  pub fn close(&mut self)-> datamap::DataMap {
+    // multiple call to close is allowed but will return
+    if self.closed {
+      datamap::DataMap::None
+    } else {
+      if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+        let tmp = self.sequencer.to_vec();
+        self.my_datamap = datamap::DataMap::Content(tmp.to_vec());
+        self.closed = true;
+        datamap::DataMap::Content(tmp)
+      } else {
+        // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
+        let mut tmp_chunks : Vec<datamap::ChunkDetails> = Vec::new();
+        tmp_chunks.reserve(self.get_num_chunks() as usize);
+
+        for chunk in self.chunks.iter() {
+          if chunk.status == ChunkStatus::ToBeHashed ||
+              tmp_chunks[chunk.number as usize].pre_hash.len() == 0 || self.get_num_chunks() == 3 {
+            let this_size = self.get_chunk_size(chunk.number);
+            let pos = self.get_start_end_positions(chunk.number);
+
+            let mut tmp : Vec<u8> = Vec::new();
+            tmp.reserve(this_size as usize);
+            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+            // assert(tmp.len() == this_size && "vector diff size from chunk size");
+
+            let mut tmp2 : Vec<u8> = Vec::new();
+            tmp2.reserve(4096);
+            let mut hash = Sha512::new();
+            hash.input(tmp.as_mut_slice());
+            hash.result(tmp2.as_mut_slice());
+            {
+              tmp_chunks[chunk.number as usize].pre_hash.clear();
+              tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
+             // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
+            }
+          }
+        }
+        for chunk in self.chunks.iter_mut() {
+          if chunk.status == ChunkStatus::ToBeHashed {
+            chunk.status = ChunkStatus::ToBeEncrypted;
+          }
+        }
+
+        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
+        for chunk in self.chunks.iter() {
+          if chunk.status == ChunkStatus::ToBeEncrypted {
+            let this_size = self.get_chunk_size(chunk.number);
+            let pos = self.get_start_end_positions(chunk.number);
+
+            let mut tmp : Vec<u8> = Vec::new();
+            tmp.reserve(this_size as usize);
+            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+            let result = self.encrypt_chunk(chunk.number, tmp);
+          }
+        }
+        for chunk in self.chunks.iter_mut() {
+          if chunk.status == ChunkStatus::ToBeEncrypted {
+            chunk.status = ChunkStatus::AlreadyEncrypted;
+          }
+        }
+        self.closed = true;
+        datamap::DataMap::Chunks(tmp_chunks)
+      }
+    }
+  }
+
   pub fn truncate(&self, position: u64) {
 
 
@@ -222,12 +293,18 @@ impl<'a> SelfEncryptor<'a> {
     let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
     let kvp = &self.get_pad_iv_key(chunk_number);
-    let enc = &encryption::decrypt(&self.storage.get(name), &kvp.2[..],
-    &kvp.1[..]).ok().unwrap();
-    xor(&enc, &kvp.0)
+    let dec = &encryption::decrypt(&self.storage.get(name), &kvp.2[..],
+                                   &kvp.1[..]).ok().unwrap();
+    xor(&dec, &kvp.0)
   }
 
-
+  fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
+    let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
+    // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
+    let kvp = &self.get_pad_iv_key(chunk_number);
+    let enc = &encryption::encrypt(&content, &kvp.2[..], &kvp.1[..]).ok().unwrap();
+    xor(&enc, &kvp.0)
+  }
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
