@@ -67,3 +67,18 @@ fn check_write() {
   assert_eq!(se.len(), 8u64);
   assert_eq!(se.get_storage().get(name),vec![0x11]);
 }
+
+#[test]
+
+fn check_read() {
+  let name = vec![0x11];
+  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+
+  let the_string = random_string(3);
+    se.write(&the_string, 5u64);
+//    let leng = se.len();
+    let to_be_read = se.read(5u64, 3);
+    assert_eq!(to_be_read, the_string)
+  }
+

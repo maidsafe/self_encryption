@@ -293,9 +293,8 @@ impl<'a> SelfEncryptor<'a> {
     let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
     let kvp = &self.get_pad_iv_key(chunk_number);
-    let dec = &encryption::decrypt(&self.storage.get(name), &kvp.2[..],
-                                   &kvp.1[..]).ok().unwrap();
-    xor(&dec, &kvp.0)
+    let xor_result = xor(&self.storage.get(name), &kvp.0);
+    return encryption::decrypt(&xor_result, &kvp.2[..], &kvp.1[..]).ok().unwrap();
   }
 
   fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
