@@ -85,8 +85,10 @@ pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 
 struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 pub trait Storage {
+      // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
+      //        fetched requested content. Instead, the current implementation return empty Vec
       fn get(&self, name: Vec<u8>) -> Vec<u8>;
-      fn put(&self, name: Vec<u8>, data: Vec<u8>);
+      fn put(&mut self, name: Vec<u8>, data: Vec<u8>);
 }
 
 
@@ -384,22 +386,37 @@ fn random_string(length: u64) -> String {
       (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 
-pub struct MyStorage {
-    name: Vec<u8>
+pub struct Entry {
+  name: Vec<u8>,
+  data: Vec<u8>
 }
 
-/*pub trait Storage {
-      fn get(&self, name: Vec<u8>) -> Vec<u8>;
-      fn put(&self, name: Vec<u8>, data: Vec<u8>);
-}*/
+pub struct MyStorage {
+  name: Vec<u8>,
+  entries: Vec<Entry>
+}
+
+impl MyStorage {
+  pub fn new(name_in: Vec<u8>) -> MyStorage {
+    MyStorage { name: name_in.to_vec(), entries: Vec::new() }
+  }
+}
 
 impl Storage for MyStorage {
-   //let mut name: Vec<u8> = vec![0x11];
-   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-       name
-       }
-   fn put(&self, name: Vec<u8>, data: Vec<u8>){}
-   }
+  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    for entry in self.entries.iter() {
+      if entry.name == name {
+        return entry.data.to_vec()
+      }
+    }
+    let result : Vec<u8> = Vec::new();
+    result
+  }
+
+  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    self.entries.push(Entry { name : name, data : data })
+  }
+}
 
 
 #[test]
@@ -425,7 +442,7 @@ fn check_write() {
      fn get(&mut self, name: Vec<u8> ) -> Vec<u8> {name}
   }*/
   let name = vec![0x11];
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.file_size, 8u64);
@@ -434,7 +451,7 @@ fn check_write() {
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MIN_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -456,7 +473,7 @@ fn check_helper_3_min_chunks() {
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -479,7 +496,7 @@ fn check_helper_3_min_chunks_plus1() {
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -501,7 +518,7 @@ fn check_helper_3_max_chunks() {
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 4);
@@ -527,7 +544,7 @@ fn check_helper_3_max_chunks_plus1() {
 
 #[test]
 fn check_helper_7_and_a_bit_max_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
