@@ -35,7 +35,6 @@
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
-//#![warn(missing_docs)]
 #![feature(collections, rustc_private)]
 
 extern crate rand;
@@ -407,10 +406,10 @@ impl Storage for MyStorage {
 fn test_xor() {
   let mut data: Vec<u8> = vec!();
   let mut pad: Vec<u8> = vec!();
-  for _ in range(0, 800) {
+  for _ in (0..800) {
     data.push(super::rand::random::<u8>());
   }
-  for _ in range(0, 333) {
+  for _ in (0..333) {
     pad.push(super::rand::random::<u8>());
   }
   assert_eq!(data, xor(&xor(&data,&pad), &pad));
