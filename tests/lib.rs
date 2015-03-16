@@ -24,7 +24,7 @@ pub use self_encryption::*;
 #[test]
 fn data_map_empty(){
   let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert!(dm.empty() == false);
+  assert_eq!(dm.len(), 2);
   }
 
 #[test]
@@ -38,10 +38,47 @@ fn random_string(length: u64) -> String {
         (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 /// Self Enryptor integration tests
-#[test]
+/*#[test]
 fn check_write() {
-  let mut se = SelfEncryptor::new(datamap::DataMap::None);
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.len(), 8u64);
+}*/
+
+
+pub struct MyStorage {
+    name: Vec<u8>
 }
+
+impl Storage for MyStorage {
+   //let mut name: Vec<u8> = vec![0x11];
+   fn get(&self, name: Vec<u8>) -> Vec<u8> {
+       name
+       }
+   fn put(&self, name: Vec<u8>, data: Vec<u8>){}
+   }
+
+#[test]
+fn check_write() {
+  let name = vec![0x11];
+  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+  se.write(&random_string(3), 5u64);
+  assert_eq!(se.len(), 8u64);
+  assert_eq!(se.get_storage().get(name),vec![0x11]);
+}
+
+#[test]
+
+fn check_read() {
+  let name = vec![0x11];
+  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+
+  let the_string = random_string(3);
+    se.write(&the_string, 5u64);
+//    let leng = se.len();
+    let to_be_read = se.read(5u64, 3);
+    assert_eq!(to_be_read, the_string)
+  }
 
