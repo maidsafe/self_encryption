@@ -36,12 +36,13 @@
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
 #![warn(missing_docs)]
 // FIXME(dirvine) Remove this attribute below when io is upgraded  :01/03/2015
-#![feature(old_io, collections, slicing_syntax)]
+#![feature(collections)]
 
 extern crate rand;
 extern crate crypto;
+extern crate tempdir;
 use std::cmp;
-use std::old_io::TempDir;
+use tempdir::TempDir;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
 mod encryption;
