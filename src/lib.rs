@@ -156,7 +156,6 @@ impl<'a> SelfEncryptor<'a> {
 
   /// return datamap
   pub fn close(&mut self)-> datamap::DataMap {
-    // multiple call to close is allowed but will return
     if self.closed {
       panic!("Encryptor closed, you must start a new Encryptor::new()")
     } else {
@@ -230,9 +229,25 @@ impl<'a> SelfEncryptor<'a> {
     }
   }
 
-  pub fn truncate(&self, position: u64) {
-
-
+  /// truncate the self_encryptor to the specified size (if extend, filled with 0u8)
+  pub fn truncate(&mut self, position: u64)-> bool {
+    if self.closed {
+      panic!("Encryptor closed, you must start a new Encryptor::new()")
+    } else {
+      let old_size = self.file_size;
+      self.file_size = position;  //  All helper methods calculate from file size
+      if position < old_size {
+        self.sequencer.resize(position as usize, 0u8);
+        let last_chunk = self.get_chunk_number(position) + 1;
+        for i in last_chunk as usize..self.chunks.len() {
+          self.chunks.pop();
+        }
+      } else {
+        // assert(position - old_size < std::numeric_limits<size_t>::max());
+        self.prepare_window((position - old_size), old_size, true);
+      }
+    }
+    true
   }
 
   /// current file size as is known by encryptor
