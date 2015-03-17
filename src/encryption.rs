@@ -94,7 +94,7 @@ mod test {
     let mut hasher = Sha512::new();
     hasher.input_str("abc");
     let hex = hasher.result_str();
-    assert_eq!(hex.as_slice(),
+    assert_eq!(hex,
         concat!("ddaf35a193617abacc417349ae2041311",
           "2e6fa4e89a97ea20a9eeee64b55d39a",
           "2192992a274fc1a836ba3c23a3feebbd45",
