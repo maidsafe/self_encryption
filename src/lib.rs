@@ -158,7 +158,7 @@ impl<'a> SelfEncryptor<'a> {
   pub fn close(&mut self)-> datamap::DataMap {
     // multiple call to close is allowed but will return
     if self.closed {
-      datamap::DataMap::None
+      panic!("Encryptor closed, you must start a new Encryptor::new()")
     } else {
       if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
         let tmp = self.sequencer.to_vec();
