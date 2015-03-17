@@ -189,6 +189,8 @@ impl<'a> SelfEncryptor<'a> {
             {
               tmp_chunks[chunk.number as usize].pre_hash.clear();
               tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
+              tmp_chunks[chunk.number as usize].source_size = this_size as u64;
+              tmp_chunks[chunk.number as usize].chunk_num = chunk.number;
              // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
             }
           }
@@ -198,8 +200,6 @@ impl<'a> SelfEncryptor<'a> {
             chunk.status = ChunkStatus::ToBeEncrypted;
           }
         }
-
-        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
         for chunk in self.chunks.iter() {
           if chunk.status == ChunkStatus::ToBeEncrypted {
             let this_size = self.get_chunk_size(chunk.number);
@@ -208,7 +208,14 @@ impl<'a> SelfEncryptor<'a> {
             let mut tmp : Vec<u8> = Vec::new();
             tmp.reserve(this_size as usize);
             for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
-            let result = self.encrypt_chunk(chunk.number, tmp);
+            let content = self.encrypt_chunk(chunk.number, tmp);
+            let mut name : Vec<u8> = Vec::new();
+            name.reserve(4096);
+            let mut hash = Sha512::new();
+            hash.input(&content);
+            hash.result(name.as_mut_slice());
+            self.storage.put(name.to_vec(), content);
+            tmp_chunks[chunk.number as usize].hash = name;
           }
         }
         for chunk in self.chunks.iter_mut() {
@@ -217,6 +224,7 @@ impl<'a> SelfEncryptor<'a> {
           }
         }
         self.closed = true;
+        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
         datamap::DataMap::Chunks(tmp_chunks)
       }
     }
@@ -299,11 +307,18 @@ impl<'a> SelfEncryptor<'a> {
   }
 
   fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
-    let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
     let kvp = &self.get_pad_iv_key(chunk_number);
     let enc = &encryption::encrypt(&content, &kvp.2[..], &kvp.1[..]).ok().unwrap();
     xor(&enc, &kvp.0)
+    // let result = xor(&enc, &kvp.0);
+    // let mut name : Vec<u8> = Vec::new();
+    // name.reserve(4096);
+    // let mut hash = Sha512::new();
+    // hash.input(result.as_slice());
+    // hash.result(name.as_mut_slice());
+    // self.storage.put(name, result.to_vec());
+    // result
   }
 
   // Helper methods
@@ -436,11 +451,6 @@ fn test_xor() {
 
 #[test]
 fn check_write() {
-  //struct MyStorage;
-  //let name = vec![0x11];
-  /*impl Storage for MyStorage {
-     fn get(&mut self, name: Vec<u8> ) -> Vec<u8> {name}
-  }*/
   let name = vec![0x11];
   let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
