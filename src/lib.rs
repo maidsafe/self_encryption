@@ -407,13 +407,12 @@ pub struct Entry {
 }
 
 pub struct MyStorage {
-  name: Vec<u8>,
   entries: Vec<Entry>
 }
 
 impl MyStorage {
-  pub fn new(name_in: Vec<u8>) -> MyStorage {
-    MyStorage { name: name_in.to_vec(), entries: Vec::new() }
+  pub fn new() -> MyStorage {
+    MyStorage { entries: Vec::new() }
   }
 }
 
@@ -452,7 +451,7 @@ fn test_xor() {
 #[test]
 fn check_write() {
   let name = vec![0x11];
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.file_size, 8u64);
@@ -461,7 +460,7 @@ fn check_write() {
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MIN_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -483,7 +482,7 @@ fn check_helper_3_min_chunks() {
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -506,7 +505,7 @@ fn check_helper_3_min_chunks_plus1() {
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -528,7 +527,7 @@ fn check_helper_3_max_chunks() {
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 4);
@@ -554,7 +553,7 @@ fn check_helper_3_max_chunks_plus1() {
 
 #[test]
 fn check_helper_7_and_a_bit_max_chunks() {
-  let mut my_storage = MyStorage::new(vec![0x11]);
+  let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
