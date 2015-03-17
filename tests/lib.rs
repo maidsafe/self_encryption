@@ -17,6 +17,8 @@
     use of the MaidSafe
     Software.                                                                 */
 
+#![allow(dead_code, unused_variables)]
+
 extern crate self_encryption;
 extern crate rand;
 pub use self_encryption::*;
@@ -55,7 +57,7 @@ impl Storage for MyStorage {
    fn get(&self, name: Vec<u8>) -> Vec<u8> {
        name
        }
-   fn put(&self, name: Vec<u8>, data: Vec<u8>){}
+   fn put(&mut self, name: Vec<u8>, data: Vec<u8>){}
    }
 
 #[test]

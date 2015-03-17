@@ -43,6 +43,8 @@ extern crate rustc_back;
 
 use std::cmp;
 use rustc_back::tempdir::TempDir;
+use crypto::sha2::Sha512 as Sha512;
+use crypto::digest::Digest;
 // this is pub to test the tests dir integration tests these are temp and need to be
 // replaced with actual integration tests and this should be private
 mod encryption;
@@ -83,8 +85,10 @@ pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 
 struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
 pub trait Storage {
+      // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
+      //        fetched requested content. Instead, the current implementation return empty Vec
       fn get(&self, name: Vec<u8>) -> Vec<u8>;
-      fn put(&self, name: Vec<u8>, data: Vec<u8>);
+      fn put(&mut self, name: Vec<u8>, data: Vec<u8>);
 }
 
 
@@ -149,6 +153,75 @@ impl<'a> SelfEncryptor<'a> {
       data
       // TODO(dirvine)  this can be reduced to a single line (map range)  :01/03/2015
   }
+
+  /// return datamap
+  pub fn close(&mut self)-> datamap::DataMap {
+    // multiple call to close is allowed but will return
+    if self.closed {
+      datamap::DataMap::None
+    } else {
+      if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+        let tmp = self.sequencer.to_vec();
+        self.my_datamap = datamap::DataMap::Content(tmp.to_vec());
+        self.closed = true;
+        datamap::DataMap::Content(tmp)
+      } else {
+        // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
+        let mut tmp_chunks : Vec<datamap::ChunkDetails> = Vec::new();
+        tmp_chunks.reserve(self.get_num_chunks() as usize);
+
+        for chunk in self.chunks.iter() {
+          if chunk.status == ChunkStatus::ToBeHashed ||
+              tmp_chunks[chunk.number as usize].pre_hash.len() == 0 || self.get_num_chunks() == 3 {
+            let this_size = self.get_chunk_size(chunk.number);
+            let pos = self.get_start_end_positions(chunk.number);
+
+            let mut tmp : Vec<u8> = Vec::new();
+            tmp.reserve(this_size as usize);
+            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+            // assert(tmp.len() == this_size && "vector diff size from chunk size");
+
+            let mut tmp2 : Vec<u8> = Vec::new();
+            tmp2.reserve(4096);
+            let mut hash = Sha512::new();
+            hash.input(tmp.as_mut_slice());
+            hash.result(tmp2.as_mut_slice());
+            {
+              tmp_chunks[chunk.number as usize].pre_hash.clear();
+              tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
+             // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
+            }
+          }
+        }
+        for chunk in self.chunks.iter_mut() {
+          if chunk.status == ChunkStatus::ToBeHashed {
+            chunk.status = ChunkStatus::ToBeEncrypted;
+          }
+        }
+
+        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
+        for chunk in self.chunks.iter() {
+          if chunk.status == ChunkStatus::ToBeEncrypted {
+            let this_size = self.get_chunk_size(chunk.number);
+            let pos = self.get_start_end_positions(chunk.number);
+
+            let mut tmp : Vec<u8> = Vec::new();
+            tmp.reserve(this_size as usize);
+            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+            let result = self.encrypt_chunk(chunk.number, tmp);
+          }
+        }
+        for chunk in self.chunks.iter_mut() {
+          if chunk.status == ChunkStatus::ToBeEncrypted {
+            chunk.status = ChunkStatus::AlreadyEncrypted;
+          }
+        }
+        self.closed = true;
+        datamap::DataMap::Chunks(tmp_chunks)
+      }
+    }
+  }
+
   pub fn truncate(&self, position: u64) {
 
 
@@ -225,16 +298,13 @@ impl<'a> SelfEncryptor<'a> {
     return encryption::decrypt(&xor_result, &kvp.2[..], &kvp.1[..]).ok().unwrap();
   }
 
-    fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
+  fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
     let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
     let kvp = &self.get_pad_iv_key(chunk_number);
     let enc = &encryption::encrypt(&content, &kvp.2[..], &kvp.1[..]).ok().unwrap();
     xor(&enc, &kvp.0)
   }
-
-
-
 
   // Helper methods
   fn get_num_chunks(&self)->u32 {
@@ -316,22 +386,37 @@ fn random_string(length: u64) -> String {
       (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 
-pub struct MyStorage {
-    name: Vec<u8>
+pub struct Entry {
+  name: Vec<u8>,
+  data: Vec<u8>
 }
 
-/*pub trait Storage {
-      fn get(&self, name: Vec<u8>) -> Vec<u8>;
-      fn put(&self, name: Vec<u8>, data: Vec<u8>);
-}*/
+pub struct MyStorage {
+  name: Vec<u8>,
+  entries: Vec<Entry>
+}
+
+impl MyStorage {
+  pub fn new(name_in: Vec<u8>) -> MyStorage {
+    MyStorage { name: name_in.to_vec(), entries: Vec::new() }
+  }
+}
 
 impl Storage for MyStorage {
-   //let mut name: Vec<u8> = vec![0x11];
-   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-       name
-       }
-   fn put(&self, name: Vec<u8>, data: Vec<u8>){}
-   }
+  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    for entry in self.entries.iter() {
+      if entry.name == name {
+        return entry.data.to_vec()
+      }
+    }
+    let result : Vec<u8> = Vec::new();
+    result
+  }
+
+  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    self.entries.push(Entry { name : name, data : data })
+  }
+}
 
 
 #[test]
@@ -357,7 +442,7 @@ fn check_write() {
      fn get(&mut self, name: Vec<u8> ) -> Vec<u8> {name}
   }*/
   let name = vec![0x11];
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(3), 5u64);
   assert_eq!(se.file_size, 8u64);
@@ -366,7 +451,7 @@ fn check_write() {
 
 #[test]
 fn check_helper_3_min_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MIN_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -388,7 +473,7 @@ fn check_helper_3_min_chunks() {
 }
 #[test]
 fn check_helper_3_min_chunks_plus1() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -411,7 +496,7 @@ fn check_helper_3_min_chunks_plus1() {
 
 #[test]
 fn check_helper_3_max_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
   assert_eq!(se.get_num_chunks(), 3);
@@ -433,7 +518,7 @@ fn check_helper_3_max_chunks() {
 }
 #[test]
 fn check_helper_3_max_chunks_plus1() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
   assert_eq!(se.get_num_chunks(), 4);
@@ -459,7 +544,7 @@ fn check_helper_3_max_chunks_plus1() {
 
 #[test]
 fn check_helper_7_and_a_bit_max_chunks() {
-  let mut my_storage = MyStorage{name: vec![0x11]};
+  let mut my_storage = MyStorage::new(vec![0x11]);
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
   se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
   assert_eq!(se.get_num_chunks(), 8);
