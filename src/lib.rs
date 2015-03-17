@@ -450,12 +450,19 @@ fn test_xor() {
 
 #[test]
 fn check_write() {
-  let name = vec![0x11];
   let mut my_storage = MyStorage::new();
   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string(3), 5u64);
+  let the_string = random_string(3);  
+  se.write(&the_string, 5u64);
   assert_eq!(se.file_size, 8u64);
-  assert_eq!(se.get_storage().get(name),vec![0x11]);
+  let data_map = se.close();
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+    datamap::DataMap::Content(ref content) => {
+      assert_eq!(content.len(), 8 as usize);
+    }
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
 }
 
 #[test]
