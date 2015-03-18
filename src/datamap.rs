@@ -1,6 +1,6 @@
 
 /// Struct holds pre and post encryption hashes as well as original chunk size
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
   /// index number (starts at 0)
   pub chunk_num: u32,
@@ -16,17 +16,6 @@ pub struct ChunkDetails {
 impl ChunkDetails {
   pub fn new() -> ChunkDetails {
     ChunkDetails { chunk_num : 0, hash : Vec::new(), pre_hash : Vec::new(), source_size : 0 }
-  }
-}
-
-impl Clone for ChunkDetails {
-  fn clone(&self) -> ChunkDetails {
-    return ChunkDetails {
-      chunk_num: self.chunk_num,
-      hash: self.hash.to_vec(),
-      pre_hash: self.pre_hash.to_vec(),
-      source_size: self.source_size
-    };
   }
 }
 
