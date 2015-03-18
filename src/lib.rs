@@ -31,7 +31,6 @@
 //!
 //!
 
-#![allow(dead_code, unused_variables, unused_assignments)]
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
@@ -56,10 +55,10 @@ pub static MAX_CHUNK_SIZE: u32 = 1024*1024;
 pub static MIN_CHUNK_SIZE: u32 = 1024;
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
 /// ### Usage
-///    let data = vec![1u8, 2u8, 3u8, 4u8, 5u8];  
-///    let pad = vec![8u8, 7u8];  
+///    let data = vec![1u8, 2u8, 3u8, 4u8, 5u8];
+///    let pad = vec![8u8, 7u8];
 ///    let xor_result = xor(&data, &pad);
-/// 
+///
 pub fn xor(data: &Vec<u8>, pad: &Vec<u8>)->Vec<u8> {
   data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
@@ -91,8 +90,8 @@ enum ChunkLocation {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 
 struct Chunks { number: u32 , status: ChunkStatus, location: ChunkLocation }
-/// Storage traits of SelfEncryptor  
-/// data stored in Storage is encrypted, name is the SHA512 hash of content   
+/// Storage traits of SelfEncryptor
+/// data stored in Storage is encrypted, name is the SHA512 hash of content
 /// Storage can be in-memory HashMap or disk based
 pub trait Storage {
       // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
@@ -106,7 +105,7 @@ pub trait Storage {
 
 /// This is the encryption object and all file handling should be done via this as the low level
 /// mechanism to read and write *content* this library has no knowledge of file metadata. This is
-/// a library to ensure content is secured  
+/// a library to ensure content is secured
 pub struct SelfEncryptor<'a> {
   storage: &'a mut (Storage + 'a),
   my_datamap: datamap::DataMap,
@@ -115,16 +114,16 @@ pub struct SelfEncryptor<'a> {
   tempdir : TempDir,
   file_size: u64,
   closed: bool,
-  }
+}
 
 
 
 
 impl<'a> SelfEncryptor<'a> {
-  /// This is the only constructor, for encryptor object  
-  /// Each SelfEncryptor is used for a single file.  
-  /// The parameters are a DataMap and Storage.  
-  /// If new file use DataMap::None as first parameter  
+  /// This is the only constructor, for encryptor object
+  /// Each SelfEncryptor is used for a single file.
+  /// The parameters are a DataMap and Storage.
+  /// If new file use DataMap::None as first parameter
   /// The get and put of Storage need to be implemented to
   /// allow the SelfEncryptor to store encrypted chunks and retrieve when necessary.
   pub fn new(my_storage:&'a mut Storage, my_datamap: datamap::DataMap)-> SelfEncryptor {
@@ -136,7 +135,7 @@ impl<'a> SelfEncryptor<'a> {
           file_size += chunk.source_size;
         }
       }
-      datamap::DataMap::Content(ref content) => { 
+      datamap::DataMap::Content(ref content) => {
         file_size = content.len() as u64;
         sequencer.push_all(&content);
       }
@@ -153,7 +152,7 @@ impl<'a> SelfEncryptor<'a> {
 
   /// Write method mirrors a posix type write mechanism
   /// loosly mimics filsystem interface for easy connection to FUSE like
-  /// programs as well as fine grained access to system level libraries for developers.  
+  /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0)
   pub fn write(&mut self, data: &str, position: u64) {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
@@ -164,9 +163,9 @@ impl<'a> SelfEncryptor<'a> {
       self.sequencer[position as usize + i] = data.as_bytes()[i];
     }
   }
-  
-  /// return string, this is a change from existing API where we used c type const char *  
-  /// the returned content is read from the specified position with specified length  
+
+  /// return string, this is a change from existing API where we used c type const char *
+  /// the returned content is read from the specified position with specified length
   /// trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gapping area
   pub fn read(&mut self, position: u64, length: u64)-> String {
@@ -180,7 +179,7 @@ impl<'a> SelfEncryptor<'a> {
       // TODO(dirvine)  this can be reduced to a single line (map range)  :01/03/2015
   }
 
-  /// returning DataMap, which is the info required to recover encrypted content from storage.  
+  /// returning DataMap, which is the info required to recover encrypted content from storage.
   /// Content temporarily held in self_encryptor will only got flushed into storage when this
   /// function got called.
   pub fn close(&mut self)-> datamap::DataMap {
@@ -268,9 +267,7 @@ impl<'a> SelfEncryptor<'a> {
       if position < old_size {
         self.sequencer.resize(position as usize, 0u8);
         let last_chunk = self.get_chunk_number(position) + 1;
-        for i in last_chunk as usize..self.chunks.len() {
-          self.chunks.pop();
-        }
+        self.chunks.truncate(last_chunk as usize);
       } else {
         // assert(position - old_size < std::numeric_limits<size_t>::max());
         self.prepare_window((position - old_size), old_size, true);
@@ -445,7 +442,7 @@ impl<'a> SelfEncryptor<'a> {
 }
 
 #[cfg(test)]
-
+#[allow(dead_code, unused_variables, unused_assignments)]
 mod test {
   use super::*;
 

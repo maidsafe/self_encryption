@@ -45,12 +45,11 @@ pub enum DataMap {
 
 impl DataMap {
   /// original size of file in datamap
-  pub fn len(&self)->u64 {
-    let size = 0u64;
+  pub fn len(&self) -> u64 {
     match *self {
       DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
         DataMap::Content(ref content) => content.len() as u64,
-        DataMap::None => 0u64
+        DataMap::None => 0
     }
   }
   /// returning the list of chunk info if present
