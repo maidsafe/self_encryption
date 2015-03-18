@@ -305,16 +305,18 @@ impl<'a> SelfEncryptor<'a> {
         }
       } else {
         let mut tmp_chunks = Vec::new();
-        if write { tmp_chunks.push(Chunks{number: i,
-                        status: ChunkStatus::ToBeHashed, location: ChunkLocation::InSequencer}); }
-        else { tmp_chunks.push(Chunks{number: i,
-                  status: ChunkStatus::AlreadyEncrypted, location: ChunkLocation::InSequencer});
-              let mut pos = self.get_start_end_positions(i).0;
-                let vec : Vec<u8> = self.decrypt_chunk(i);
-              for itr2 in vec.iter() {
-                self.sequencer[pos as usize] = *itr2;
-                pos += 1;
-              }
+        if write {
+          tmp_chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
+                                 location: ChunkLocation::InSequencer});
+        } else {
+          tmp_chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted,
+                                 location: ChunkLocation::InSequencer});
+          let mut pos = self.get_start_end_positions(i).0;
+          let vec : Vec<u8> = self.decrypt_chunk(i);
+          for itr2 in vec.iter() {
+            self.sequencer[pos as usize] = *itr2;
+            pos += 1;
+          }
         }
         self.chunks.append(&mut tmp_chunks);
       }
@@ -394,7 +396,7 @@ impl<'a> SelfEncryptor<'a> {
    if self.get_num_chunks() == 0 { return (0,0) }
    let mut start :u64;
    let penultimate = (self.get_num_chunks() - 2) == chunk_number;
-   let last = (self.get_chunk_size(0) - 1) == chunk_number;
+   let last = (self.get_num_chunks() - 1) == chunk_number;
    if last {
      start = (self.get_chunk_size(0) * (chunk_number - 2) + self.get_chunk_size(chunk_number - 2) +
        self.get_chunk_size(chunk_number - 1)) as u64;
@@ -421,7 +423,7 @@ impl<'a> SelfEncryptor<'a> {
   fn get_chunk_number(&self, position: u64)->u32 {
     if self.get_num_chunks() == 0 { return 0u32 }
     (position / self.get_chunk_size(0) as u64) as u32
-    }
+  }
 
 
 }
@@ -580,101 +582,189 @@ fn check_3_min_chunks() {
   assert_eq!(fetched, the_string);
 }
 #[test]
-fn check_helper_3_min_chunks_plus1() {
+fn check_3_min_chunks_plus1() {
   let mut my_storage = MyStorage::new();
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string((MIN_CHUNK_SIZE as u64 * 3) + 1), 0);
-  assert_eq!(se.get_num_chunks(), 3);
-  assert_eq!(se.get_chunk_size(0), 1024);
-  assert_eq!(se.get_chunk_size(1), 1024);
-  assert_eq!(se.get_chunk_size(2), 1025);
-  assert_eq!(se.get_next_chunk_number(0), 1);
-  assert_eq!(se.get_next_chunk_number(1), 2);
-  assert_eq!(se.get_next_chunk_number(2), 0);
-  assert_eq!(se.get_previous_chunk_number(0), 2);
-  assert_eq!(se.get_previous_chunk_number(1), 0);
-  assert_eq!(se.get_previous_chunk_number(2), 1);
-  assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MIN_CHUNK_SIZE as u64);
+  let mut data_map = datamap::DataMap::None;
+  let string_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
+  let the_string = random_string(string_len);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&the_string, 0);
+    assert_eq!(se.get_num_chunks(), 3);
+    assert_eq!(se.get_chunk_size(0), 1024);
+    assert_eq!(se.get_chunk_size(1), 1024);
+    assert_eq!(se.get_chunk_size(2), 1025);
+    assert_eq!(se.get_next_chunk_number(0), 1);
+    assert_eq!(se.get_next_chunk_number(1), 2);
+    assert_eq!(se.get_next_chunk_number(2), 0);
+    assert_eq!(se.get_previous_chunk_number(0), 2);
+    assert_eq!(se.get_previous_chunk_number(1), 0);
+    assert_eq!(se.get_previous_chunk_number(2), 1);
+    assert_eq!(se.get_start_end_positions(0).0, 0u64);
+    assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MIN_CHUNK_SIZE as u64);
+    // check close
+    data_map = se.close();
+  }
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => {
+      assert_eq!(chunks.len(), 3);
+      assert_eq!(my_storage.entries.len(), 3);
+      for chunk_detail in chunks.iter() {
+        assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+      }
+    }
+    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
+  // check read, write
+  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+  let fetched = new_se.read(0, string_len);
+  assert_eq!(fetched, the_string);
 }
 
 #[test]
-fn check_helper_3_max_chunks() {
+fn check_3_max_chunks() {
   let mut my_storage = MyStorage::new();
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string(MAX_CHUNK_SIZE as u64 * 3), 0);
-  assert_eq!(se.get_num_chunks(), 3);
-  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_next_chunk_number(0), 1);
-  assert_eq!(se.get_next_chunk_number(1), 2);
-  assert_eq!(se.get_next_chunk_number(2), 0);
-  assert_eq!(se.get_previous_chunk_number(0), 2);
-  assert_eq!(se.get_previous_chunk_number(1), 0);
-  assert_eq!(se.get_previous_chunk_number(2), 1);
-  assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
+  let mut data_map = datamap::DataMap::None;
+  let string_len = MAX_CHUNK_SIZE as u64 * 3;
+  let the_string = random_string(string_len);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&the_string, 0);
+    assert_eq!(se.get_num_chunks(), 3);
+    assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_next_chunk_number(0), 1);
+    assert_eq!(se.get_next_chunk_number(1), 2);
+    assert_eq!(se.get_next_chunk_number(2), 0);
+    assert_eq!(se.get_previous_chunk_number(0), 2);
+    assert_eq!(se.get_previous_chunk_number(1), 0);
+    assert_eq!(se.get_previous_chunk_number(2), 1);
+    assert_eq!(se.get_start_end_positions(0).0, 0u64);
+    assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
+    // check close
+    data_map = se.close();
+  }
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => {
+      assert_eq!(chunks.len(), 3);
+      assert_eq!(my_storage.entries.len(), 3);
+      for chunk_detail in chunks.iter() {
+        assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+      }
+    }
+    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
+  // check read, write
+  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+  let fetched = new_se.read(0, string_len);
+  assert_eq!(fetched, the_string);
 }
 #[test]
-fn check_helper_3_max_chunks_plus1() {
+fn check_3_max_chunks_plus1() {
   let mut my_storage = MyStorage::new();
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string((MAX_CHUNK_SIZE as u64 * 3) + 1), 0);
-  assert_eq!(se.get_num_chunks(), 4);
-  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE +1);
-  assert_eq!(se.get_next_chunk_number(0), 1);
-  assert_eq!(se.get_next_chunk_number(1), 2);
-  assert_eq!(se.get_next_chunk_number(2), 3);
-  assert_eq!(se.get_next_chunk_number(3), 0);
-  assert_eq!(se.get_previous_chunk_number(0), 3);
-  assert_eq!(se.get_previous_chunk_number(1), 0);
-  assert_eq!(se.get_previous_chunk_number(2), 1);
-  assert_eq!(se.get_previous_chunk_number(3), 2);
-  assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+  let mut data_map = datamap::DataMap::None;
+  let string_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
+  let the_string = random_string(string_len);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&the_string, 0);
+    assert_eq!(se.get_num_chunks(), 4);
+    assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE + 1);
+    assert_eq!(se.get_next_chunk_number(0), 1);
+    assert_eq!(se.get_next_chunk_number(1), 2);
+    assert_eq!(se.get_next_chunk_number(2), 3);
+    assert_eq!(se.get_next_chunk_number(3), 0);
+    assert_eq!(se.get_previous_chunk_number(0), 3);
+    assert_eq!(se.get_previous_chunk_number(1), 0);
+    assert_eq!(se.get_previous_chunk_number(2), 1);
+    assert_eq!(se.get_previous_chunk_number(3), 2);
+    assert_eq!(se.get_start_end_positions(0).0, 0u64);
+    assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).1, ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+    // check close
+    data_map = se.close();
+  }
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => {
+      assert_eq!(chunks.len(), 4);
+      assert_eq!(my_storage.entries.len(), 4);
+      for chunk_detail in chunks.iter() {
+        assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+      }
+    }
+    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
+  // check read, write
+  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+  let fetched = new_se.read(0, string_len);
+  assert_eq!(fetched, the_string);
 }
 
 #[test]
-fn check_helper_7_and_a_bit_max_chunks() {
+fn check_7_and_a_bit_max_chunks() {
   let mut my_storage = MyStorage::new();
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string((MAX_CHUNK_SIZE as u64 * 7) + 1024), 0);
-  assert_eq!(se.get_num_chunks(), 8);
-  assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
-  assert_eq!(se.get_next_chunk_number(0), 1);
-  assert_eq!(se.get_next_chunk_number(1), 2);
-  assert_eq!(se.get_next_chunk_number(2), 3);
-  assert_eq!(se.get_next_chunk_number(3), 4);
-  assert_eq!(se.get_previous_chunk_number(0), 7);
-  assert_eq!(se.get_previous_chunk_number(1), 0);
-  assert_eq!(se.get_previous_chunk_number(2), 1);
-  assert_eq!(se.get_previous_chunk_number(3), 2);
-  assert_eq!(se.get_start_end_positions(0).0, 0u64);
-  assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
-  assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+  let mut data_map = datamap::DataMap::None;
+  let string_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
+  let the_string = random_string(string_len);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&the_string, 0);
+    assert_eq!(se.get_num_chunks(), 8);
+    assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
+    assert_eq!(se.get_next_chunk_number(0), 1);
+    assert_eq!(se.get_next_chunk_number(1), 2);
+    assert_eq!(se.get_next_chunk_number(2), 3);
+    assert_eq!(se.get_next_chunk_number(3), 4);
+    assert_eq!(se.get_previous_chunk_number(0), 7);
+    assert_eq!(se.get_previous_chunk_number(1), 0);
+    assert_eq!(se.get_previous_chunk_number(2), 1);
+    assert_eq!(se.get_previous_chunk_number(3), 2);
+    assert_eq!(se.get_start_end_positions(0).0, 0u64);
+    assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
+    assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+    // check close
+    data_map = se.close();
+  }
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => {
+      assert_eq!(chunks.len(), 8);
+      assert_eq!(my_storage.entries.len(), 8);
+      for chunk_detail in chunks.iter() {
+        assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+      }
+    }
+    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
+  // check read, write
+  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+  let fetched = new_se.read(0, string_len);
+  assert_eq!(fetched, the_string);
 }
 }
