@@ -1,5 +1,5 @@
 
-/// data map records vector
+/// Struct holds pre and post encryption hashes as well as original chunk size
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 pub struct ChunkDetails {
   /// index number (starts at 0)
@@ -30,12 +30,14 @@ impl Clone for ChunkDetails {
   }
 }
 
-/// Holds pre and post encryption hashes as well as original chunk size
+/// Holds the infomation that required to recover the content of the encrypted file
+/// Depends on the file size, such info can be held as vector of ChunkDetail, or as raw data directly
 #[derive(PartialEq, Eq, PartialOrd, Ord)] 
 pub enum DataMap {
-  /// if file was large enough this holds the data to decrypt it
+  /// if file was large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE) 
+  /// this holds the list of chunks' info to decrypt it
   Chunks(Vec<ChunkDetails>),
-  /// very small files are put here in entirety (defined in lib as MIN_CHUNK_SIZE)
+  /// very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are put here in entirely 
   Content(Vec<u8>),
   /// empty datamap
   None
@@ -51,7 +53,7 @@ impl DataMap {
         DataMap::None => 0u64
     }
   }
-
+  /// returning the list of chunk info if present
   pub fn get_chunks(&self)->Vec<ChunkDetails> {
     match *self {
       DataMap::Chunks(ref chunks) => return chunks.to_vec(),
@@ -72,13 +74,15 @@ impl DataMap {
     }
   }
 
-  /// chunks or all content stored in a single field
-  pub  fn has_chunks(&self)->bool {
+  /// content stored as chunks or as raw
+  pub fn has_chunks(&self)->bool {
     match *self {
       DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks) > 0, 
         _ => false, 
     }
   }
+
+  /// iterate through the chunks to figure out the total size, i.e. the file size
   fn chunks_size(chunks: &Vec<ChunkDetails>)->u64 {
     let mut size = 0u64;
     for i in chunks.iter() {
@@ -86,8 +90,8 @@ impl DataMap {
     }
     return size
   }
-  // using bubble sort
-  // TODO : change to use other quick sort algorithm to improve the performance
+  /// sorting list of chunks using bubble sort
+  /// TODO : change to use other quick sort algorithm to improve the performance
   fn chunks_sort(chunks: &mut [ChunkDetails]) {
     let (mut i, len) = (0, chunks.len());
     while i < len {
