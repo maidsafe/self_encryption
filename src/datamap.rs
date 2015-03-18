@@ -11,7 +11,13 @@ pub struct ChunkDetails {
   /// size before encryption (compression alters this as well as any poss padding 
   /// depending on cipher used)
   pub source_size: u64
+}
+
+impl ChunkDetails {
+  pub fn new() -> ChunkDetails {
+    ChunkDetails { chunk_num : 0, hash : Vec::new(), pre_hash : Vec::new(), source_size : 0 }
   }
+}
 
 impl Clone for ChunkDetails {
   fn clone(&self) -> ChunkDetails {
@@ -45,6 +51,14 @@ impl DataMap {
         DataMap::None => 0u64
     }
   }
+
+  pub fn get_chunks(&self)->Vec<ChunkDetails> {
+    match *self {
+      DataMap::Chunks(ref chunks) => return chunks.to_vec(),
+        _                         => panic!("no chunks")
+    }
+  }
+
   /// we require this to be a sorted list to allow get_pad_iv_key to get the correct 
   /// pre encryption hashes for decrypt/encrypt
   pub fn get_sorted_chunks(&self)->Vec<ChunkDetails> {
@@ -79,7 +93,7 @@ impl DataMap {
     while i < len {
         let (mut j, mut cur_min) = (i + 1, i);
         while j < len {
-            if chunks[j].pre_hash < chunks[cur_min].pre_hash {
+            if chunks[j].chunk_num < chunks[cur_min].chunk_num {
                 cur_min = j;
             }
             j = j + 1;
