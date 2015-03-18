@@ -90,21 +90,10 @@ impl DataMap {
     }
     return size
   }
-  /// sorting list of chunks using bubble sort
-  /// TODO : change to use other quick sort algorithm to improve the performance
+
+  /// sorting list of chunks using quicksort
   fn chunks_sort(chunks: &mut [ChunkDetails]) {
-    let (mut i, len) = (0, chunks.len());
-    while i < len {
-        let (mut j, mut cur_min) = (i + 1, i);
-        while j < len {
-            if chunks[j].chunk_num < chunks[cur_min].chunk_num {
-                cur_min = j;
-            }
-            j = j + 1;
-        }
-        chunks.swap(i, cur_min);
-        i = i + 1;
-    }
+    chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
   }
 }
 
