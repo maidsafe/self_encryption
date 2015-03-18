@@ -44,7 +44,7 @@ impl DataMap {
   /// returning the list of chunk info if present
   pub fn get_chunks(&self)->Vec<ChunkDetails> {
     match *self {
-      DataMap::Chunks(ref chunks) => return chunks.to_vec(),
+      DataMap::Chunks(ref chunks) => chunks.to_vec(),
         _                         => panic!("no chunks")
     }
   }

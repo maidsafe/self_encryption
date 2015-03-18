@@ -352,7 +352,7 @@ impl<'a> SelfEncryptor<'a> {
     // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
     let kvp = &self.get_pad_iv_key(chunk_number);
     let xor_result = xor(&self.storage.get(name), &kvp.0);
-    return encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).ok().unwrap();
+    encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).ok().unwrap()
   }
 
   fn encrypt_chunk(&self, chunk_number : u32, content : Vec<u8>)->Vec<u8> {
@@ -375,9 +375,9 @@ impl<'a> SelfEncryptor<'a> {
     if self.file_size  < (3 * MIN_CHUNK_SIZE as u64) { return 0 }
     if self.file_size  < (3 * MAX_CHUNK_SIZE as u64) { return 3 }
     if self.file_size  % MAX_CHUNK_SIZE as u64 == 0 {
-      return (self.file_size / MAX_CHUNK_SIZE as u64) as u32
+      (self.file_size / MAX_CHUNK_SIZE as u64) as u32
     } else {
-      return (self.file_size / MAX_CHUNK_SIZE as u64 + 1) as u32
+      (self.file_size / MAX_CHUNK_SIZE as u64 + 1) as u32
     }
   }
 
@@ -396,11 +396,15 @@ impl<'a> SelfEncryptor<'a> {
     if remainder == 0 { return MAX_CHUNK_SIZE }
     if remainder < MIN_CHUNK_SIZE {
        if penultimate {
-         return MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
+         MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
        } else {
-         return MIN_CHUNK_SIZE + remainder }
+         MIN_CHUNK_SIZE + remainder }
      } else {
-       if penultimate { return MAX_CHUNK_SIZE } else { return remainder }
+       if penultimate {
+         MAX_CHUNK_SIZE
+       } else {
+        remainder
+       }
      }
 
   }
