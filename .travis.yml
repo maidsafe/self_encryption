@@ -14,7 +14,7 @@ script:
 - cargo test --verbose
 - cargo doc 
 
-after_script:
+after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
   cargo doc &&
