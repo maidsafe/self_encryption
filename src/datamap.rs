@@ -15,7 +15,12 @@ pub struct ChunkDetails {
 
 impl ChunkDetails {
   pub fn new() -> ChunkDetails {
-    ChunkDetails { chunk_num : 0, hash : Vec::new(), pre_hash : Vec::new(), source_size : 0 }
+    ChunkDetails {
+      chunk_num: 0,
+      hash: vec![],
+      pre_hash: vec![],
+      source_size: 0
+    }
   }
 }
 
@@ -30,43 +35,44 @@ pub enum DataMap {
   Content(Vec<u8>),
   /// empty datamap
   None
-  }
+}
 
 impl DataMap {
   /// original size of file in datamap
   pub fn len(&self) -> u64 {
     match *self {
       DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
-        DataMap::Content(ref content) => content.len() as u64,
-        DataMap::None => 0
+      DataMap::Content(ref content) => content.len() as u64,
+      DataMap::None => 0
     }
   }
+
   /// returning the list of chunk info if present
-  pub fn get_chunks(&self)->Vec<ChunkDetails> {
+  pub fn get_chunks(&self) -> Vec<ChunkDetails> {
     match *self {
       DataMap::Chunks(ref chunks) => chunks.to_vec(),
-        _                         => panic!("no chunks")
+      _ => panic!("no chunks")
     }
   }
 
   /// we require this to be a sorted list to allow get_pad_iv_key to get the correct
   /// pre encryption hashes for decrypt/encrypt
-  pub fn get_sorted_chunks(&self)->Vec<ChunkDetails> {
+  pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
     match *self {
       DataMap::Chunks(ref chunks) =>  {
-                                        let mut result = chunks.to_vec();
-                                        DataMap::chunks_sort(result.as_mut_slice());
-                                        result
-                                      },
-        _                           => panic!("no chunks")
+        let mut result = chunks.to_vec();
+        DataMap::chunks_sort(&mut result);
+        result
+      },
+      _ => panic!("no chunks")
     }
   }
 
   /// content stored as chunks or as raw
-  pub fn has_chunks(&self)->bool {
+  pub fn has_chunks(&self) -> bool {
     match *self {
       DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks) > 0,
-        _ => false,
+      _ => false,
     }
   }
 
