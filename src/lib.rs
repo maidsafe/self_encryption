@@ -119,18 +119,21 @@ impl<'a> SelfEncryptor<'a> {
   /// This is the only constructor, if new file use DataMap::None as first param
   pub fn new(my_storage:&'a mut Storage, my_datamap: datamap::DataMap)-> SelfEncryptor {
     let mut file_size = 0u64;
+    let mut sequencer : Vec<u8> = Vec::with_capacity(1024 * 1024 * 100 as usize);
     match my_datamap {
       datamap::DataMap::Chunks(ref chunks) => {
         for chunk in chunks.iter() {
           file_size += chunk.source_size;
         }
       }
-      datamap::DataMap::Content(ref content) => file_size = content.len() as u64,
+      datamap::DataMap::Content(ref content) => { 
+        file_size = content.len() as u64;
+        sequencer.push_all(&content);
+      }
       datamap::DataMap::None => file_size = 0u64,
     }
-    SelfEncryptor{storage: my_storage, my_datamap: my_datamap, chunks: Vec::new(),
-                 sequencer: Vec::with_capacity(1024 * 1024 * 100 as usize),
-                 tempdir: create_temp_dir(), file_size: file_size, closed: false}
+    SelfEncryptor{ storage: my_storage, my_datamap: my_datamap, chunks: Vec::new(),
+                   sequencer: sequencer, tempdir: create_temp_dir(), file_size: file_size, closed: false }
   }
 
   /// This is an implementation of the get_storage function from example
@@ -499,6 +502,37 @@ fn check_write() {
     }
     datamap::DataMap::None => panic!("shall not return DataMap::None"),
   }
+}
+
+#[test]
+fn check_3_min_chunks_minus1() {
+  let mut my_storage = MyStorage::new();
+  let mut data_map = datamap::DataMap::None;
+  let string_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
+  let the_string = random_string(string_len);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&the_string, 0);
+    assert_eq!(se.get_num_chunks(), 0);
+    assert_eq!(se.chunks.len(), 0);
+    assert_eq!(se.sequencer.len(), string_len as usize);
+    match se.my_datamap {
+      datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+      datamap::DataMap::None => {}
+    }
+    // check close
+    data_map = se.close();
+  }
+  match data_map {
+    datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+    datamap::DataMap::Content(ref content) => { assert_eq!(content.len(), string_len as usize); }
+    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  }
+  // check read, write
+  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+  let fetched = new_se.read(0, string_len);
+  assert_eq!(fetched, the_string);
 }
 
 #[test]
