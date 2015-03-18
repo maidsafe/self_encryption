@@ -6,3 +6,4 @@ build/
 build-tests/
 target/
 *~
+/.idea
