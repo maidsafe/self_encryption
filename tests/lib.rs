@@ -40,25 +40,56 @@ fn random_string(length: u64) -> String {
         (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
 /// Self Enryptor integration tests
-/*#[test]
-fn check_write() {
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string(3), 5u64);
-  assert_eq!(se.len(), 8u64);
-}*/
 
 
 pub struct MyStorage {
-    name: Vec<u8>
+  temp_dir : TempDir
+}
+
+impl MyStorage {
+  pub fn new() -> MyStorage {
+    MyStorage { temp_dir: match TempDir::new("encrypt_storage") {
+        Ok(dir) => dir,
+        Err(e) => panic!("couldn't create temporary directory: {}", e)
+    } }
+
+  }
 }
 
 impl Storage for MyStorage {
-   //let mut name: Vec<u8> = vec![0x11];
-   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-       name
-       }
-   fn put(&mut self, name: Vec<u8>, data: Vec<u8>){}
-   }
+  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    //let mut f = std::fs::File::open(self.temp_dir.path() / name);
+    // let file_name = String::from_utf8(name).unwrap();
+    // let tmppath = self.temp_dir.path().join(&file_name.into_bytes());
+    // let tmppath = self.temp_dir.path().join(&name);  --
+    let file_name = String::from_utf8(name).unwrap();
+    let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
+    let mut f = match std::fs::File::open(&file_path) {
+        // The `desc` field of `IoError` is a string that describes the error
+        Err(why) => panic!("couldn't open: {}", why.description()),
+        Ok(file) => file,
+    };
+    let mut s = String::new();
+    //f.read_to_string(&mut s);
+    match f.read_to_string(&mut s){
+        Err(why) => panic!("couldn't read: {}", why.description()),
+        Ok(_) => print!("contains:\n{}", s),
+    }
+    s.into_bytes()
+  }
+
+  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    let file_name = String::from_utf8(name).unwrap();
+    let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
+    let mut f = match std::fs::File::create(&file_path) {
+        // The `desc` field of `IoError` is a string that describes the error
+        Err(why) => panic!("couldn't open: {}", why.description()),
+        Ok(file) => file,
+    };
+    f.write_all(&data);
+  }
+}
+
 
 #[test]
 fn check_write() {
