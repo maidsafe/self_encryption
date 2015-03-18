@@ -83,12 +83,8 @@ impl DataMap {
   }
 
   /// iterate through the chunks to figure out the total size, i.e. the file size
-  fn chunks_size(chunks: &Vec<ChunkDetails>)->u64 {
-    let mut size = 0u64;
-    for i in chunks.iter() {
-      size += i.source_size
-    }
-    return size
+  fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
+    chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
   }
 
   /// sorting list of chunks using quicksort
