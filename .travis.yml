@@ -1,7 +1,6 @@
 env:
   global:
-    - secure: k3n5bwXWBcROmmU+i2Th0kzs8rkufkPPiNJLSPtF/M221hv462VKVR8aF2MWb2cvB1zeWajBGnRfgCaC7C5ZHlaLQExEQuO+QKkr2aoSwZW1UH76s5HSM1GocZoTx8qfjHV1U72p4mLs3qQ6m9ns5bp4dA/WzYKWjV/4dF8VoII=
-
+      secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
 language: rust
 
 install:
