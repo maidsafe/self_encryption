@@ -41,6 +41,7 @@ extern crate crypto;
 extern crate rustc_back;
 
 use std::cmp;
+use std::str;
 use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
@@ -168,19 +169,15 @@ impl<'a> SelfEncryptor<'a> {
     }
   }
 
-  /// return string, this is a change from existing API where we used c type const char *
   /// the returned content is read from the specified position with specified length
   /// trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gapping area
-  pub fn read(&mut self, position: u64, length: u64) -> String {
+  pub fn read(&mut self, position: u64, length: u64) -> &str {
     if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     self.prepare_window(length, position, false);
-    let mut data = String::with_capacity(length as usize);
-      for i in (0..length) {
-            data.push(self.sequencer[(position + i) as usize] as char);
-      }
-      data
-      // TODO(dirvine)  this can be reduced to a single line (map range)  :01/03/2015
+
+    let raw = &self.sequencer[position as usize..(position + length) as usize];
+    str::from_utf8(raw).unwrap()
   }
 
   /// returning DataMap, which is the info required to recover encrypted content from storage.
