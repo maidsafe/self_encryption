@@ -28,6 +28,7 @@ use std::fs::File;
 use std::io::*;
 use rustc_back::tempdir::TempDir as TempDir;
 use std::string::String as String;
+use std::vec::Vec as Vec;
 
 
 /// DataMap integratoin tests
@@ -64,10 +65,6 @@ impl MyStorage {
 
 impl Storage for MyStorage {
   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-    //let mut f = std::fs::File::open(self.temp_dir.path() / name);
-    // let file_name = String::from_utf8(name).unwrap();
-    // let tmppath = self.temp_dir.path().join(&file_name.into_bytes());
-    // let tmppath = self.temp_dir.path().join(&name);  --
     let file_name = String::from_utf8(name).unwrap();
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
     let mut f = match std::fs::File::open(&file_path) {
@@ -98,78 +95,42 @@ impl Storage for MyStorage {
 
 
 
+
 #[test]
-fn check_disk_int_5000() {
-  let content = random_string(5000);
-  let mut my_storage = MyStorage::new();
-  let mut data_map = datamap::DataMap::None;
-  {
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&content, 5u64);
-    assert_eq!(se.len(), 5005u64);
-    data_map = se.close();
-  }
-  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-  let fetched = new_se.read(5u64, 5000);
-  assert_eq!(fetched, content);
-  let new_data_map = new_se.close();
-  match new_data_map {
-    datamap::DataMap::Chunks(ref chunks) => {
-      assert!(chunks.len() == 3);
+fn check_disk(){
+let mut vec = vec![1, 5000, 10000000];
+for x in vec.iter() {
+    
+    //fn check_disk_int(y: u32) {
+    //let y = x;
+    let content = random_string(*x);
+    let mut my_storage = MyStorage::new();
+    let mut data_map = datamap::DataMap::None;
+    {
+      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      se.write(&content, 5u64);
+      assert_eq!(se.len(), 6u64);
+      data_map = se.close();
     }
-    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-    datamap::DataMap::None => panic!("shall not return DataMap::None"),
+  
+      let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+   {
+      let fetched = new_se.read(5u64, 1);
+  
+      assert_eq!(fetched, content);
+    }
+      let new_data_map = new_se.close();
+      match new_data_map {
+      datamap::DataMap::Chunks(ref chunks) => {
+        assert!(chunks.len() == 3);
+      }
+      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+      datamap::DataMap::None => panic!("shall not return DataMap::None"),
+    }
+
   }
 }
 
 
-#[test]
-fn check_disk_int_1() {
-  let content = random_string(1);
-  let mut my_storage = MyStorage::new();
-  let mut data_map = datamap::DataMap::None;
-  {
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&content, 5u64);
-    assert_eq!(se.len(), 6u64);
-    data_map = se.close();
-  }
-  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-  let fetched = new_se.read(5u64, 1);
-  assert_eq!(fetched, content);
-  let new_data_map = new_se.close();
-  match new_data_map {
-    datamap::DataMap::Chunks(ref chunks) => {
-      assert!(chunks.len() == 3);
-    }
-    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-    datamap::DataMap::None => panic!("shall not return DataMap::None"),
-  }
-}
-
-
-#[test]
-fn check_disk_int_10000000() {
-  let content = random_string(1);
-  let mut my_storage = MyStorage::new();
-  let mut data_map = datamap::DataMap::None;
-  {
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&content, 5u64);
-    assert_eq!(se.len(), 10000005u64);
-    data_map = se.close();
-  }
-  let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-  let fetched = new_se.read(5u64, 10000000);
-  assert_eq!(fetched, content);
-  let new_data_map = new_se.close();
-  match new_data_map {
-    datamap::DataMap::Chunks(ref chunks) => {
-      assert!(chunks.len() == 3);
-    }
-    datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-    datamap::DataMap::None => panic!("shall not return DataMap::None"),
-  }
-}
 
 
