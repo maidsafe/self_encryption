@@ -25,6 +25,7 @@ extern crate rustc_back;
 pub use self_encryption::*;
 use std::path::Path;
 use std::fs::File;
+use std::io::*;
 use rustc_back::tempdir::TempDir as TempDir;
 use std::string::String as String;
 
@@ -46,22 +47,8 @@ fn data_map_content_only(){
 fn random_string(length: u64) -> String {
         (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
   }
-/// Self Enryptor integration tests
-/*#[test]
-fn check_write() {
-  let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-  se.write(&random_string(3), 5u64);
-  assert_eq!(se.len(), 8u64);
-}*/
 
 
-// pub struct MyStorage {
-//     name: Vec<u8>
-// }
-
-
-
-// pub type tempo = TempDir;
 
 pub struct MyStorage {
   temp_dir : TempDir
@@ -73,14 +60,6 @@ impl MyStorage {
         Ok(dir) => dir,
         Err(e) => panic!("couldn't create temporary directory: {}", e)
     } }
-    // //tempo = match TempDir::new("encrypt_storage");
-    // let store = match TempDir::new("encrypt_storage") {
-    //     Ok(dir) => dir,
-    //     Err(e) => panic!("couldn't create temporary directory: {}", e)
-    // };
-    
-    // MyStorage { temp_dir: store }
-    // //MyStorage { temp_dir: TempDir::new("encrypt_storage") }
   }
 }
 
@@ -98,7 +77,7 @@ impl Storage for MyStorage {
         Ok(file) => file,
     };
     let mut s = String::new();
-    //f.read_to_string(&mut s);
+    //f.read_to_string(&mut s); put f into a string
     match f.read_to_string(&mut s){
         Err(why) => panic!("couldn't read: {}", why.description()),
         Ok(_) => print!("contains:\n{}", s),
@@ -119,48 +98,6 @@ impl Storage for MyStorage {
 }
 
 
-// pub struct Entry {
-//   name: Vec<u8>,
-//   data: Vec<u8>
-// }
-
-
-// pub struct MyStorage {
-//   entries: Vec<Entry>
-// }
-
-// impl MyStorage {
-//   pub fn new() -> MyStorage {
-//     MyStorage {entries: Vec::new() }
-//   }
-// }
-
-// /// this function is defined as exceptioni free, so return empty if cannot fetch
-// impl Storage for MyStorage {
-//   fn get(&self, name: Vec<u8>) -> VEc<u8> {
-//     for entry in self.entries.iter() {
-//       if entry.name == name {
-//         return entry.data.to_vec()
-//       }
-//     }
-//     let result: Vec<u8> = Vec::new();
-//     result
-//   }
-
-//   fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-//     self.entries.push(Entry {name: name, data: data})
-//   }
-// }
-
-
-
-// impl Storage for MyStorage {
-//    //let mut name: Vec<u8> = vec![0x11];
-//    fn get(&self, name: Vec<u8>) -> Vec<u8> {
-//        name
-//        }
-//    fn put(&mut self, name: Vec<u8>, data: Vec<u8>){}
-//    }
 
 #[test]
 fn check_disk_int_5000() {
@@ -237,71 +174,3 @@ fn check_disk_int_10000000() {
 }
 
 
-
-///# Examples
-///
-///  SelfEncryptor Example
-/// ```
-/// extern crate self_encryption
-/// extern crate rand;
-/// use use self_encryption::*;
-///
-/// fn main() {
-/// fn random_string(length: u64) -> String {
-///        (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
-///  } // function to create random string
-
-/// pub struct Entry {
-/// name: Vec<u8>,
-/// data: Vec<u8>
-/// }
-/// pub struct MyStorage {
-/// entries: Vec<Entry>
-/// }
-/// impl MyStorage {
-/// pub fn new() -> MyStorage {
-/// MyStorage { entries: Vec::new() }
-/// }
-
-
-/// impl Storage for MyStorage {
-/// fn get(&self, name: Vec<u8>) -> Vec<u8> {
-/// for entry in self.entries.iter() {
-/// if entry.name == name { return entry.data.to_vec() }
-/// }
-/// let result : Vec<u8> = Vec::new();
-/// result
-/// }
-/// fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-/// self.entries.push(Entry { name : name, data : data })
-/// }
-/// }
-///
-/// let mut my_storage = MyStorage::new();
-/// let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-/// let the_string = random_string(3);
-/// se.write(&the_string, 5u64);
-/// let data_map = se.close();
-/// match data_map {
-/// datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-/// datamap::DataMap::Content(ref content) => {
-/// assert_eq!(content.len(), 8 as usize);
-/// }
-/// datamap::DataMap::None => panic!("shall not return DataMap::None"),
-/// }
-/// }
-/// ```
-
-//#[test]
-
-// fn check_read() {
-//   //let name = vec![0x11];
-//   //let mut my_storage = MyStorage{name: vec![0x11]};
-//   let mut my_storage = MyStorage::new();
-//   let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-
-//   let the_string = random_string(3);
-//     se.write(&the_string, 5u64);
-//     let to_be_read = se.read(5u64, 3);
-//     assert_eq!(to_be_read, the_string)
-//   }
