@@ -9,8 +9,6 @@ use self_encryption::*;
        (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
     } 
 
-
-
     struct Entry {
       name: Vec<u8>,
       data: Vec<u8>
@@ -39,12 +37,6 @@ use self_encryption::*;
         self.entries.push(Entry { name : name, data : data })
       }
     }
-
-
-
-
-
-
 
     let mut my_storage = MyStorage::new();
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
