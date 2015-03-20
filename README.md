@@ -30,7 +30,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [x] Docs creation
 - [x] Docs hosting (github.io)
 - [x] Windows CI set-up (ci.AppVeyor.com)
-- [ ] Read/Write file in memory based buffer
+- [x] Read/Write file in memory based buffer
 - [ ] Implement disk based interface as example
 - [ ] Full unit tests in lib.rs
 - [ ] Integrations tests in tests module
