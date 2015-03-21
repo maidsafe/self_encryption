@@ -122,7 +122,6 @@ pub struct SelfEncryptor<'a> {
   sequencer: Vec<u8>,
   tempdir : TempDir,
   file_size: u64,
-  closed: bool,
 }
 
 impl<'a> SelfEncryptor<'a> {
@@ -148,7 +147,6 @@ impl<'a> SelfEncryptor<'a> {
       sequencer: sequencer,
       tempdir: create_temp_dir(),
       file_size: file_size,
-      closed: false
     }
   }
 
@@ -160,7 +158,6 @@ impl<'a> SelfEncryptor<'a> {
   /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0)
   pub fn write(&mut self, data: &str, position: u64) {
-    if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     let new_size = cmp::max(self.file_size , data.len() as u64 + position);
     self.file_size = new_size;
     self.prepare_window(data.len() as u64, position, true);
@@ -173,7 +170,6 @@ impl<'a> SelfEncryptor<'a> {
   /// trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gapping area
   pub fn read(&mut self, position: u64, length: u64) -> &str {
-    if self.closed { panic!("Encryptor closed, you must start a new Encryptor::new()") }
     self.prepare_window(length, position, false);
 
     let raw = &self.sequencer[position as usize..(position + length) as usize];
@@ -183,97 +179,87 @@ impl<'a> SelfEncryptor<'a> {
   /// returning DataMap, which is the info required to recover encrypted content from storage.
   /// Content temporarily held in self_encryptor will only got flushed into storage when this
   /// function got called.
-  pub fn close(&mut self) -> datamap::DataMap {
-    if self.closed {
-      panic!("Encryptor closed, you must start a new Encryptor::new()")
+  pub fn close(mut self) -> datamap::DataMap {
+    if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+      let content = self.sequencer.to_vec();
+      datamap::DataMap::Content(content)
     } else {
-      if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
-        let tmp = self.sequencer.to_vec();
-        self.my_datamap = datamap::DataMap::Content(tmp.to_vec());
-        self.closed = true;
-        datamap::DataMap::Content(tmp)
-      } else {
-        // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
-        let mut tmp_chunks : Vec<datamap::ChunkDetails> = Vec::new();
-        tmp_chunks.resize(self.get_num_chunks() as usize, datamap::ChunkDetails::new());
+      // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
+      let mut tmp_chunks : Vec<datamap::ChunkDetails> = Vec::new();
+      tmp_chunks.resize(self.get_num_chunks() as usize, datamap::ChunkDetails::new());
 
-        for chunk in self.chunks.iter() {
-          if chunk.status == ChunkStatus::ToBeHashed ||
-              tmp_chunks[chunk.number as usize].pre_hash.len() == 0 || self.get_num_chunks() == 3 {
-            let this_size = self.get_chunk_size(chunk.number);
-            let pos = self.get_start_end_positions(chunk.number);
+      for chunk in self.chunks.iter() {
+        if chunk.status == ChunkStatus::ToBeHashed ||
+            tmp_chunks[chunk.number as usize].pre_hash.len() == 0 || self.get_num_chunks() == 3 {
+          let this_size = self.get_chunk_size(chunk.number);
+          let pos = self.get_start_end_positions(chunk.number);
 
-            let mut tmp : Vec<u8> = Vec::new();
-            tmp.resize(this_size as usize, 0u8);
-            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
-            // assert(tmp.len() == this_size && "vector diff size from chunk size");
+          let mut tmp : Vec<u8> = Vec::new();
+          tmp.resize(this_size as usize, 0u8);
+          for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+          // assert(tmp.len() == this_size && "vector diff size from chunk size");
 
-            let mut tmp2 : Vec<u8> = Vec::new();
-            tmp2.resize(128, 0u8);
-            let mut hash = Sha512::new();
-            hash.input(tmp.as_mut_slice());
-            hash.result(tmp2.as_mut_slice());
-            {
-              tmp_chunks[chunk.number as usize].pre_hash.clear();
-              tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
-              tmp_chunks[chunk.number as usize].source_size = this_size as u64;
-              tmp_chunks[chunk.number as usize].chunk_num = chunk.number;
-             // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
-            }
+          let mut tmp2 : Vec<u8> = Vec::new();
+          tmp2.resize(128, 0u8);
+          let mut hash = Sha512::new();
+          hash.input(tmp.as_mut_slice());
+          hash.result(tmp2.as_mut_slice());
+          {
+            tmp_chunks[chunk.number as usize].pre_hash.clear();
+            tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
+            tmp_chunks[chunk.number as usize].source_size = this_size as u64;
+            tmp_chunks[chunk.number as usize].chunk_num = chunk.number;
+           // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
           }
         }
-        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
-        for chunk in self.chunks.iter_mut() {
-          if chunk.status == ChunkStatus::ToBeHashed {
-            chunk.status = ChunkStatus::ToBeEncrypted;
-          }
-        }
-        for chunk in self.chunks.iter() {
-          if chunk.status == ChunkStatus::ToBeEncrypted {
-            let this_size = self.get_chunk_size(chunk.number);
-            let pos = self.get_start_end_positions(chunk.number);
-
-            let mut tmp : Vec<u8> = Vec::new();
-            tmp.resize(this_size as usize, 0u8);
-            for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
-            let content = self.encrypt_chunk(chunk.number, tmp);
-            let mut name : Vec<u8> = Vec::new();
-            name.resize(128, 0u8);
-            let mut hash = Sha512::new();
-            hash.input(&content);
-            hash.result(name.as_mut_slice());
-            self.storage.put(name.to_vec(), content);
-            tmp_chunks[chunk.number as usize].hash = name;
-          }
-        }
-        for chunk in self.chunks.iter_mut() {
-          if chunk.status == ChunkStatus::ToBeEncrypted {
-            chunk.status = ChunkStatus::AlreadyEncrypted;
-          }
-        }
-        self.closed = true;
-        self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
-        datamap::DataMap::Chunks(tmp_chunks)
       }
+      self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
+      for chunk in self.chunks.iter_mut() {
+        if chunk.status == ChunkStatus::ToBeHashed {
+          chunk.status = ChunkStatus::ToBeEncrypted;
+        }
+      }
+      for chunk in self.chunks.iter() {
+        if chunk.status == ChunkStatus::ToBeEncrypted {
+          let this_size = self.get_chunk_size(chunk.number);
+          let pos = self.get_start_end_positions(chunk.number);
+
+          let mut tmp : Vec<u8> = Vec::new();
+          tmp.resize(this_size as usize, 0u8);
+          for i in 0..this_size { tmp[i as usize] = self.sequencer[(i + pos.0 as u32) as usize].clone(); }
+          let content = self.encrypt_chunk(chunk.number, tmp);
+          let mut name : Vec<u8> = Vec::new();
+          name.resize(128, 0u8);
+          let mut hash = Sha512::new();
+          hash.input(&content);
+          hash.result(name.as_mut_slice());
+          self.storage.put(name.to_vec(), content);
+          tmp_chunks[chunk.number as usize].hash = name;
+        }
+      }
+      for chunk in self.chunks.iter_mut() {
+        if chunk.status == ChunkStatus::ToBeEncrypted {
+          chunk.status = ChunkStatus::AlreadyEncrypted;
+        }
+      }
+
+      datamap::DataMap::Chunks(tmp_chunks)
     }
   }
 
   /// truncate the self_encryptor to the specified size (if extend, filled with 0u8)
   pub fn truncate(&mut self, position: u64) -> bool {
-    if self.closed {
-      panic!("Encryptor closed, you must start a new Encryptor::new()")
+    let old_size = self.file_size;
+    self.file_size = position;  //  All helper methods calculate from file size
+    if position < old_size {
+      self.sequencer.resize(position as usize, 0u8);
+      let last_chunk = self.get_chunk_number(position) + 1;
+      self.chunks.truncate(last_chunk as usize);
     } else {
-      let old_size = self.file_size;
-      self.file_size = position;  //  All helper methods calculate from file size
-      if position < old_size {
-        self.sequencer.resize(position as usize, 0u8);
-        let last_chunk = self.get_chunk_number(position) + 1;
-        self.chunks.truncate(last_chunk as usize);
-      } else {
-        // assert(position - old_size < std::numeric_limits<size_t>::max());
-        self.prepare_window((position - old_size), old_size, true);
-      }
+      // assert(position - old_size < std::numeric_limits<size_t>::max());
+      self.prepare_window((position - old_size), old_size, true);
     }
+
     true
   }
 
