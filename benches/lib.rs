@@ -31,9 +31,6 @@ use self_encryption::SelfEncryptor;
 use self_encryption::Storage;
 use self_encryption::datamap::DataMap as DataMap;
 
-/// BENCH_MAX_FILE_MAGN benchmarks file sizes up to order (1024)^7 bytes 
-pub const BENCH_MAX_FILE_MAGN: u32 = 7;
-
 //TODO(ben 2015-03-24): replace copy from src/lib.rs mod test to properly import and reuse
 fn random_string(length: u64) -> String {
   (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
