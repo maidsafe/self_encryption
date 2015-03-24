@@ -105,7 +105,7 @@ struct Chunks {
 pub trait Storage {
   // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
   //        fetched requested content. Instead, the current implementation return empty Vec
-  /// Fetc hthe data bearing the name
+  /// Fetch the data bearing the name
   fn get(&self, name: Vec<u8>) -> Vec<u8>;
 
   /// Insert the data bearing the name
