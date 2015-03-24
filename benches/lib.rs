@@ -21,7 +21,7 @@
 #![allow(non_snake_case)]
 
 #![feature(test)]
-#![allow(dead_code)]
+#![allow(dead_code, unused_assignments)]
 extern crate test;
 extern crate rand;
 extern crate self_encryption;
@@ -171,7 +171,8 @@ fn bench_write_then_read_e_10MB(b: &mut Bencher) {
   b.bytes = 2 * string_len;
 }
 
-/*#[bench]
+/*  The assert fails !!
+#[bench]
 fn bench_write_then_read_range(b: &mut Bencher) {
   let mut my_storage = MyStorage::new();
   let string_range = vec![     512 * 1024,
