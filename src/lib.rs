@@ -105,7 +105,7 @@ struct Chunks {
 pub trait Storage {
   // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
   //        fetched requested content. Instead, the current implementation return empty Vec
-  /// Fetct the data bearing the name
+  /// Fetch the data bearing the name
   fn get(&self, name: Vec<u8>) -> Vec<u8>;
 
   /// Insert the data bearing the name
@@ -154,7 +154,7 @@ impl<'a> SelfEncryptor<'a> {
   pub fn get_storage(&'a mut self) -> &'a mut Storage { self.storage }
 
   /// Write method mirrors a posix type write mechanism
-  /// loosly mimics filsystem interface for easy connection to FUSE like
+  /// loosely mimics filsystem interface for easy connection to FUSE like
   /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0)
   pub fn write(&mut self, data: &str, position: u64) {
@@ -177,7 +177,7 @@ impl<'a> SelfEncryptor<'a> {
   }
 
   /// returning DataMap, which is the info required to recover encrypted content from storage.
-  /// Content temporarily held in self_encryptor will only got flushed into storage when this
+  /// Content temporarily held in self_encryptor will only get flushed into storage when this
   /// function got called.
   pub fn close(mut self) -> datamap::DataMap {
     if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
@@ -432,6 +432,7 @@ impl<'a> SelfEncryptor<'a> {
 #[cfg(test)]
 #[allow(dead_code, unused_variables, unused_assignments)]
 mod test {
+
   use super::*;
 
   fn random_string(length: u64) -> String {
