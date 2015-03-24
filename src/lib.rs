@@ -981,6 +981,57 @@ mod test {
     }
   }
 
+    fn check_5_and_extend_to_7_plus_one() {
+    let mut my_storage = MyStorage::new();
+    let mut data_map = datamap::DataMap::None;
+    let string_len = (MAX_CHUNK_SIZE as u64 * 5);
+    let the_string = random_string(string_len);
+    {
+      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      se.write(&the_string, 0);
+      se.truncate((7*MAX_CHUNK_SIZE + 1) as u64);
+      assert_eq!(se.get_num_chunks(), 8);
+      // check close
+      data_map = se.close();
+    }
+    match data_map {
+      datamap::DataMap::Chunks(ref chunks) => {
+        assert_eq!(chunks.len(), 8);
+        assert_eq!(my_storage.entries.len(), 8);
+        for chunk_detail in chunks.iter() {
+          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+        }
+      }
+      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+      datamap::DataMap::None => panic!("shall not return DataMap::None"),
+    }
+  }
+
+    fn check_10_plus_one_and_extend_to_11() {
+    let mut my_storage = MyStorage::new();
+    let mut data_map = datamap::DataMap::None;
+    let string_len = (MAX_CHUNK_SIZE as u64 * 10) + 1;
+    let the_string = random_string(string_len);
+    {
+      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      se.write(&the_string, 0);
+      se.truncate((10*MAX_CHUNK_SIZE + 1023) as u64);
+      assert_eq!(se.get_num_chunks(), 11);
+      // check close
+      data_map = se.close();
+    }
+    match data_map {
+      datamap::DataMap::Chunks(ref chunks) => {
+        assert_eq!(chunks.len(), 11);
+        assert_eq!(my_storage.entries.len(), 11);
+        for chunk_detail in chunks.iter() {
+          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+        }
+      }
+      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+      datamap::DataMap::None => panic!("shall not return DataMap::None"),
+    }
+  }
 
 
 }
