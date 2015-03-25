@@ -770,10 +770,11 @@ mod test {
   }
 
   #[test]
-  fn check_large_file_size_over_50_chunks() {
+  fn check_large_file_size_over_11_chunks() {
+    // has been tested for 50 chunks
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let number_of_chunks = 50 as u32;
+    let number_of_chunks = 11 as u32;
     let string_len = (MAX_CHUNK_SIZE as u64 * number_of_chunks as u64) + 1024;
     let the_string = random_string(string_len);
     {
