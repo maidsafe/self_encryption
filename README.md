@@ -35,7 +35,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [ ] Implement disk based interface as example
 - [ ] Full unit tests in lib.rs
 - [ ] Integrations tests in tests module
-- [ ] Benchmark tests for varying file sizes from 1 byte to 10 M/b
+- [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
