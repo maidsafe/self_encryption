@@ -16,6 +16,7 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe
 // Software.
+//http://is.gd/mKdopK
 
 #![allow(dead_code, unused_variables)]
 
@@ -96,33 +97,49 @@ impl Storage for MyStorage {
 
 
 #[test]
-  fn check_diskk(){
-  let mut vec = vec![200, 200, 20];
+fn check_disk(){
+  let mut vec = vec![200];
   for x in vec.iter() {  
       let content = random_string(*x);
+      
       let mut my_storage = MyStorage::new();
       let mut data_map = datamap::DataMap::None;
       {
         let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
         se.write(&content, 5u64);
         let to_compare = *x+5;
-        //assert_eq!(se.len(), to_compare as u64);
+        assert_eq!(se.len(), to_compare as u64);
         data_map = se.close();
       }
     
         let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
      {
-        let fetched = new_se.read(5u64, 1);    
+        let fetched = new_se.read(5u64, *x);    
         assert_eq!(fetched, content);
       }
         let new_data_map = new_se.close();
-        match new_data_map {
-        datamap::DataMap::Chunks(ref chunks) => {
-          assert!(chunks.len() == 3);
-        }
-        datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-        datamap::DataMap::None => panic!("shall not return DataMap::None"),
-      }
+        if (*x < (MIN_CHUNK_SIZE as u64)) { 
 
-    }
-  }
+          match new_data_map {
+            datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+            datamap::DataMap::Content(ref content) => {
+            assert_eq!(content.len(), (*x+5) as usize);
+            }
+            datamap::DataMap::None => panic!("shall not return DataMap::None"),
+          }
+        }
+          else {  
+              match new_data_map {
+                datamap::DataMap::Chunks(ref chunks) => {
+                assert!(chunks.len() == 3);
+              }
+                datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+                datamap::DataMap::None => panic!("shall not return DataMap::None"),
+            }
+          }        
+      }
+}    
+
+   
+    
+  
