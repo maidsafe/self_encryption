@@ -98,7 +98,7 @@ impl Storage for MyStorage {
 
 #[test]
 fn check_disk(){
-  let mut vec = vec![200];
+  let mut vec = vec![300];
   for x in vec.iter() {  
       let content = random_string(*x);
       
