@@ -22,12 +22,12 @@
 
 extern crate self_encryption;
 extern crate rand;
-extern crate rustc_back;
+extern crate tempdir;
 pub use self_encryption::*;
 use std::path::Path;
 use std::fs::File;
 use std::io::*;
-use rustc_back::tempdir::TempDir as TempDir;
+use tempdir::TempDir as TempDir;
 use std::string::String as String;
 use std::vec::Vec as Vec;
 
