@@ -43,6 +43,7 @@ use std::cmp;
 use std::num::Float as Float;
 use std::f32;
 use std::str;
+use std::slice::bytes;
 use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
@@ -160,23 +161,32 @@ impl<'a> SelfEncryptor<'a> {
   /// It losely mimics a filesystem interface for easy connection to FUSE like
   /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0).
-  pub fn write(&mut self, data: &str, position: u64) {
+  pub fn write(&mut self, data: &Vec<u8>, position: u64) {
     let new_size = cmp::max(self.file_size , data.len() as u64 + position);
     self.file_size = new_size;
     self.prepare_window(data.len() as u64, position, true);
     for i in 0..data.len() {
-      self.sequencer[position as usize + i] = data.as_bytes()[i];
+      self.sequencer[position as usize + i] = data[i];
     }
   }
 
   /// The returned content is read from the specified position with specified length.
   /// Trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gaping area.
-  pub fn read(&mut self, position: u64, length: u64) -> &str {
+  pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
     self.prepare_window(length, position, false);
 
-    let raw = &self.sequencer[position as usize..(position + length) as usize];
-    str::from_utf8(raw).unwrap()
+    let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
+    //read_vec.iter().zip(self.sequencer.iter().skip(
+    //  position as usize).take(length as usize)).from
+    for i in self.sequencer.iter().skip(
+        position as usize).take(length as usize) {
+      read_vec.push(i.clone());
+    }
+    read_vec
+  //  bytes::copy_memory(read_vec.as_slice(), &self.sequencer[position as usize..(position+length)as usize]);
+  //  
+  //  self.sequencer.iter().skip(position as usize).take(length as usize).map()
   }
 
   /// This function returns a DataMap, which is the info required to recover encrypted content from storage.
@@ -444,8 +454,8 @@ impl<'a> SelfEncryptor<'a> {
 mod test {
   use super::*;
 
-  fn random_string(length: u64) -> String {
-        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
+  fn random_string(length: u64) -> Vec<u8> {
+        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8)).collect()
   }
 
   pub struct Entry {
