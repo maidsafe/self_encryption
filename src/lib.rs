@@ -781,8 +781,6 @@ mod test {
     assert_eq!(fetched, the_bytes);
   }
 
-  
-
   #[test]
   fn check_large_file_size_over_11_chunks() {
     // has been tested for 50 chunks
@@ -833,61 +831,6 @@ mod test {
   }
 
   #[test]
-  fn check_10_and_truncate_to_5() {
-    let mut my_storage = MyStorage::new();
-    let mut data_map = datamap::DataMap::None;
-    let bytes_len = (MAX_CHUNK_SIZE as u64 * 10);
-    let the_bytes = random_bytes(bytes_len as usize);
-    {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_bytes, 0);
-      se.truncate(5*MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_num_chunks(), 5);
-      // check close
-      data_map = se.close();
-    }
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => {
-        assert_eq!(chunks.len(), 5);
-        assert_eq!(my_storage.entries.len(), 5);
-        for chunk_detail in chunks.iter() {
-          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
-        }
-      }
-      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-  }
-
-  #[test]
-  fn check_20_and_truncate_to_11() {
-    let mut my_storage = MyStorage::new();
-    let mut data_map = datamap::DataMap::None;
-    let bytes_len = (MAX_CHUNK_SIZE as u64 * 20);
-    let the_bytes = random_bytes(bytes_len as usize);
-    {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_bytes, 0);
-      se.truncate(11*MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_num_chunks(), 11);
-      // check close
-      data_map = se.close();
-    }
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => {
-        assert_eq!(chunks.len(), 11);
-        assert_eq!(my_storage.entries.len(), 11);
-        for chunk_detail in chunks.iter() {
-          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
-        }
-      }
-      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-  }
-
-
-  #[test]
   fn check_5_and_extend_to_7_plus_one() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
@@ -914,7 +857,7 @@ mod test {
     }
   }
 
-    #[test]
+  #[test]
   fn check_10_plus_one_and_extend_to_11() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
