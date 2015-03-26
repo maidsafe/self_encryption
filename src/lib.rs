@@ -43,7 +43,6 @@ use std::cmp;
 use std::num::Float as Float;
 use std::f32;
 use std::str;
-use std::slice::bytes;
 use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
