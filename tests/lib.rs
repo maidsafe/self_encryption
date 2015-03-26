@@ -46,7 +46,7 @@ fn data_map_content_only(){
   assert!(dm.has_chunks() == false);
 }
 
-fn random_string(length: u64) -> Vec<u8> {
+fn random_bytes(length: u64) -> Vec<u8> {
   (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as u8).collect()
 }
 
@@ -97,7 +97,7 @@ impl Storage for MyStorage {
 fn check_disk(){
   let mut vec = vec![300];
   for x in vec.iter() {  
-    let content = random_string(*x);
+    let content = random_bytes(*x);
     
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
