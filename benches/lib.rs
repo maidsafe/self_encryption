@@ -33,8 +33,12 @@ use self_encryption::datamap::DataMap as DataMap;
 
 //TODO(ben 2015-03-24): replace copy from src/lib.rs mod test to properly import and reuse
 
-fn random_bytes(length: u64) -> Vec<u8> {
-  (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as u8).collect()
+fn random_bytes(length: usize) -> Vec<u8> {
+  let mut bytes : Vec<u8> = Vec::with_capacity(length as usize);
+  for _ in (0..length) {
+    bytes.push(rand::random::<u8>());
+  }
+  bytes
 }
 
 struct Entry {
@@ -80,7 +84,7 @@ fn bench_write_then_read_a_200B(b: &mut Bencher) {
   let bytes_len = 200 as u64;
   b.iter(|| {
   	let mut data_map = DataMap::None;
-  	let the_bytes = random_bytes(bytes_len);
+  	let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
       se.write(&the_bytes, 0);
@@ -99,7 +103,7 @@ fn bench_write_then_read_b_1KB(b: &mut Bencher) {
   let bytes_len = 1024 as u64;
   b.iter(|| {
   	let mut data_map = DataMap::None;
-  	let the_bytes = random_bytes(bytes_len);
+  	let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
       se.write(&the_bytes, 0);
@@ -118,7 +122,7 @@ fn bench_write_then_read_c_1MB(b: &mut Bencher) {
   let bytes_len = 1024 * 1024 as u64;
   b.iter(|| {
   	let mut data_map = DataMap::None;
-  	let the_bytes = random_bytes(bytes_len);
+  	let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
       se.write(&the_bytes, 0);
@@ -137,7 +141,7 @@ fn bench_write_then_read_d_3MB(b: &mut Bencher) {
   let bytes_len = 3 * 1024 * 1024 as u64;
   b.iter(|| {
   	let mut data_map = DataMap::None;
-  	let the_bytes = random_bytes(bytes_len);
+  	let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
       se.write(&the_bytes, 0);
@@ -156,7 +160,7 @@ fn bench_write_then_read_e_10MB(b: &mut Bencher) {
   let bytes_len = 10 * 1024 * 1024 as u64;
   b.iter(|| {
   	let mut data_map = DataMap::None;
-  	let the_bytes = random_bytes(bytes_len);
+  	let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
       se.write(&the_bytes, 0);
@@ -183,7 +187,7 @@ fn bench_write_then_read_range(b: &mut Bencher) {
   for bytes_len in string_range {
     b.iter(|| {
   	  let mut data_map = DataMap::None;
-      let the_bytes = random_bytes(bytes_len);
+      let the_bytes = random_bytes(bytes_len as usize);
       {
         let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
         se.write(&the_bytes, 0);

@@ -46,8 +46,12 @@ fn data_map_content_only(){
   assert!(dm.has_chunks() == false);
 }
 
-fn random_bytes(length: u64) -> Vec<u8> {
-  (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as u8).collect()
+fn random_bytes(length: usize) -> Vec<u8> {
+  let mut bytes : Vec<u8> = Vec::with_capacity(length);
+  for _ in (0..length) {
+    bytes.push(rand::random::<u8>());
+  }
+  bytes
 }
 
 pub struct MyStorage {
@@ -95,7 +99,7 @@ impl Storage for MyStorage {
 
 #[test]
 fn check_disk(){
-  let mut vec = vec![300];
+  let mut vec = vec![300 as usize];
   for x in vec.iter() {  
     let content = random_bytes(*x);
     
@@ -111,11 +115,11 @@ fn check_disk(){
   
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
     {
-      let fetched = new_se.read(5u64, *x);    
+      let fetched = new_se.read(5u64, *x as u64);    
       assert_eq!(fetched, content);
     }
     let new_data_map = new_se.close();
-    if (*x < (MIN_CHUNK_SIZE as u64)) { 
+    if (*x < (MIN_CHUNK_SIZE as usize)) { 
 
       match new_data_map {
         datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
