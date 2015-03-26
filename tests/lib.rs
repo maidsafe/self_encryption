@@ -31,7 +31,6 @@ use tempdir::TempDir as TempDir;
 use std::string::String as String;
 use std::vec::Vec as Vec;
 
-
 /// DataMap integration tests/ Disk Interface test
 #[test]
 fn data_map_empty(){
@@ -100,31 +99,31 @@ impl Storage for MyStorage {
 #[test]
 fn check_disk(){
   let mut vec = vec![300 as usize];
-  for x in vec.iter() {  
-    let content = random_bytes(*x);
+  for x in vec {  
+    let content = random_bytes(x);
     
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&content, 5u64);
-      let to_compare = *x+5;
+      let to_compare = x+5;
       assert_eq!(se.len(), to_compare as u64);
       data_map = se.close();
     }
   
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
     {
-      let fetched = new_se.read(5u64, *x as u64);    
+      let fetched = new_se.read(5u64, x as u64);    
       assert_eq!(fetched, content);
     }
     let new_data_map = new_se.close();
-    if (*x < (MIN_CHUNK_SIZE as usize)) { 
+    if (x < (MIN_CHUNK_SIZE as usize)) { 
 
       match new_data_map {
         datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
         datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (*x+5) as usize);
+        assert_eq!(content.len(), (x+5) as usize);
         }
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
       }

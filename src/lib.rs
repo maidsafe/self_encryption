@@ -842,7 +842,7 @@ mod test {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       se.truncate(5*MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_num_chunks(), 6);
+      assert_eq!(se.get_num_chunks(), 5);
       // check close
       data_map = se.close();
     }
@@ -915,7 +915,7 @@ mod test {
   }
 
     #[test]
-    fn check_10_plus_one_and_extend_to_11() {
+  fn check_10_plus_one_and_extend_to_11() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 10) + 1;
@@ -967,5 +967,4 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
   }
-
 }
