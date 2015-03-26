@@ -43,7 +43,6 @@ use std::cmp;
 use std::num::Float as Float;
 use std::f32;
 use std::str;
-use std::slice::bytes;
 use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
@@ -450,7 +449,11 @@ mod test {
   use super::*;
 
   fn random_bytes(length: u64) -> Vec<u8> {
-        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8)).collect()
+    let mut bytes : Vec<u8> = Vec::with_capacity(length as usize);
+    for _ in (0..length) {
+      bytes.push(super::rand::random::<u8>());
+    }
+    bytes
   }
 
   pub struct Entry {
@@ -502,46 +505,16 @@ mod test {
     assert_eq!(data, xor(&xor(&data,&pad), &pad));
   }
 
-
-
   #[test]
-  fn check_write_and_read() {
+  fn check_write() {
     let mut my_storage = MyStorage::new();
-    let size = 3 as u64;
-    let the_bytes = random_bytes(size);
-    let mut data_map = datamap::DataMap::None;
-  {  
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&the_bytes, 5u64);
-    assert_eq!(se.file_size, (size + 5) as u64);
-    data_map = se.close();
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-      datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (size + 5) as usize);
-      }
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    } 
-  }
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-  {
-    let fetched = new_se.read(5u64, size);
-    // check datas match
-    assert_eq!(fetched, the_bytes);
-  }
-    
-    let new_data_map = new_se.close();
-    match new_data_map {
-      datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-      datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (size + 5) as usize);
-      }
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-    
+    let size = 3u64;
+    let offset = 5u64;
+    let the_bytes = random_bytes(size);
+    se.write(&the_bytes, offset);
+    assert_eq!(se.file_size, (size + offset) as u64);  
   }  
-
-
 
   #[test]
   fn check_3_min_chunks_minus1() {
@@ -573,7 +546,6 @@ mod test {
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
-
 
   #[test]
   fn check_3_min_chunks() {

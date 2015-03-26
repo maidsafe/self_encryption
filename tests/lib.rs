@@ -47,7 +47,11 @@ fn data_map_content_only(){
 }
 
 fn random_bytes(length: u64) -> Vec<u8> {
-  (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as u8).collect()
+  let mut bytes : Vec<u8> = Vec::with_capacity(length as usize);
+  for _ in (0..length) {
+    bytes.push(rand::random::<u8>());
+  }
+  bytes
 }
 
 pub struct MyStorage {
@@ -135,4 +139,3 @@ fn check_disk(){
     }        
   }
 }
- 
