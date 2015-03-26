@@ -39,7 +39,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [ ] API stable version 0.1.0
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
-    - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk
+    - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
     - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
     - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
