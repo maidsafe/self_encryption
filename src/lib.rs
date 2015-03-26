@@ -160,7 +160,7 @@ impl<'a> SelfEncryptor<'a> {
   /// It losely mimics a filesystem interface for easy connection to FUSE like
   /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0).
-  pub fn write(&mut self, data: &Vec<u8>, position: u64) {
+  pub fn write(&mut self, data: &[u8], position: u64) {
     let new_size = cmp::max(self.file_size , data.len() as u64 + position);
     self.file_size = new_size;
     self.prepare_window(data.len() as u64, position, true);
@@ -172,15 +172,16 @@ impl<'a> SelfEncryptor<'a> {
   /// The returned content is read from the specified position with specified length.
   /// Trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gaping area.
-  pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
+  pub fn read(&mut self, position: u64, length: u64) -> &[u8] {
     self.prepare_window(length, position, false);
 
-    let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
-    for i in self.sequencer.iter().skip(
-        position as usize).take(length as usize) {
-      read_vec.push(i.clone());
-    }
-    read_vec
+    // let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
+    // for i in self.sequencer.iter().skip(
+    //     position as usize).take(length as usize) {
+    //   read_vec.push(i.clone());
+    // }
+    // read_vec
+    &self.sequencer[position as usize..(position+length) as usize]
   }
 
   /// This function returns a DataMap, which is the info required to recover encrypted content from storage.
@@ -448,8 +449,8 @@ impl<'a> SelfEncryptor<'a> {
 mod test {
   use super::*;
 
-  fn random_bytes(length: u64) -> Vec<u8> {
-    let mut bytes : Vec<u8> = Vec::with_capacity(length as usize);
+  fn random_bytes(length: usize) -> Vec<u8> {
+    let mut bytes : Vec<u8> = Vec::with_capacity(length);
     for _ in (0..length) {
       bytes.push(super::rand::random::<u8>());
     }
@@ -511,7 +512,7 @@ mod test {
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
     let size = 3u64;
     let offset = 5u64;
-    let the_bytes = random_bytes(size);
+    let the_bytes = random_bytes(size as usize);
     se.write(&the_bytes, offset);
     assert_eq!(se.file_size, (size + offset) as u64);  
   }  
@@ -521,7 +522,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -551,7 +552,7 @@ mod test {
   fn check_3_min_chunks() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let the_bytes = random_bytes(MIN_CHUNK_SIZE as u64 * 3);
+    let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -597,7 +598,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -642,7 +643,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -687,7 +688,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -735,7 +736,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -785,7 +786,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 10) + 1024;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -840,7 +841,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 10);
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -868,7 +869,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 20);
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -896,7 +897,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 5);
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -923,7 +924,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 10) + 1;
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
@@ -950,7 +951,7 @@ mod test {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 30);
-    let the_bytes = random_bytes(bytes_len);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
