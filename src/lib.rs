@@ -160,23 +160,28 @@ impl<'a> SelfEncryptor<'a> {
   /// It losely mimics a filesystem interface for easy connection to FUSE like
   /// programs as well as fine grained access to system level libraries for developers.
   /// The input data will be written from the specified position (starts from 0).
-  pub fn write(&mut self, data: &str, position: u64) {
+  pub fn write(&mut self, data: &[u8], position: u64) {
     let new_size = cmp::max(self.file_size , data.len() as u64 + position);
     self.file_size = new_size;
     self.prepare_window(data.len() as u64, position, true);
     for i in 0..data.len() {
-      self.sequencer[position as usize + i] = data.as_bytes()[i];
+      self.sequencer[position as usize + i] = data[i];
     }
   }
 
   /// The returned content is read from the specified position with specified length.
   /// Trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gaping area.
-  pub fn read(&mut self, position: u64, length: u64) -> &str {
+  pub fn read(&mut self, position: u64, length: u64) -> &[u8] {
     self.prepare_window(length, position, false);
 
-    let raw = &self.sequencer[position as usize..(position + length) as usize];
-    str::from_utf8(raw).unwrap()
+    // let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
+    // for i in self.sequencer.iter().skip(
+    //     position as usize).take(length as usize) {
+    //   read_vec.push(i.clone());
+    // }
+    // read_vec
+    &self.sequencer[position as usize..(position+length) as usize]
   }
 
   /// This function returns a DataMap, which is the info required to recover encrypted content from storage.
@@ -444,8 +449,12 @@ impl<'a> SelfEncryptor<'a> {
 mod test {
   use super::*;
 
-  fn random_string(length: u64) -> String {
-        (0..length).map(|_| (0x20u8 + (super::rand::random::<f32>() * 96.0) as u8) as char).collect()
+  fn random_bytes(length: usize) -> Vec<u8> {
+    let mut bytes : Vec<u8> = Vec::with_capacity(length);
+    for _ in (0..length) {
+      bytes.push(super::rand::random::<u8>());
+    }
+    bytes
   }
 
   pub struct Entry {
@@ -497,59 +506,29 @@ mod test {
     assert_eq!(data, xor(&xor(&data,&pad), &pad));
   }
 
-
-
   #[test]
-  fn check_write_and_read() {
+  fn check_write() {
     let mut my_storage = MyStorage::new();
-    let size = 3 as u64;
-    let the_string = random_string(size);
-    let mut data_map = datamap::DataMap::None;
-  {  
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&the_string, 5u64);
-    assert_eq!(se.file_size, (size + 5) as u64);
-    data_map = se.close();
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-      datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (size + 5) as usize);
-      }
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    } 
-  }
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-  {
-    let fetched = new_se.read(5u64, size);
-    // check datas match
-    assert_eq!(fetched, the_string);
-  }
-    
-    let new_data_map = new_se.close();
-    match new_data_map {
-      datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-      datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (size + 5) as usize);
-      }
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-    
+    let size = 3u64;
+    let offset = 5u64;
+    let the_bytes = random_bytes(size as usize);
+    se.write(&the_bytes, offset);
+    assert_eq!(se.file_size, (size + offset) as u64);  
   }  
-
-
 
   #[test]
   fn check_3_min_chunks_minus1() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
-    let the_string = random_string(string_len);
+    let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 0);
       assert_eq!(se.chunks.len(), 0);
-      assert_eq!(se.sequencer.len(), string_len as usize);
+      assert_eq!(se.sequencer.len(), bytes_len as usize);
       match se.my_datamap {
         datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
         datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
@@ -560,24 +539,23 @@ mod test {
     }
     match data_map {
       datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-      datamap::DataMap::Content(ref content) => { assert_eq!(content.len(), string_len as usize); }
+      datamap::DataMap::Content(ref content) => { assert_eq!(content.len(), bytes_len as usize); }
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len);
+    assert_eq!(fetched, the_bytes);
   }
-
 
   #[test]
   fn check_3_min_chunks() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let the_string = random_string(MIN_CHUNK_SIZE as u64 * 3);
+    let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       // check helper functions
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), 1024);
@@ -612,18 +590,18 @@ mod test {
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
     let fetched = new_se.read(0, MIN_CHUNK_SIZE as u64 * 3);
-    assert_eq!(fetched, the_string);
+    assert_eq!(fetched, the_bytes);
   }
 
   #[test]
   fn check_3_min_chunks_plus1() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
-    let the_string = random_string(string_len);
+    let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), 1024);
       assert_eq!(se.get_chunk_size(1), 1024);
@@ -656,19 +634,19 @@ mod test {
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len);
+    assert_eq!(fetched, the_bytes);
   }
 
   #[test]
   fn check_3_max_chunks() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = MAX_CHUNK_SIZE as u64 * 3;
-    let the_string = random_string(string_len);
+    let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
@@ -701,19 +679,19 @@ mod test {
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len);
+    assert_eq!(fetched, the_bytes);
   }
 
   #[test]
   fn check_3_max_chunks_plus1() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
-    let the_string = random_string(string_len);
+    let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 4);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
@@ -749,19 +727,19 @@ mod test {
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len);
+    assert_eq!(fetched, the_bytes);
   }
 
   #[test]
   fn check_7_and_a_bit_max_chunks() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
-    let the_string = random_string(string_len);
+    let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 8);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
@@ -799,51 +777,46 @@ mod test {
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len);
+    assert_eq!(fetched, the_bytes);
   }
 
   #[test]
-  fn check_10_and_a_bit_max_chunks() {
+  fn check_large_file_size_over_11_chunks() {
+    // has been tested for 50 chunks
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 10) + 1024;
-    let the_string = random_string(string_len);
+    let number_of_chunks = 11 as u32;
+    let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
+    let the_bytes = random_bytes(bytes_len);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
-      assert_eq!(se.get_num_chunks(), 11);
-      assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(7), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(8), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(9), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_chunk_size(6), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(7), 8);
-      assert_eq!(se.get_next_chunk_number(8), 9);
-      assert_eq!(se.get_next_chunk_number(9), 10);
-      assert_eq!(se.get_next_chunk_number(10), 0);
-      assert_eq!(se.get_previous_chunk_number(3), 2);
-      assert_eq!(se.get_previous_chunk_number(6), 5);
-      assert_eq!(se.get_previous_chunk_number(5), 4);
-      assert_eq!(se.get_previous_chunk_number(4), 3);
-      assert_eq!(se.get_start_end_positions(0).0, 0u64);
-      assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(4).1, 5 * MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(5).1, 6 * MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(6).0, 6 * MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(9).0, 9 * MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_start_end_positions(10).1, ((10 * MAX_CHUNK_SIZE) as u64 + 1024));
+      se.write(&the_bytes, 0);
+      assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
+      for i in 0u32..number_of_chunks {
+        // preceding and next index, wrapped around
+        let h = (i + number_of_chunks)%(number_of_chunks + 1) as u32;
+        let j = (i + 1)%(number_of_chunks + 1) as u32;
+        assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
+        assert_eq!(se.get_next_chunk_number(i), j);
+        assert_eq!(se.get_previous_chunk_number(i), h);
+        assert_eq!(se.get_start_end_positions(i).0, i as u64 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(se.get_start_end_positions(i).1, j as u64 * MAX_CHUNK_SIZE as u64);
+      }
+      assert_eq!(se.get_chunk_size(number_of_chunks), MIN_CHUNK_SIZE);
+      assert_eq!(se.get_next_chunk_number(number_of_chunks), 0);
+      assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+      assert_eq!(se.get_start_end_positions(number_of_chunks).0,
+      number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
+      assert_eq!(se.get_start_end_positions(number_of_chunks).1,
+      ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
       // check close
       data_map = se.close();
     }
     match data_map {
       datamap::DataMap::Chunks(ref chunks) => {
-        assert_eq!(chunks.len(), 11);
-        assert_eq!(my_storage.entries.len(), 11);
+        assert_eq!(chunks.len(), number_of_chunks as usize + 1);
+        assert_eq!(my_storage.entries.len(), number_of_chunks as usize + 1);
         for chunk_detail in chunks.iter() {
           assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
         }
@@ -853,76 +826,19 @@ mod test {
     }
     // check read, write
     let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    let fetched = new_se.read(0, string_len);
-    assert_eq!(fetched, the_string);
+    let fetched = new_se.read(0, bytes_len as u64);
+    assert_eq!(fetched, the_bytes);
   }
-
 
   #[test]
-  fn check_10_and_truncate_to_5() {
+  fn check_5_and_extend_to_7_plus_one() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 10);
-    let the_string = random_string(string_len);
-    {
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
-      se.truncate(5*MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_num_chunks(), 5);
-      // check close
-      data_map = se.close();
-      }
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => {
-        assert_eq!(chunks.len(), 5);
-        assert_eq!(my_storage.entries.len(), 5);
-        for chunk_detail in chunks.iter() {
-          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
-        }
-      }
-      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-  }
-
-
-  #[test]
-  fn check_20_and_truncate_to_11() {
-    let mut my_storage = MyStorage::new();
-    let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 20);
-    let the_string = random_string(string_len);
+    let bytes_len = (MAX_CHUNK_SIZE as u64 * 5);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
-      se.truncate(11*MAX_CHUNK_SIZE as u64);
-      assert_eq!(se.get_num_chunks(), 11);
-      // check close
-      data_map = se.close();
-    }
-    match data_map {
-      datamap::DataMap::Chunks(ref chunks) => {
-        assert_eq!(chunks.len(), 11);
-        assert_eq!(my_storage.entries.len(), 11);
-        for chunk_detail in chunks.iter() {
-          assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
-        }
-      }
-      datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-    }
-  }
-
-
-    #[test]
-    fn check_5_and_extend_to_7_plus_one() {
-    let mut my_storage = MyStorage::new();
-    let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 5);
-    let the_string = random_string(string_len);
-    {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       se.truncate((7*MAX_CHUNK_SIZE + 1) as u64);
       assert_eq!(se.get_num_chunks(), 8);
       // check close
@@ -941,15 +857,15 @@ mod test {
     }
   }
 
-    #[test]
-    fn check_10_plus_one_and_extend_to_11() {
+  #[test]
+  fn check_10_plus_one_and_extend_to_11() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 10) + 1;
-    let the_string = random_string(string_len);
+    let bytes_len = (MAX_CHUNK_SIZE as u64 * 10) + 1;
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       se.truncate((10*MAX_CHUNK_SIZE + 1023) as u64);
       assert_eq!(se.get_num_chunks(), 11);
       // check close
@@ -972,11 +888,11 @@ mod test {
   fn check_30_plus_one_and_extend_to_32_plus_one() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let string_len = (MAX_CHUNK_SIZE as u64 * 30);
-    let the_string = random_string(string_len);
+    let bytes_len = (MAX_CHUNK_SIZE as u64 * 30);
+    let the_bytes = random_bytes(bytes_len as usize);
     {
       let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&the_string, 0);
+      se.write(&the_bytes, 0);
       se.truncate((32*MAX_CHUNK_SIZE + 1) as u64);
       assert_eq!(se.get_num_chunks(), 33);
       // check close
@@ -994,5 +910,4 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
   }
-
 }

@@ -22,15 +22,14 @@
 
 extern crate self_encryption;
 extern crate rand;
-extern crate rustc_back;
+extern crate tempdir;
 pub use self_encryption::*;
 use std::path::Path;
 use std::fs::File;
 use std::io::*;
-use rustc_back::tempdir::TempDir as TempDir;
+use tempdir::TempDir as TempDir;
 use std::string::String as String;
 use std::vec::Vec as Vec;
-
 
 /// DataMap integration tests/ Disk Interface test
 #[test]
@@ -46,8 +45,12 @@ fn data_map_content_only(){
   assert!(dm.has_chunks() == false);
 }
 
-fn random_string(length: u64) -> String {
-  (0..length).map(|_| (0x20u8 + (rand::random::<f32>() * 96.0) as u8) as char).collect()
+fn random_bytes(length: usize) -> Vec<u8> {
+  let mut bytes : Vec<u8> = Vec::with_capacity(length);
+  for _ in (0..length) {
+    bytes.push(rand::random::<u8>());
+  }
+  bytes
 }
 
 pub struct MyStorage {
@@ -93,53 +96,45 @@ impl Storage for MyStorage {
   }
 }
 
-
-
-
 #[test]
 fn check_disk(){
-  let mut vec = vec![300];
-  for x in vec.iter() {  
-      let content = random_string(*x);
-      
-      let mut my_storage = MyStorage::new();
-      let mut data_map = datamap::DataMap::None;
-      {
-        let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-        se.write(&content, 5u64);
-        let to_compare = *x+5;
-        assert_eq!(se.len(), to_compare as u64);
-        data_map = se.close();
-      }
+  let mut vec = vec![300 as usize];
+  for x in vec {  
+    let content = random_bytes(x);
     
-        let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-     {
-        let fetched = new_se.read(5u64, *x);    
-        assert_eq!(fetched, content);
-      }
-        let new_data_map = new_se.close();
-        if (*x < (MIN_CHUNK_SIZE as u64)) { 
-
-          match new_data_map {
-            datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-            datamap::DataMap::Content(ref content) => {
-            assert_eq!(content.len(), (*x+5) as usize);
-            }
-            datamap::DataMap::None => panic!("shall not return DataMap::None"),
-          }
-        }
-          else {  
-              match new_data_map {
-                datamap::DataMap::Chunks(ref chunks) => {
-                assert!(chunks.len() == 3);
-              }
-                datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-                datamap::DataMap::None => panic!("shall not return DataMap::None"),
-            }
-          }        
-      }
-}    
-
-   
-    
+    let mut my_storage = MyStorage::new();
+    let mut data_map = datamap::DataMap::None;
+    {
+      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      se.write(&content, 5u64);
+      let to_compare = x+5;
+      assert_eq!(se.len(), to_compare as u64);
+      data_map = se.close();
+    }
   
+    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    {
+      let fetched = new_se.read(5u64, x as u64);    
+      assert_eq!(fetched, content);
+    }
+    let new_data_map = new_se.close();
+    if (x < (MIN_CHUNK_SIZE as usize)) { 
+
+      match new_data_map {
+        datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+        datamap::DataMap::Content(ref content) => {
+        assert_eq!(content.len(), (x+5) as usize);
+        }
+      datamap::DataMap::None => panic!("shall not return DataMap::None"),
+      }
+    } else {  
+      match new_data_map {
+        datamap::DataMap::Chunks(ref chunks) => {
+          assert!(chunks.len() == 3);
+        }
+        datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+        datamap::DataMap::None => panic!("shall not return DataMap::None"),
+      }
+    }        
+  }
+}
