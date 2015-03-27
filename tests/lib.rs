@@ -29,21 +29,6 @@ use std::fs::File;
 use std::io::*;
 use tempdir::TempDir as TempDir;
 use std::string::String as String;
-use std::vec::Vec as Vec;
-
-/// DataMap integration tests/ Disk Interface test
-#[test]
-fn data_map_empty(){
-  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert_eq!(dm.len(), 2);
-}
-
-#[test]
-fn data_map_content_only(){
-  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert!(dm.len() == 2);
-  assert!(dm.has_chunks() == false);
-}
 
 fn random_bytes(length: usize) -> Vec<u8> {
   let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -53,7 +38,10 @@ fn random_bytes(length: usize) -> Vec<u8> {
   bytes
 }
 
-pub struct MyStorage {
+//const DATA_SIZE : u64 = 20 * 1024 * 1024;
+const DATA_SIZE : u64 = 20 * 1024;
+
+/*pub struct MyStorage {
   temp_dir : TempDir
 }
 
@@ -93,6 +81,63 @@ impl Storage for MyStorage {
         Ok(file) => file,
     };
     f.write_all(&data);
+  }
+}
+*/
+
+
+pub struct Entry {
+  name: Vec<u8>,
+  data: Vec<u8>
+}
+
+pub struct MyStorage {
+  entries: Vec<Entry>
+}
+
+impl MyStorage {
+  pub fn new() -> MyStorage {
+    MyStorage { entries: Vec::new() }
+  }
+
+  pub fn has_chunk(&self, name: Vec<u8>) -> bool {
+    for entry in self.entries.iter() {
+      if entry.name == name { return true }
+    }
+    false
+  }
+}
+
+impl Storage for MyStorage {
+  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    for entry in self.entries.iter() {
+      if entry.name == name { return entry.data.to_vec() }
+    }
+
+    vec![]
+  }
+
+  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    self.entries.push(Entry { name : name, data : data })
+  }
+}
+
+#[test]
+fn new_read() {
+  let mut my_storage = MyStorage::new();
+  let mut data_map = datamap::DataMap::None;
+  let mut original : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
+  //original.resize(DATA_SIZE as usize, 0u8);
+  original = random_bytes(DATA_SIZE as usize);
+  let mut decrypted : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&original, DATA_SIZE);
+    let read_size : u64 = 4096;
+    let mut read_position : u64 = 0;
+    let mut index : u64 = 0;
+    decrypted = se.read(read_position, DATA).to_vec();
+    assert_eq!(original.as_slice(), decrypted.as_slice());
   }
 }
 
