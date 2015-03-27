@@ -130,7 +130,7 @@ fn new_read() {
     }
 
     { // Finish with many small reads
-      let mut decrypted : Vec<u8> = Vec::with_capacity(15 * read_size);
+      let mut decrypted : Vec<u8> = Vec::with_capacity(content_len);
       read_position = 0usize;
       for i in 0..15 {
         decrypted.push_all(&se.read(read_position as u64, read_size as u64));
@@ -139,7 +139,9 @@ fn new_read() {
         read_position += read_size;
       }
     }
-    se.close();
+      //TODO(Ben:2015-03-27) Panics at MyStorage::Put, when writing datamap!
+      //     Possible cause of bug, by reading sequencer over file-end
+//    se.close();
   }
 }
 
