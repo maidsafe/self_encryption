@@ -172,16 +172,16 @@ impl<'a> SelfEncryptor<'a> {
   /// The returned content is read from the specified position with specified length.
   /// Trying to read beyond the file size will cause the self_encryptor to be truncated up
   /// and return content filled with 0u8 in the gaping area.
-  pub fn read(&mut self, position: u64, length: u64) -> &[u8] {
+  pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
     self.prepare_window(length, position, false);
 
-    // let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
-    // for i in self.sequencer.iter().skip(
-    //     position as usize).take(length as usize) {
-    //   read_vec.push(i.clone());
-    // }
-    // read_vec
-    &self.sequencer[position as usize..(position+length) as usize]
+    let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
+    for i in self.sequencer.iter().skip(
+        position as usize).take(length as usize) {
+      read_vec.push(i.clone());
+    }
+    read_vec
+    //&self.sequencer[position as usize..(position+length) as usize]
   }
 
   /// This function returns a DataMap, which is the info required to recover encrypted content from storage.

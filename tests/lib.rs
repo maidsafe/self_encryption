@@ -29,21 +29,6 @@ use std::fs::File;
 use std::io::*;
 use tempdir::TempDir as TempDir;
 use std::string::String as String;
-use std::vec::Vec as Vec;
-
-/// DataMap integration tests/ Disk Interface test
-#[test]
-fn data_map_empty(){
-  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert_eq!(dm.len(), 2);
-}
-
-#[test]
-fn data_map_content_only(){
-  let dm = self_encryption::datamap::DataMap::Content(vec![110,111]);
-  assert!(dm.len() == 2);
-  assert!(dm.has_chunks() == false);
-}
 
 fn random_bytes(length: usize) -> Vec<u8> {
   let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -52,6 +37,8 @@ fn random_bytes(length: usize) -> Vec<u8> {
   }
   bytes
 }
+
+const DATA_SIZE : u64 = 20 * 1024 * 1024;
 
 pub struct MyStorage {
   temp_dir : TempDir
@@ -93,6 +80,52 @@ impl Storage for MyStorage {
         Ok(file) => file,
     };
     f.write_all(&data);
+  }
+}
+
+#[test]
+fn new_read() {
+
+  let read_size : usize = 4096;
+  let mut read_position : usize = 0;
+  let mut index : usize = 0;
+  let mut my_storage = MyStorage::new();
+  let mut data_map = datamap::DataMap::None;
+  let mut original : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
+  let mut decrypted : Vec<u8> = Vec::with_capacity(read_size);
+  original = random_bytes(DATA_SIZE as usize);
+  {
+    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    se.write(&original, 0);
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read next small part
+    read_position += read_size;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // try to read from end of file, moving the sliding window 
+    read_position = DATA_SIZE as usize - 3 * read_size;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read again at beginning of file
+    read_position = 5usize;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read beyond the file, output is padded with default initalisation
+    read_position = DATA_SIZE as usize - read_size + 2000;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    let mut padded : Vec<u8> = Vec::with_capacity(read_size);
+    padded.push_all(&original[read_position..DATA_SIZE as usize]);
+    padded.resize(read_size, 0u8);
+    assert_eq!(padded, decrypted);
   }
 }
 
