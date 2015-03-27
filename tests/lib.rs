@@ -129,8 +129,7 @@ fn new_read() {
       assert_eq!(padded, decrypted);
     }
 
-    // Finish with many small reads
-    {
+    { // Finish with many small reads
       let mut decrypted : Vec<u8> = Vec::with_capacity(15 * read_size);
       read_position = 0usize;
       for i in 0..15 {
@@ -140,6 +139,7 @@ fn new_read() {
         read_position += read_size;
       }
     }
+    se.close();
   }
 }
 
