@@ -49,7 +49,7 @@ use crypto::digest::Digest;
 
 // This is pub to test the tests directory integration tests; these are temp and need to be
 // replaced with actual integration tests and this should be private
-mod encryption;
+pub mod encryption;
 /// Information required to recover file content from chunks.
 pub mod datamap;
 
