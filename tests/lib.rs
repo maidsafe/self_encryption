@@ -38,10 +38,9 @@ fn random_bytes(length: usize) -> Vec<u8> {
   bytes
 }
 
-//const DATA_SIZE : u64 = 20 * 1024 * 1024;
-const DATA_SIZE : u64 = 20 * 1024;
+const DATA_SIZE : u64 = 20 * 1024 * 1024;
 
-/*pub struct MyStorage {
+pub struct MyStorage {
   temp_dir : TempDir
 }
 
@@ -83,61 +82,50 @@ impl Storage for MyStorage {
     f.write_all(&data);
   }
 }
-*/
-
-
-pub struct Entry {
-  name: Vec<u8>,
-  data: Vec<u8>
-}
-
-pub struct MyStorage {
-  entries: Vec<Entry>
-}
-
-impl MyStorage {
-  pub fn new() -> MyStorage {
-    MyStorage { entries: Vec::new() }
-  }
-
-  pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-    for entry in self.entries.iter() {
-      if entry.name == name { return true }
-    }
-    false
-  }
-}
-
-impl Storage for MyStorage {
-  fn get(&self, name: Vec<u8>) -> Vec<u8> {
-    for entry in self.entries.iter() {
-      if entry.name == name { return entry.data.to_vec() }
-    }
-
-    vec![]
-  }
-
-  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-    self.entries.push(Entry { name : name, data : data })
-  }
-}
 
 #[test]
 fn new_read() {
+
+  let read_size : usize = 4096;
+  let mut read_position : usize = 0;
+  let mut index : usize = 0;
   let mut my_storage = MyStorage::new();
   let mut data_map = datamap::DataMap::None;
   let mut original : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
-  //original.resize(DATA_SIZE as usize, 0u8);
+  let mut decrypted : Vec<u8> = Vec::with_capacity(read_size);
   original = random_bytes(DATA_SIZE as usize);
-  let mut decrypted : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
   {
     let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-    se.write(&original, DATA_SIZE);
-    let read_size : u64 = 4096;
-    let mut read_position : u64 = 0;
-    let mut index : u64 = 0;
-    decrypted = se.read(read_position, DATA).to_vec();
-    assert_eq!(original.as_slice(), decrypted.as_slice());
+    se.write(&original, 0);
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read next small part
+    read_position += read_size;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // try to read from end of file, moving the sliding window 
+    read_position = DATA_SIZE as usize - 3 * read_size;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read again at beginning of file
+    read_position = 5usize;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
+               decrypted);
+
+    // read beyond the file, output is padded with default initalisation
+    read_position = DATA_SIZE as usize - read_size + 2000;
+    let decrypted = se.read(read_position as u64, read_size as u64);
+    let mut padded : Vec<u8> = Vec::with_capacity(read_size);
+    padded.push_all(&original[read_position..DATA_SIZE as usize]);
+    padded.resize(read_size, 0u8);
+    assert_eq!(padded, decrypted);
   }
 }
 
