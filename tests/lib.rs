@@ -29,6 +29,8 @@ use std::fs::File;
 use std::io::*;
 use tempdir::TempDir as TempDir;
 use std::string::String as String;
+use std::vec::Vec as Vec;
+use rand::{thread_rng, Rng};
 
 fn random_bytes(length: usize) -> Vec<u8> {
   let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -143,6 +145,33 @@ fn new_read() {
       //     Possible cause of bug, by reading sequencer over file-end
 //    se.close();
   }
+}
+
+#[test]
+fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
+  let parts : usize = 20;
+  assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
+  let mut original : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
+  let mut pieces : Vec<Vec<u8>> = Vec::with_capacity(parts);
+  let mut index : Vec<usize> = Vec::with_capacity(parts);
+  let mut total_size : Vec<usize> = Vec::with_capacity(parts);
+  let mut rng = thread_rng();
+
+  original = random_bytes(DATA_SIZE as usize);
+
+  for i in 0..parts {
+    // grab random sized pieces from the data
+    let offset : usize = rand::random::<usize>() 
+                     % (DATA_SIZE - MAX_CHUNK_SIZE as u64 - 2) as usize;
+    let piece_size : usize = (rand::random::<usize>() 
+                     % MAX_CHUNK_SIZE as usize) + 1;
+    pieces.push(original[offset..(offset + piece_size)].to_vec());
+    index.push(i);
+  }
+
+  let slice_pieces = pieces.as_mut_slice();
+  rng.shuffle(slice_pieces);
+
 }
 
 #[test]
