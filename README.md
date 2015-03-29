@@ -33,7 +33,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [x] Read/Write file in memory based buffer
 - [x] API version 0.0.8
 - [ ] Implement disk based interface as example
-- [ ] Full unit tests in lib.rs
+- [x] Full unit tests in lib.rs
 - [ ] Integrations tests in tests module
 - [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
