@@ -11,11 +11,6 @@ install:
 - tar xvfz libsodium-1.0.0.tar.gz
 - cd libsodium-1.0.0 && ./configure --prefix=/usr && make && sudo make install && cd ..
 
-script:
-- cargo build --verbose
-- cargo test --verbose
-- cargo doc 
-
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
