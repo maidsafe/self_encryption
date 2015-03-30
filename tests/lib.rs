@@ -18,6 +18,7 @@
 // Software.
 //http://is.gd/mKdopK
 
+#![feature(collections)]
 #![allow(dead_code, unused_variables)]
 
 extern crate self_encryption;
@@ -29,7 +30,7 @@ use std::fs::File;
 use std::io::*;
 use tempdir::TempDir as TempDir;
 use std::string::String as String;
-use std::vec::Vec as Vec;
+//use std::vec::Vec as Vec;
 use rand::{thread_rng, Rng};
 
 fn random_bytes(length: usize) -> Vec<u8> {
@@ -61,13 +62,13 @@ impl Storage for MyStorage {
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
     let mut f = match std::fs::File::open(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
-        Err(why) => panic!("couldn't open: {}", why.description()),
+        Err(why) => panic!("on get couldn't open: "),
         Ok(file) => file,
     };
     let mut s = String::new();
     //f.read_to_string(&mut s); put f into a string
     match f.read_to_string(&mut s){
-        Err(why) => panic!("couldn't read: {}", why.description()),
+        Err(why) => panic!("on get couldn't read: "),
         Ok(_) => print!("contains:\n{}", s),
     }
     s.into_bytes()
@@ -78,7 +79,7 @@ impl Storage for MyStorage {
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
     let mut f = match std::fs::File::create(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
-        Err(why) => panic!("couldn't open: {}", why.description()),
+        Err(why) => panic!("on put couldn't open: "),
         Ok(file) => file,
     };
     f.write_all(&data);
