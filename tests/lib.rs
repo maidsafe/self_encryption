@@ -49,7 +49,7 @@ impl MyStorage {
   pub fn new() -> MyStorage {
     MyStorage { temp_dir: match TempDir::new("encrypt_storage") {
         Ok(dir) => dir,
-        Err(e) => panic!("couldn't create temporary directory: {}", e)
+        Err(why) => panic!("couldn't create temporary directory: {}", why)
     } }
   }
 }
@@ -60,13 +60,13 @@ impl Storage for MyStorage {
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
     let mut f = match File::open(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
-        Err(why) => panic!("on get couldn't open: "),
+        Err(why) => panic!("on get couldn't open: {}", why),
         Ok(file) => file,
     };
     let mut s = String::new();
     //f.read_to_string(&mut s); put f into a string
     match f.read_to_string(&mut s){
-        Err(why) => panic!("on get couldn't read: "),
+        Err(why) => panic!("on get couldn't read: {}", why),
         Ok(_) => print!("contains:\n{}", s),
     }
     s.into_bytes()
@@ -78,7 +78,7 @@ impl Storage for MyStorage {
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
     let mut f = match File::create(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
-        Err(why) => panic!("on put couldn't open: "),
+        Err(why) => panic!("on put couldn't open: {}", why),
         Ok(file) => file,
     };
     f.write_all(&data);
@@ -142,9 +142,9 @@ fn new_read() {
         read_position += read_size;
       }
     }
-      //TODO(Ben:2015-03-27) Panics at MyStorage::Put, when writing datamap!
-      //     Possible cause of bug, by reading sequencer over file-end
-//    se.close();
+    //TODO(Ben:2015-03-27) Panics at MyStorage::Put, when writing datamap!
+    //     Possible cause of bug, by reading sequencer over file-end
+    //se.close();
   }
 }
 

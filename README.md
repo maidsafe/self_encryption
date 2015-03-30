@@ -12,6 +12,10 @@ Windows build status
 [![Build
 status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](https://ci.appveyor.com/project/dirvine/self-encryption)
 
+Code Coverage
+
+[![Coverage Status](https://coveralls.io/repos/dirvine/self_encryption/badge.svg?branch=master)](https://coveralls.io/r/dirvine/self_encryption?branch=master)
+
 [Documentation](http://dirvine.github.io/self_encryption/self_encryption/)
 
 [MaidSafe System Documention](http://systemdocs.maidsafe.net/)
@@ -33,7 +37,7 @@ status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](
 - [x] Read/Write file in memory based buffer
 - [x] API version 0.0.8
 - [ ] Implement disk based interface as example
-- [ ] Full unit tests in lib.rs
+- [x] Full unit tests in lib.rs
 - [ ] Integrations tests in tests module
 - [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
