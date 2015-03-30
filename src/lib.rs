@@ -40,7 +40,6 @@ extern crate rand;
 extern crate crypto;
 extern crate rustc_back;
 use std::cmp;
-use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
 
@@ -65,15 +64,6 @@ pub fn xor(data: &[u8], pad: &[u8]) -> Vec<u8> {
   data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
 
-/// We will use a tempdir to stream un procesed data, although this is done vie AES streaming with
-/// a random key and IV.
-pub fn create_temp_dir() -> TempDir {
-  match rustc_back::tempdir::TempDir::new("self_encryptor") {
-    Ok(dir) => dir,
-    Err(e) => panic!("couldn't create temporary directory: {}", e)
-  }
-}
-
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkStatus {
   ToBeHashed,
@@ -84,7 +74,6 @@ enum ChunkStatus {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkLocation {
     InSequencer,
-    OnDisk,  // therefor only being used as read cache`
     Remote
 }
 
@@ -118,7 +107,6 @@ pub struct SelfEncryptor<'a> {
   my_datamap: datamap::DataMap,
   chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
-  tempdir : TempDir,
   file_size: u64,
 }
 
@@ -145,7 +133,6 @@ impl<'a> SelfEncryptor<'a> {
       my_datamap: my_datamap,
       chunks: vec![],
       sequencer: sequencer,
-      tempdir: create_temp_dir(),
       file_size: file_size,
     }
   }
@@ -424,11 +411,6 @@ impl<'a> SelfEncryptor<'a> {
     (start, (start + self.get_chunk_size(chunk_number) as u64))
   }
 
-  fn get_next_chunk_number(&self, chunk_number : u32)->u32 {
-    if self.get_num_chunks() == 0 { return 0u32 }
-    (self.get_num_chunks() + chunk_number + 1) % self.get_num_chunks()
-  }
-
   fn get_previous_chunk_number(&self, chunk_number :u32)->u32 {
     if self.get_num_chunks() == 0 { return 0u32 }
     (self.get_num_chunks() + chunk_number - 1) % self.get_num_chunks()
@@ -558,9 +540,6 @@ mod test {
       assert_eq!(se.get_chunk_size(0), 1024);
       assert_eq!(se.get_chunk_size(1), 1024);
       assert_eq!(se.get_chunk_size(2), 1024);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -603,9 +582,6 @@ mod test {
       assert_eq!(se.get_chunk_size(0), 1024);
       assert_eq!(se.get_chunk_size(1), 1024);
       assert_eq!(se.get_chunk_size(2), 1025);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -648,9 +624,6 @@ mod test {
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -694,10 +667,6 @@ mod test {
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE + 1);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 3);
-      assert_eq!(se.get_next_chunk_number(3), 0);
       assert_eq!(se.get_previous_chunk_number(0), 3);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -742,10 +711,6 @@ mod test {
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 3);
-      assert_eq!(se.get_next_chunk_number(3), 4);
       assert_eq!(se.get_previous_chunk_number(0), 7);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -795,13 +760,11 @@ mod test {
         let h = (i + number_of_chunks)%(number_of_chunks + 1);
         let j = (i + 1)%(number_of_chunks + 1);
         assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
-        assert_eq!(se.get_next_chunk_number(i), j);
         assert_eq!(se.get_previous_chunk_number(i), h);
         assert_eq!(se.get_start_end_positions(i).0, i as u64 * MAX_CHUNK_SIZE as u64);
         assert_eq!(se.get_start_end_positions(i).1, j as u64 * MAX_CHUNK_SIZE as u64);
       }
       assert_eq!(se.get_chunk_size(number_of_chunks), MIN_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(number_of_chunks), 0);
       assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
       assert_eq!(se.get_start_end_positions(number_of_chunks).0,
       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
