@@ -149,7 +149,7 @@ fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
   assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
   let mut pieces : Vec<Vec<u8>> = Vec::with_capacity(parts);
   let mut index : Vec<usize> = Vec::with_capacity(parts);
-  let mut total_size : Vec<usize> = Vec::with_capacity(parts);
+  let mut total_size : usize = 0;
   let mut rng = thread_rng();
 
   let original = random_bytes(DATA_SIZE as usize);
