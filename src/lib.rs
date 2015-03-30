@@ -40,10 +40,6 @@ extern crate rand;
 extern crate crypto;
 extern crate rustc_back;
 use std::cmp;
-use std::num::Float as Float;
-use std::f32;
-use std::str;
-use rustc_back::tempdir::TempDir;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
 
@@ -68,15 +64,6 @@ pub fn xor(data: &[u8], pad: &[u8]) -> Vec<u8> {
   data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
 
-/// We will use a tempdir to stream un procesed data, although this is done vie AES streaming with
-/// a random key and IV.
-pub fn create_temp_dir() -> TempDir {
-  match rustc_back::tempdir::TempDir::new("self_encryptor") {
-    Ok(dir) => dir,
-    Err(e) => panic!("couldn't create temporary directory: {}", e)
-  }
-}
-
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkStatus {
   ToBeHashed,
@@ -87,7 +74,6 @@ enum ChunkStatus {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkLocation {
     InSequencer,
-    OnDisk,  // therefor only being used as read cache`
     Remote
 }
 
@@ -121,7 +107,6 @@ pub struct SelfEncryptor<'a> {
   my_datamap: datamap::DataMap,
   chunks: Vec<Chunks>,
   sequencer: Vec<u8>,
-  tempdir : TempDir,
   file_size: u64,
 }
 
@@ -135,7 +120,7 @@ impl<'a> SelfEncryptor<'a> {
 
 
   pub fn new(my_storage:&'a mut Storage, my_datamap: datamap::DataMap) -> SelfEncryptor {
-    let mut sequencer : Vec<u8> = Vec::with_capacity(1024 * 1024 * 100 as usize);
+    let mut sequencer : Vec<u8> = Vec::with_capacity(1024 * 1024 * 100);
     let file_size = my_datamap.len();
 
     match my_datamap {
@@ -148,7 +133,6 @@ impl<'a> SelfEncryptor<'a> {
       my_datamap: my_datamap,
       chunks: vec![],
       sequencer: sequencer,
-      tempdir: create_temp_dir(),
       file_size: file_size,
     }
   }
@@ -210,8 +194,8 @@ impl<'a> SelfEncryptor<'a> {
           let mut tmp2 : Vec<u8> = Vec::new();
           tmp2.resize(128, 0u8);
           let mut hash = Sha512::new();
-          hash.input(tmp.as_mut_slice());
-          hash.result(tmp2.as_mut_slice());
+          hash.input(&mut tmp[..]);
+          hash.result(&mut tmp2[..]);
           {
             tmp_chunks[chunk.number as usize].pre_hash.clear();
             tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
@@ -240,7 +224,7 @@ impl<'a> SelfEncryptor<'a> {
           name.resize(128, 0u8);
           let mut hash = Sha512::new();
           hash.input(&content);
-          hash.result(name.as_mut_slice());
+          hash.result(&mut name[..]);
           self.storage.put(name.to_vec(), content);
           tmp_chunks[chunk.number as usize].hash = name;
         }
@@ -427,11 +411,6 @@ impl<'a> SelfEncryptor<'a> {
     (start, (start + self.get_chunk_size(chunk_number) as u64))
   }
 
-  fn get_next_chunk_number(&self, chunk_number : u32)->u32 {
-    if self.get_num_chunks() == 0 { return 0u32 }
-    (self.get_num_chunks() + chunk_number + 1) % self.get_num_chunks()
-  }
-
   fn get_previous_chunk_number(&self, chunk_number :u32)->u32 {
     if self.get_num_chunks() == 0 { return 0u32 }
     (self.get_num_chunks() + chunk_number - 1) % self.get_num_chunks()
@@ -509,12 +488,12 @@ mod test {
   #[test]
   fn check_write() {
     let mut my_storage = MyStorage::new();
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
     let size = 3u64;
     let offset = 5u64;
     let the_bytes = random_bytes(size as usize);
     se.write(&the_bytes, offset);
-    assert_eq!(se.file_size, (size + offset) as u64);  
+    assert_eq!(se.file_size, size + offset);  
   }  
 
   #[test]
@@ -524,7 +503,7 @@ mod test {
     let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 0);
       assert_eq!(se.chunks.len(), 0);
@@ -543,7 +522,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
@@ -554,16 +533,13 @@ mod test {
     let mut data_map = datamap::DataMap::None;
     let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       // check helper functions
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), 1024);
       assert_eq!(se.get_chunk_size(1), 1024);
       assert_eq!(se.get_chunk_size(2), 1024);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -588,7 +564,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, MIN_CHUNK_SIZE as u64 * 3);
     assert_eq!(fetched, the_bytes);
   }
@@ -600,15 +576,12 @@ mod test {
     let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), 1024);
       assert_eq!(se.get_chunk_size(1), 1024);
       assert_eq!(se.get_chunk_size(2), 1025);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -633,7 +606,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
@@ -645,15 +618,12 @@ mod test {
     let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 3);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 0);
       assert_eq!(se.get_previous_chunk_number(0), 2);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -678,7 +648,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
@@ -690,17 +660,13 @@ mod test {
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 4);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE + 1);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 3);
-      assert_eq!(se.get_next_chunk_number(3), 0);
       assert_eq!(se.get_previous_chunk_number(0), 3);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -726,7 +692,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
@@ -738,17 +704,13 @@ mod test {
     let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), 8);
       assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
       assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(0), 1);
-      assert_eq!(se.get_next_chunk_number(1), 2);
-      assert_eq!(se.get_next_chunk_number(2), 3);
-      assert_eq!(se.get_next_chunk_number(3), 4);
       assert_eq!(se.get_previous_chunk_number(0), 7);
       assert_eq!(se.get_previous_chunk_number(1), 0);
       assert_eq!(se.get_previous_chunk_number(2), 1);
@@ -776,7 +738,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len);
     assert_eq!(fetched, the_bytes);
   }
@@ -786,25 +748,23 @@ mod test {
     // has been tested for 50 chunks
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let number_of_chunks = 11 as u32;
+    let number_of_chunks : u32 = 11;
     let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
     let the_bytes = random_bytes(bytes_len);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
       for i in 0u32..number_of_chunks {
         // preceding and next index, wrapped around
-        let h = (i + number_of_chunks)%(number_of_chunks + 1) as u32;
-        let j = (i + 1)%(number_of_chunks + 1) as u32;
+        let h = (i + number_of_chunks)%(number_of_chunks + 1);
+        let j = (i + 1)%(number_of_chunks + 1);
         assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
-        assert_eq!(se.get_next_chunk_number(i), j);
         assert_eq!(se.get_previous_chunk_number(i), h);
         assert_eq!(se.get_start_end_positions(i).0, i as u64 * MAX_CHUNK_SIZE as u64);
         assert_eq!(se.get_start_end_positions(i).1, j as u64 * MAX_CHUNK_SIZE as u64);
       }
       assert_eq!(se.get_chunk_size(number_of_chunks), MIN_CHUNK_SIZE);
-      assert_eq!(se.get_next_chunk_number(number_of_chunks), 0);
       assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
       assert_eq!(se.get_start_end_positions(number_of_chunks).0,
       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
@@ -825,7 +785,7 @@ mod test {
       datamap::DataMap::None => panic!("shall not return DataMap::None"),
     }
     // check read, write
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
+    let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
     let fetched = new_se.read(0, bytes_len as u64);
     assert_eq!(fetched, the_bytes);
   }
@@ -834,10 +794,10 @@ mod test {
   fn check_5_and_extend_to_7_plus_one() {
     let mut my_storage = MyStorage::new();
     let mut data_map = datamap::DataMap::None;
-    let bytes_len = (MAX_CHUNK_SIZE as u64 * 5);
+    let bytes_len = MAX_CHUNK_SIZE as u64 * 5;
     let the_bytes = random_bytes(bytes_len as usize);
     {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+      let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
       se.write(&the_bytes, 0);
       se.truncate((7*MAX_CHUNK_SIZE + 1) as u64);
       assert_eq!(se.get_num_chunks(), 8);
