@@ -237,7 +237,7 @@ impl<'a> SelfEncryptor<'a> {
           name.resize(128, 0u8);
           let mut hash = Sha512::new();
           hash.input(&content);
-          hash.result(name.as_mut_slice());
+          hash.result(&mut name[..]);
           self.storage.put(name.to_vec(), content);
           tmp_chunks[chunk.number as usize].hash = name;
         }
