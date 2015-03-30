@@ -139,7 +139,7 @@ fn new_read() {
     }
     //TODO(Ben:2015-03-27) Panics at MyStorage::Put, when writing datamap!
     //     Possible cause of bug, by reading sequencer over file-end
-    //se.close();
+    se.close();
   }
 }
 
@@ -150,6 +150,7 @@ fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
   assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
   let original = random_bytes(DATA_SIZE as usize);
   let mut pieces : Vec<&[u8]> = Vec::with_capacity(parts);
+  let mut offsets : Vec<usize> = Vec::with_capacity(parts);
   let mut index : Vec<usize> = Vec::with_capacity(parts);
   let mut total_size : usize = 0;
   let mut rng = thread_rng();
@@ -161,6 +162,7 @@ fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
     let piece_size : usize = (rand::random::<usize>() 
                      % MAX_CHUNK_SIZE as usize) + 1;
     pieces.push(&original[offset..(offset + piece_size)]);
+    offsets.push(offset);
     index.push(i);
   }
  
@@ -173,13 +175,14 @@ fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
     let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
     for ind in index {
       let piece_size : usize = pieces[ind].len();
-      let offset : usize = ind * piece_size;
-      total_size = std::cmp::max(total_size, offset + piece_size);
+      let offset : usize = offsets[ind];
+      total_size = std::cmp::max(total_size, offset+ piece_size);
       se.write(pieces[ind], offset as u64);
-
-
+      assert!(DATA_SIZE >= total_size as u64);
+      let decrypted = se.read(offset as u64, piece_size as u64);
+      assert_eq!(decrypted, original[offset..(offset + piece_size)].to_vec());
     }
+    //assert_eq!(total_size as u64, se.len());
   }
-  
 }
 
