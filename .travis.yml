@@ -6,7 +6,7 @@ env:
       secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
 language: rust
 before_install:
-    - sudo apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev kcov
+    - sudo apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev
 install:
 - wget https://github.com/jedisct1/libsodium/releases/download/1.0.0/libsodium-1.0.0.tar.gz
 - tar xvfz libsodium-1.0.0.tar.gz
@@ -20,4 +20,13 @@ after_success: |
   ghp-import -n target/doc &&
   git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages;
   cargo test;
+  sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev &&
+  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+  tar xzf master.tar.gz &&
+  mkdir kcov-master/build &&
+  cd kcov-master/build &&
+  cmake .. &&
+  make &&
+  sudo make install &&
+  cd ../.. &&
   kcov --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo target/kcov target/debug/self_encryption-*;
