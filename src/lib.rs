@@ -84,7 +84,7 @@ enum ChunkStatus {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkLocation {
     InSequencer,
-//    OnDisk,  // therefor only being used as read cache`
+    OnDisk,  // therefor only being used as read cache`
     Remote
 }
 
