@@ -29,8 +29,6 @@ use std::path::Path;
 use std::fs::File;
 use std::io::*;
 use tempdir::TempDir as TempDir;
-use std::string::String as String;
-//use std::vec::Vec as Vec;
 use rand::{thread_rng, Rng};
 
 fn random_bytes(length: usize) -> Vec<u8> {
@@ -60,7 +58,7 @@ impl Storage for MyStorage {
   fn get(&self, name: Vec<u8>) -> Vec<u8> {
     let file_name = String::from_utf8(name).unwrap();
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
-    let mut f = match std::fs::File::open(&file_path) {
+    let mut f = match File::open(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
         Err(why) => panic!("on get couldn't open: "),
         Ok(file) => file,
@@ -74,10 +72,11 @@ impl Storage for MyStorage {
     s.into_bytes()
   }
 
+  #[allow(unused_must_use)]
   fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
     let file_name = String::from_utf8(name).unwrap();
     let file_path = self.temp_dir.path().join(Path::new(&file_name)); 
-    let mut f = match std::fs::File::create(&file_path) {
+    let mut f = match File::create(&file_path) {
         // The `desc` field of `IoError` is a string that describes the error
         Err(why) => panic!("on put couldn't open: "),
         Ok(file) => file,
@@ -87,6 +86,7 @@ impl Storage for MyStorage {
 }
 
 #[test]
+#[allow(unused_must_use)]
 fn new_read() {
   let read_size : usize = 4096;
   let mut read_position : usize = 0;
@@ -173,47 +173,6 @@ fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
   let slice_pieces = pieces.as_mut_slice();
   rng.shuffle(slice_pieces);
 
-}
-
-#[test]
-fn check_disk(){
-  let mut vec = vec![300 as usize];
-  for x in vec {  
-    let content = random_bytes(x);
-    
-    let mut my_storage = MyStorage::new();
-    let mut data_map = datamap::DataMap::None;
-    {
-      let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
-      se.write(&content, 5u64);
-      let to_compare = x+5;
-      assert_eq!(se.len(), to_compare as u64);
-      data_map = se.close();
-    }
   
-    let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-    {
-      let fetched = new_se.read(5u64, x as u64);    
-      assert_eq!(fetched, content);
-    }
-    let new_data_map = new_se.close();
-    if (x < (MIN_CHUNK_SIZE as usize)) { 
-
-      match new_data_map {
-        datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-        datamap::DataMap::Content(ref content) => {
-        assert_eq!(content.len(), (x+5) as usize);
-        }
-      datamap::DataMap::None => panic!("shall not return DataMap::None"),
-      }
-    } else {  
-      match new_data_map {
-        datamap::DataMap::Chunks(ref chunks) => {
-          assert!(chunks.len() == 3);
-        }
-        datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
-        datamap::DataMap::None => panic!("shall not return DataMap::None"),
-      }
-    }        
-  }
 }
+
