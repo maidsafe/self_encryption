@@ -19,7 +19,6 @@
 //http://is.gd/mKdopK
 
 #![feature(collections)]
-#![allow(dead_code, unused_variables)]
 
 extern crate self_encryption;
 extern crate rand;
@@ -86,20 +85,16 @@ impl Storage for MyStorage {
 }
 
 #[test]
-#[allow(unused_must_use)]
 fn new_read() {
   let read_size : usize = 4096;
   let mut read_position : usize = 0;
-  let mut content_len : usize = 4 * MAX_CHUNK_SIZE as usize;
+  let content_len : usize = 4 * MAX_CHUNK_SIZE as usize;
   let mut my_storage = MyStorage::new();
-  let mut data_map = datamap::DataMap::None;
-  let mut original : Vec<u8> = Vec::with_capacity(content_len);
-  original = random_bytes(content_len);
+  let original = random_bytes(content_len);
   {
-    let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, datamap::DataMap::None);
+    let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
     se.write(&original, 0);
     {
-      let mut decrypted : Vec<u8> = Vec::with_capacity(read_size);
       let decrypted = se.read(read_position as u64, read_size as u64);
       assert_eq!(original[read_position..(read_position+read_size)].to_vec(),
                  decrypted);
@@ -135,7 +130,7 @@ fn new_read() {
     { // Finish with many small reads
       let mut decrypted : Vec<u8> = Vec::with_capacity(content_len);
       read_position = 0usize;
-      for i in 0..15 {
+      for _ in 0..15 {
         decrypted.push_all(&se.read(read_position as u64, read_size as u64));
         assert_eq!(original[0..(read_position+read_size)].to_vec(),
                    decrypted);
@@ -152,13 +147,12 @@ fn new_read() {
 fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
   let parts : usize = 20;
   assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
-  let mut original : Vec<u8> = Vec::with_capacity(DATA_SIZE as usize);
   let mut pieces : Vec<Vec<u8>> = Vec::with_capacity(parts);
   let mut index : Vec<usize> = Vec::with_capacity(parts);
   let mut total_size : Vec<usize> = Vec::with_capacity(parts);
   let mut rng = thread_rng();
 
-  original = random_bytes(DATA_SIZE as usize);
+  let original = random_bytes(DATA_SIZE as usize);
 
   for i in 0..parts {
     // grab random sized pieces from the data
