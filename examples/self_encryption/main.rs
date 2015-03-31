@@ -39,36 +39,38 @@ fn usage() {
 
 pub struct MyStorage<'b> {
   source_path : &'b path::Path,
-  name : &'b str;
+  name : &'b str,
   dir : &'b path::Path,
-  destination_path : &'b path::Path
+  datamap_path : &'b path::Path
 }
 
 
-impl MyStorage {
-  pub fn new(filepath_ : &str) -> MyStorage {
-    MyStorage { source_path : match path::Path::new(filepath_) {
+impl<'b> MyStorage<'b> {
+  pub fn new(&self, filepath_ : &str) -> MyStorage<'b> {
+    MyStorage { source_path : match &path::Path::new(filepath_) {
     			  Ok(x) => x,
     			  Err(e) => panic!("Could not parse source file. {}", e)
                 },
-    			name_ : match source_path.file_name().unwrap_or("default"){
+    			name : match self.source_path.file_name().unwrap(){
     			  Ok(x) => x,
     			  Err(e) => panic!("Source file is not a file. {}", e)
     			},
-    			destination : match source_path.parent()
-    								           .unwrap()
-    									       .join(path::Path::new(&name_))
-    									       .join("datamap"),
-     			dir : match path().join(path::Path::new(&file_name));{
-        		  Ok(dir) => dir,
-                  Err(why) => 
-                    panic!("couldn't create directory: {}", why)
-                }
+    			dir : match self.source_path.parent()
+    							   .unwrap()
+    							   .join(path::Path::new("chunks_".to_string()
+    							   	                     + &self.name)) {
+    			  Ok(x) => x,
+    			  Err(e) => panic!("Folder error.")
+    			},
+    			datamap_path : match self.dir.join("datamap") {
+    			  Ok(x) => x,
+    			  Err(e) => panic!("Couldn't create path to datamap.")
+    			}
               }
   }
 }
 
-impl self_encryption::Storage for MyStorage {
+impl<'b> self_encryption::Storage for MyStorage<'b> {
   fn get(&self, name: Vec<u8>) -> Vec<u8> {
     let file_name = String::from_utf8(name).unwrap();
     let file_path = self.temp_dir.path().join(path::Path::new(&file_name)); 
