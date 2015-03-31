@@ -278,14 +278,14 @@ fn disabled_write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
       total_size = std::cmp::max(total_size, offset + piece_size);
       se.write(pieces[ind], offset as u64);
       assert!(DATA_SIZE >= total_size as u64);
-      // let decrypted = se.read(offset as u64, piece_size as u64);
-      // assert_eq!(decrypted, original[offset..(offset + piece_size)].to_vec());
-      // assert_eq!(total_size as u64, se.len());
+      let decrypted = se.read(offset as u64, piece_size as u64);
+      assert_eq!(decrypted, original[offset..(offset + piece_size)].to_vec());
+      assert_eq!(total_size as u64, se.len());
     }
-    // let decryptor = se.read(0u64, total_size as u64);
-    // assert_eq!(decryptor, original[0..total_size].to_vec());
-    // assert_eq!(total_size as u64, se.len());
-    // se.close();
+    let decryptor = se.read(0u64, total_size as u64);
+    assert_eq!(decryptor, original[0..total_size].to_vec());
+    assert_eq!(total_size as u64, se.len());
+    se.close();
   }
 }
 
