@@ -17,47 +17,109 @@
 // use of the MaidSafe
 // Software.
 
-//! Implementation of a single use-case for Self-Encryption
+//! Implementation of a simple commandline for Self-Encryption
 
+#![feature(slice_patterns)]
 extern crate self_encryption;
 
+use std::path;
+use std::fs;
+use std::io::*;
+// use tempdir::TempDir as TempDir;
+
+macro_rules! iotry {
+    ($e:expr) => (match $e { Ok(v) => v, Err(e) => panic!("{}", e), })
+}
+
 fn usage() {
-	println!("Usage: self-encrypt or decrypt a file");
-    println!("Usage: se [-e|-d] <source> <output>");
+  println!("Usage: self-encrypt or decrypt a local file");
+  println!("       se [-e|-d] <file_source> <output_name>");
+  println!("       note: use relative filename");
+}
+
+pub struct MyStorage {
+  name : String,
+  source : path,
+  destination : path,
+  dir : path
+}
+
+impl MyStorage {
+  pub fn new(source_ : path::Path, destination_ : path::Path) -> MyStorage {
+    MyStorage { source : source_,
+    			destination : destination_,
+     			dir : match fs::create_dir("encrypt_storage") {
+        		  Ok(dir) => dir,
+                  Err(why) => 
+                    panic!("couldn't create directory: {}", why)
+                }
+              }
+  }
+}
+
+impl self_encryption::Storage for MyStorage {
+  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    let file_name = String::from_utf8(name).unwrap();
+    let file_path = self.temp_dir.path().join(path::Path::new(&file_name)); 
+    let mut f = match fs::File::open(&file_path) {
+        // The `desc` field of `IoError` is a string that describes the error
+        Err(why) => panic!("on get couldn't open: {}", why),
+        Ok(file) => file,
+    };
+    let mut s = String::new();
+    //f.read_to_string(&mut s); put f into a string
+    match f.read_to_string(&mut s){
+        Err(why) => panic!("on get couldn't read: {}", why),
+        Ok(_) => print!("contains:\n{}", s),
+    }
+    s.into_bytes()
+  }
+
+  #[allow(unused_must_use)]
+  fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    let file_name = String::from_utf8(name).unwrap();
+    let file_path = self.temp_dir.path().join(path::Path::new(&file_name)); 
+    let mut f = match fs::File::create(&file_path) {
+        // The `desc` field of `IoError` is a string that describes the error
+        Err(why) => panic!("on put couldn't open: {}", why),
+        Ok(file) => file,
+    };
+    f.write_all(&data);
+  }
 }
 
 fn main() {
 
-	let args = std::os::args();
-    let mut args = args.iter().map(|arg| &arg[..]);
+  use std::str::FromStr;
 
-    enum Mode {
-      Encrypt,
-      Decrypt
-    }
+  let args = std::os::args();
+  let mut args = args.iter().map(|arg| &arg[..]);
 
-    // Skip program name
-    args.next();
+  enum Mode {
+	Encrypt,
+	Decrypt
+  }
 
-    let mode = match arg.next() {
-      Some("-e") => Mode::Encrypt,
-      Some("-d") => Mode::Decrypt,
-      _ => { usage(); return;}
-    }
+  // Skip program name
+  args.next();
 
-    let files = match &args.collect::<Vec<_>>()[..] {
-      [source, destination] => {
-      	let source = match FomrStr::from_str(ip) {
-      	  Ok(x) => x,
-      	  Err(_) => { println!("Invalid source file"); return }
-      	};
-      	let port = match FromStr::from_str(port) {
-      		Ok(x) => x,
-      		Err(_) => { println!("Invalid destination file"); return }
-      	};
+  let mode = match args.next() {
+	Some("-e") => Mode::Encrypt,
+	Some("-d") => Mode::Decrypt,
+	_ => { usage(); return; }
+  };
 
-      },
-      _ => { usage(); return; }
+  let storage = match &args.collect::<Vec<_>>()[..] {
+	[source, destination] => {
+	  let source = try!(FromStr::from_str(source));
+	  let destination = try!(FromStr::from_str(destination));
+	  MyStorage {
+	  	source : source,
+	  	destination : destination,
+	  }
+	},
+	_ => { usage(); return; }
+  };
 
-    };
+
 }
