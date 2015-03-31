@@ -17,3 +17,35 @@
 // use of the MaidSafe
 // Software.
 
+//! Implementation of a single use-case for Self-Encryption
+
+extern crate self_encryption;
+
+fn usage() {
+	println!("Usage: self-encrypt or decrypt a file");
+    println!("Usage: se [-e|-d] <source> <output>");
+}
+
+fn main() {
+
+	let args = std::os::args();
+    let mut args = args.iter().map(|arg| &arg[..]);
+
+    enum Mode {
+      Encrypt,
+      Decrypt
+    }
+
+    // Skip program name
+    args.next();
+
+    let mode = match arg.next() {
+      Some("-e") => Mode::Encrypt,
+      Some("-d") => Mode::Decrypt,
+      _ => { usage(); return;}
+    }
+
+    let files = match &args.collect::<Vec<_>>()[..] {
+    	
+    }
+}
