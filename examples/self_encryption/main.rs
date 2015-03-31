@@ -46,6 +46,18 @@ fn main() {
     }
 
     let files = match &args.collect::<Vec<_>>()[..] {
-    	
-    }
+      [source, destination] => {
+      	let source = match FomrStr::from_str(ip) {
+      	  Ok(x) => x,
+      	  Err(_) => { println!("Invalid source file"); return }
+      	};
+      	let port = match FromStr::from_str(port) {
+      		Ok(x) => x,
+      		Err(_) => { println!("Invalid destination file"); return }
+      	};
+
+      },
+      _ => { usage(); return; }
+
+    };
 }
