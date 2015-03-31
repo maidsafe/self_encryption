@@ -235,6 +235,7 @@ fn write_random_size_random_position() {
       overwrite.push_all(&original[post_position as usize..DATA_SIZE as usize]);
       se.write(post_overlap.1, post_overlap.0);
       let decrypted = se.read(0u64, DATA_SIZE);
+      assert_eq!(overwrite.len(), decrypted.len());
       assert_eq!(overwrite, decrypted);
     }
   }
