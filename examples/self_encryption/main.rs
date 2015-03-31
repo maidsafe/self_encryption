@@ -19,7 +19,6 @@
 
 //! Implementation of a simple commandline for Self-Encryption
 
-#![feature(slice_patterns)]
 extern crate self_encryption;
 
 use std::path;
@@ -33,22 +32,34 @@ macro_rules! iotry {
 
 fn usage() {
   println!("Usage: self-encrypt or decrypt a local file");
-  println!("       se [-e|-d] <file_source> <output_name>");
-  println!("       note: use relative filename");
+  println!("       se -e <source_file>");
+  println!("       se -d <source_file>");
+  println!("       note: use absolute paths");
 }
 
-pub struct MyStorage {
-  name : String,
-  source : path,
-  destination : path,
-  dir : path
+pub struct MyStorage<'b> {
+  source_path : &'b path::Path,
+  name : &'b str;
+  dir : &'b path::Path,
+  destination_path : &'b path::Path
 }
+
 
 impl MyStorage {
-  pub fn new(source_ : path::Path, destination_ : path::Path) -> MyStorage {
-    MyStorage { source : source_,
-    			destination : destination_,
-     			dir : match fs::create_dir("encrypt_storage") {
+  pub fn new(filepath_ : &str) -> MyStorage {
+    MyStorage { source_path : match path::Path::new(filepath_) {
+    			  Ok(x) => x,
+    			  Err(e) => panic!("Could not parse source file. {}", e)
+                },
+    			name_ : match source_path.file_name().unwrap_or("default"){
+    			  Ok(x) => x,
+    			  Err(e) => panic!("Source file is not a file. {}", e)
+    			},
+    			destination : match source_path.parent()
+    								           .unwrap()
+    									       .join(path::Path::new(&name_))
+    									       .join("datamap"),
+     			dir : match path().join(path::Path::new(&file_name));{
         		  Ok(dir) => dir,
                   Err(why) => 
                     panic!("couldn't create directory: {}", why)
@@ -94,6 +105,7 @@ fn main() {
 
   let args = std::os::args();
   let mut args = args.iter().map(|arg| &arg[..]);
+  let source : path::Path;
 
   enum Mode {
 	Encrypt,
@@ -109,17 +121,18 @@ fn main() {
 	_ => { usage(); return; }
   };
 
-  let storage = match &args.collect::<Vec<_>>()[..] {
-	[source, destination] => {
-	  let source = try!(FromStr::from_str(source));
-	  let destination = try!(FromStr::from_str(destination));
-	  MyStorage {
-	  	source : source,
-	  	destination : destination,
-	  }
-	},
-	_ => { usage(); return; }
+  let source = match args.next() {
+  	Some(x) => try!(FromStr::from_str(source)),
+  	_ => { usage(); return; }
   };
 
+ //  let storage = match &args.collect::<Vec<_>>()[..] {
+	// [source, destination] => {
+	//   let source = ;
+	//   let destination = try!(FromStr::from_str(destination));
+	//   MyStorage::new(&source, &destination);
+	// },
+	// _ => { usage(); return; }
+ //  };
 
 }
