@@ -14,7 +14,7 @@ homepage = "http://www.maidsafe.net"
 name = "self_encryption"
 bench = false
 
-[[bin]]
+[[example]]
 name = "se"
 path = "examples/self_encryption/main.rs"
 test = false

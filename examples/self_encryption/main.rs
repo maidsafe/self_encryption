@@ -130,12 +130,8 @@ fn main() {
   let source = path::Path::new(&source_str);
   let parent = source.parent().unwrap();
   let name = source.file_name().unwrap().to_str().unwrap();
+	let mut dir = path::Path::new(&source_str).parent().unwrap();
+  dir.join(name.to_string() + "_chunks").to_str().unwrap();
+  fs::create_dir(&dir);
   
-  let mut folder : String = String::new();
-  folder.push_str(name); 
-  folder.push_str("_chunks");
-  {
-  	let dir = parent.join(&folder).to_str().unwrap();
-    fs::create_dir(dir);
-  }
 }
