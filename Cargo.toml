@@ -18,3 +18,9 @@ tempdir = "*"
 [lib]
 name = "self_encryption"
 bench = false
+
+[[bin]]
+name = "se"
+path = "examples/self_encryption/main.rs"
+test = false
+bench = false
