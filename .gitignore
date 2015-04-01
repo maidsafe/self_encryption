@@ -10,3 +10,4 @@ target/
 tests/tmp*
 src/tmp*
 *.sublime-*
+.project

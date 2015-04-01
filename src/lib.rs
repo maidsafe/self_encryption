@@ -146,7 +146,7 @@ impl<'a> SelfEncryptor<'a> {
         self.file_size = new_size;
         self.prepare_window(data.len() as u64, position, true);
         for i in 0..data.len() {
-          self.sequencer[position as usize + i] = data[i];
+            self.sequencer[position as usize + i] = data[i];
         }
     }
 
@@ -260,42 +260,41 @@ impl<'a> SelfEncryptor<'a> {
         self.file_size
     }
 
-    /// Prepare a sliding window to ensure there are enouch chunk slots for write;
+    /// Prepare a sliding window to ensure there are enough chunk slots for write;
     /// it will possibly read-in some chunks from external storage.
     fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
-        if  (length + position) as usize > self.sequencer.len() {
+        if (length + position) as usize > self.sequencer.len() {
             self.sequencer.resize((length + position) as usize, 0u8);
         }
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 { return }
         let mut first_chunk = self.get_chunk_number(position);
         let mut last_chunk = self.get_chunk_number(position + length);
-        if write && self.sequencer.len() < (position + length) as usize {
-            self.sequencer.resize((length + position) as usize, 0u8);
-        }
         if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
             first_chunk = 0;
             last_chunk = 3;
         } else {
-            for _ in (1..2) {
+            for _ in 0..2 {
                 if last_chunk < self.get_num_chunks() { last_chunk += 1; }
             }
         }
         // [TODO]: Thread next - 2015-02-28 06:09pm
         for i in (first_chunk..last_chunk) {
-            if i < self.chunks.len() as u32 {
-                for itr in self.chunks.iter() {
-                  if itr.number == i  {
-                      let mut pos = self.get_start_end_positions(i).0;
-                      if itr.location == ChunkLocation::Remote  {
-                          let vec : Vec<u8> = self.decrypt_chunk(i);
-                          for itr2 in vec.iter() {
-                              self.sequencer[pos as usize] = *itr2;
-                              pos += 1;
-                          }
-                      }
-                  }
+            let mut found = false;
+            for itr in self.chunks.iter() {
+                if itr.number == i {
+                    let mut pos = self.get_start_end_positions(i).0;
+                    if itr.location == ChunkLocation::Remote  {
+                        let vec : Vec<u8> = self.decrypt_chunk(i);
+                        for itr2 in vec.iter() {
+                            self.sequencer[pos as usize] = *itr2;
+                            pos += 1;
+                        }
+                    }
+                    found = true;
+                    break;
                 }
-            } else {
+            }
+            if !found {
                 let mut tmp_chunks = Vec::new();
                 if write {
                     tmp_chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
@@ -359,7 +358,7 @@ impl<'a> SelfEncryptor<'a> {
         if self.file_size % MAX_CHUNK_SIZE as u64 == 0 {
             (self.file_size / MAX_CHUNK_SIZE as u64) as u32
         } else {
-            (self.file_size / MAX_CHUNK_SIZE as u64 + 1) as u32
+            ((self.file_size / MAX_CHUNK_SIZE as u64) + 1) as u32
         }
     }
 
