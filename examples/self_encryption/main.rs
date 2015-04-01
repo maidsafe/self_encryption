@@ -124,8 +124,14 @@ fn main() {
   };
 
   let source = path::Path::new(source_str);
-
-
+  if source.is_file() {
+  	let name = match source.file_name() {
+  		Some(x) => x,
+  		_ => panic!("Couldn't retrieve file_name:")
+  	};
+  	let dir = match source.parent().unwrap()
+  					      .join(path::Path::new(name + "_chunks");
+  }
  //  let storage = match &args.collect::<Vec<_>>()[..] {
 	// [source, destination] => {
 	//   let source = ;
