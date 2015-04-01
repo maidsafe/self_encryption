@@ -282,14 +282,10 @@ fn disabled_write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
       assert_eq!(decrypted, original[offset..(offset + piece_size)].to_vec());
       assert_eq!(total_size as u64, se.len());
     }
-<<<<<<< HEAD
-    assert_eq!(total_size as u64, se.len());
-=======
     let decryptor = se.read(0u64, total_size as u64);
     assert_eq!(decryptor, original[0..total_size].to_vec());
     assert_eq!(total_size as u64, se.len());
     se.close();
->>>>>>> upstream/master
   }
 }
 
