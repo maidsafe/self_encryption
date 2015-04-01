@@ -1,4 +1,4 @@
-// Copyright 2014-2015 MaidSafe.net limited
+// Copyright 2015 MaidSafe.net limited
 //
 // This MaidSafe Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
@@ -14,8 +14,7 @@
 // OF ANY KIND, either express or implied.
 //
 // See the Licences for the specific language governing permissions and limitations relating to
-// use of the MaidSafe
-// Software.
+// use of the MaidSafe Software.
 
 // the test names contain MB, KB which should retain capitalisation
 #![allow(non_snake_case)]

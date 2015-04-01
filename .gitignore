@@ -9,3 +9,4 @@ target/
 /.idea
 tests/tmp*
 src/tmp*
+*.sublime-*
