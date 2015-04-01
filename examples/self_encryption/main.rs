@@ -117,28 +117,25 @@ fn main() {
 	Some("-d") => Mode::Decrypt,
 	_ => { usage(); return; }
   };
+  
 
   let source_str = match args.next() {
-  	Some(x) => x,
+  	Some(x) => x.clone(),
   	_ => { usage(); return; }
   };
 
-  let source = path::Path::new(source_str);
-  if source.is_file() {
-  	let name = match source.file_name() {
-  		Some(x) => x,
-  		_ => panic!("Couldn't retrieve file_name:")
-  	};
-  	let dir = match source.parent().unwrap()
-  					      .join(path::Path::new(name + "_chunks");
+  // ungracefully many unwrap()s that can panic!
+  // but given time-constraints, just opt for this now
+  
+  let source = path::Path::new(&source_str);
+  let parent = source.parent().unwrap();
+  let name = source.file_name().unwrap().to_str().unwrap();
+  
+  let mut folder : String = String::new();
+  folder.push_str(name); 
+  folder.push_str("_chunks");
+  {
+  	let dir = parent.join(&folder).to_str().unwrap();
+    fs::create_dir(dir);
   }
- //  let storage = match &args.collect::<Vec<_>>()[..] {
-	// [source, destination] => {
-	//   let source = ;
-	//   let destination = try!(FromStr::from_str(destination));
-	//   MyStorage::new(&source, &destination);
-	// },
-	// _ => { usage(); return; }
- //  };
-
 }
