@@ -10,11 +10,19 @@ readme = "README.md"
 license = "GPL-3.0"
 homepage = "http://www.maidsafe.net"
 
+[lib]
+name = "self_encryption"
+bench = false
+
+[[example]]
+name = "se"
+path = "examples/self_encryption/main.rs"
+test = false
+bench = false
+
 [dependencies]
 rand = "*"
 tempdir = "*"
-docopt_macros = "*"
-rustc-serialize = "*"
 
 [dependencies.rust-crypto]
 git="https://github.com/dirvine/rust-crypto"
