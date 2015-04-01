@@ -10,11 +10,6 @@ readme = "README.md"
 license = "GPL-3.0"
 homepage = "http://www.maidsafe.net"
 
-[dependencies]
-rand = "*"
-rust-crypto ="*"
-tempdir = "*"
-
 [lib]
 name = "self_encryption"
 bench = false
@@ -24,3 +19,10 @@ name = "se"
 path = "examples/self_encryption/main.rs"
 test = false
 bench = false
+
+[dependencies]
+rand = "*"
+tempdir = "*"
+
+[dependencies.rust-crypto]
+git="https://github.com/dirvine/rust-crypto"
