@@ -120,18 +120,19 @@ fn main() {
   
 
   let source_str = match args.next() {
-  	Some(x) => x.clone(),
+  	Some(x) => x,
   	_ => { usage(); return; }
   };
 
   // ungracefully many unwrap()s that can panic!
   // but given time-constraints, just opt for this now
-  
   let source = path::Path::new(&source_str);
   let parent = source.parent().unwrap();
   let name = source.file_name().unwrap().to_str().unwrap();
-	let mut dir = path::Path::new(&source_str).parent().unwrap();
-  dir.join(name.to_string() + "_chunks").to_str().unwrap();
+	let mut dir = source.parent().unwrap();
+  // this compiles, but does not do anything, but this does not compile
+  // let dir = parent.join(...)...
+  // dir.join(name.to_string() + "_chunks").to_str().unwrap();
+  println!("dir: {}", dir.to_str().unwrap());
   fs::create_dir(&dir);
-  
 }
