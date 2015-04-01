@@ -12,8 +12,9 @@ homepage = "http://www.maidsafe.net"
 
 [dependencies]
 rand = "*"
-rust-crypto ="*"
 tempdir = "*"
 docopt_macros = "*"
 rustc-serialize = "*"
 
+[dependencies.rust-crypto]
+git="https://github.com/dirvine/rust-crypto"
