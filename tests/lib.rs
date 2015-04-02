@@ -238,57 +238,46 @@ fn write_random_size_random_position() {
     }
 }
 
-// Test disabled because it fails !
 #[test]
-fn write_random_sized_out_of_sequence_writes_with_gaps_and_overlaps() {
+// The test writes random-sized pieces at random offsets and checks they can be read back.  The
+// pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
+fn write_random_size_out_of_sequence_with_gaps_and_overlaps() {
     let mut my_storage = MyStorage::new();
-    let parts : usize = 20;
+    let parts = 20usize;
     assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
-    let original = random_bytes(DATA_SIZE as usize);
-    let mut pieces : Vec<&[u8]> = Vec::with_capacity(parts);
-    let mut offsets : Vec<usize> = Vec::with_capacity(parts);
-    let mut index : Vec<usize> = Vec::with_capacity(parts);
-    let mut total_size : usize = 0;
     let mut rng = thread_rng();
+    let mut total_size = 0u64;
+    let mut self_encryptor = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+    let mut original = vec![0u8; DATA_SIZE as usize];
 
     for i in 0..parts {
-        // grab random sized pieces from the data
-        let offset : usize = rand::random::<usize>()
-                         % (DATA_SIZE - MAX_CHUNK_SIZE as u64 - 2) as usize;
-        let piece_size : usize = (rand::random::<usize>()
-                         % MAX_CHUNK_SIZE as usize) + 1;
-        pieces.push(&original[offset..(offset + piece_size)]);
-        offsets.push(offset);
-        index.push(i);
-    }
-
-    {
-        let slice_index = &mut index[..];
-        rng.shuffle(slice_index);
-    }
-
-    // write the pieces. Positions could yield overlaps or gaps.
-    let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
-                                                                                                    let mut x = 0u32;
-    for ind in index {
-                                                    println!("\n1 - {0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}", x);
-        let piece_size : usize = pieces[ind].len();
-        let offset : usize = offsets[ind];
-        total_size = std::cmp::max(total_size, offset + piece_size);
-                                                    println!("2 - {0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}", x);
-        se.write(pieces[ind], offset as u64);
-                                                    println!("3 - {0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}", x);
+        // Get random values for the piece size and intended offset
+        let piece_size = rng.gen_range(1, MAX_CHUNK_SIZE as usize + 1);
+        let offset = rng.gen_range(0, DATA_SIZE - MAX_CHUNK_SIZE as u64);
+        total_size = std::cmp::max(total_size, offset + piece_size as u64);
         assert!(DATA_SIZE >= total_size as u64);
-                                                    println!("4 - {0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}", x);
-        let decrypted = se.read(offset as u64, piece_size as u64);
-                                                    println!("5 - {0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}{0}", x);
-        assert_eq!(decrypted, original[offset..(offset + piece_size)].to_vec());
-        assert_eq!(total_size as u64, se.len());
-                                                                                                    x = x + 1;
-    }
-    let decryptor = se.read(0u64, total_size as u64);
-    assert_eq!(decryptor, original[0..total_size].to_vec());
-    assert_eq!(total_size as u64, se.len());
-    se.close();
-}
+        println!("{}\tWriting {} bytes.\tOffset {} bytes.\tTotal size now {} bytes.", i, piece_size,
+                 offset, total_size);
 
+        // Create the random piece and copy to the comparison vector.
+        let piece = random_bytes(piece_size);
+        for a in 0..piece_size {
+            original[offset as usize + a] = piece[a];
+        }
+
+        // Write the piece to the encryptor and check it can be read back.
+        self_encryptor.write(&piece, offset as u64);
+        let decrypted = self_encryptor.read(offset, piece_size as u64);
+        assert_eq!(decrypted, piece);
+        assert_eq!(total_size, self_encryptor.len());
+    }
+
+    // Read back DATA_SIZE from the encryptor.  This will contain all that was written, plus likely
+    // will be reading past EOF.  Reading past the end shouldn't affect the file size.
+    let decrypted = self_encryptor.read(0u64, DATA_SIZE);
+    assert_eq!(decrypted.len(), DATA_SIZE as usize);
+    assert_eq!(decrypted, original);
+    assert_eq!(total_size, self_encryptor.len());
+
+    // Close the encryptor, open a new one with the returned DataMap, and read back DATA_SIZE again.
+}

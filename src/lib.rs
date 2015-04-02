@@ -142,8 +142,7 @@ impl<'a> SelfEncryptor<'a> {
     /// programs as well as fine grained access to system level libraries for developers.
     /// The input data will be written from the specified position (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
-        let new_size = cmp::max(self.file_size , data.len() as u64 + position);
-        self.file_size = new_size;
+        self.file_size = cmp::max(self.file_size , data.len() as u64 + position);
         self.prepare_window(data.len() as u64, position, true);
         for i in 0..data.len() {
             self.sequencer[position as usize + i] = data[i];
@@ -152,10 +151,10 @@ impl<'a> SelfEncryptor<'a> {
 
     /// The returned content is read from the specified position with specified length.
     /// Trying to read beyond the file size will cause the self_encryptor to be truncated up
-    /// and return content filled with 0u8 in the gap.
+    /// and return content filled with 0u8 in the gap.  Any other unwritten gaps will also be filled
+    /// with '0u8's.
     pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
         self.prepare_window(length, position, false);
-
         let mut read_vec : Vec<u8> = Vec::with_capacity(length as usize);
         for i in self.sequencer.iter().skip(position as usize).take(length as usize) {
             read_vec.push(i.clone());
@@ -296,21 +295,13 @@ impl<'a> SelfEncryptor<'a> {
                 }
             }
             if !found {
-                let mut tmp_chunks = Vec::new();
                 if write {
-                    tmp_chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
+                    self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
                                            location: ChunkLocation::InSequencer});
                 } else {
-                    tmp_chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted,
+                    self.chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted,
                                            location: ChunkLocation::InSequencer});
-                    let mut pos = self.get_start_end_positions(i).0;
-                    let vec : Vec<u8> = self.decrypt_chunk(i);
-                    for itr2 in vec.iter() {
-                        self.sequencer[pos as usize] = *itr2;
-                        pos += 1;
-                    }
                 }
-                self.chunks.append(&mut tmp_chunks);
             }
         }
     }
