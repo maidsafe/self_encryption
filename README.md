@@ -38,7 +38,7 @@ Code Coverage
 - [x] API version 0.0.8
 - [ ] Implement disk based interface as example
 - [x] Full unit tests in lib.rs
-- [ ] Integrations tests in tests module
+- [x] Integrations tests in tests module
 - [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
 - [ ] Add task passing to allow cores to be lit up when handling chunks
