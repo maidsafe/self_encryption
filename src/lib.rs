@@ -164,9 +164,9 @@ impl<'a> SelfEncryptor<'a> {
         //&self.sequencer[position as usize..(position+length) as usize]
     }
 
-    /// This function returns a DataMap, which is the info required to recover encrypted content from storage.
-    /// Content temporarily held in self_encryptor will only get flushed into storage when this
-    /// function gets called.
+    /// This function returns a DataMap, which is the info required to recover encrypted content
+    /// from storage.  Content temporarily held in self_encryptor will only get flushed into storage
+    /// when this function gets called.
     pub fn close(mut self) -> datamap::DataMap {
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             let content = self.sequencer.to_vec();
@@ -178,7 +178,8 @@ impl<'a> SelfEncryptor<'a> {
 
             for chunk in self.chunks.iter() {
                 if chunk.status == ChunkStatus::ToBeHashed ||
-                        tmp_chunks[chunk.number as usize].pre_hash.len() == 0 || self.get_num_chunks() == 3 {
+                        tmp_chunks[chunk.number as usize].pre_hash.len() == 0 ||
+                        self.get_num_chunks() == 3 {
                     let this_size = self.get_chunk_size(chunk.number);
                     let pos = self.get_start_end_positions(chunk.number);
 
@@ -199,7 +200,7 @@ impl<'a> SelfEncryptor<'a> {
                         tmp_chunks[chunk.number as usize].pre_hash = tmp2.to_vec();
                         tmp_chunks[chunk.number as usize].source_size = this_size as u64;
                         tmp_chunks[chunk.number as usize].chunk_num = chunk.number;
-                        // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
+                    // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
                     }
                 }
             }
@@ -317,7 +318,8 @@ impl<'a> SelfEncryptor<'a> {
    // [TODO]: use fixed width arrays here, derived
    // from key size of cipher used (compile time) - 2015-03-02 01:01am
     fn get_pad_iv_key(&self, chunk_number: u32) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        let vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
+        let vec : Vec<u8> =
+            self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
         let n_1 = self.get_previous_chunk_number(chunk_number);
         let n_1_vec : Vec<u8> = self.my_datamap.get_sorted_chunks()[n_1 as usize].pre_hash.clone();
         let n_2 = self.get_previous_chunk_number(n_1);
@@ -400,7 +402,8 @@ impl<'a> SelfEncryptor<'a> {
         let penultimate = (self.get_num_chunks() - 2) == chunk_number;
         let last = (self.get_num_chunks() - 1) == chunk_number;
         if last {
-            start = (self.get_chunk_size(0) * (chunk_number - 2) + self.get_chunk_size(chunk_number - 2) +
+            start = (self.get_chunk_size(0) * (chunk_number - 2) +
+                self.get_chunk_size(chunk_number - 2) +
                 self.get_chunk_size(chunk_number - 1)) as u64;
         } else if penultimate {
             start = (self.get_chunk_size(0) * (chunk_number - 1) +
