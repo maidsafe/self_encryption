@@ -416,7 +416,7 @@ impl<'a> SelfEncryptor<'a> {
     }
 }
 
-
+/*
 #[cfg(test)]
 #[allow(dead_code, unused_variables, unused_assignments)]
 mod test {
@@ -504,7 +504,8 @@ mod test {
             assert_eq!(se.sequencer.len(), bytes_len as usize);
             match se.my_datamap {
                 datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-                datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+                datamap::DataMap::Content(ref content) =>
+                    panic!("shall not return DataMap::Content"),
                 datamap::DataMap::None => {}
             }
             // check close
@@ -512,7 +513,7 @@ mod test {
         }
         match data_map {
             datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-            datamap::DataMap::Content(ref content) => { assert_eq!(content.len(), bytes_len as usize); }
+            datamap::DataMap::Content(ref content) => assert_eq!(content.len(), bytes_len as usize),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -670,7 +671,8 @@ mod test {
             assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1, ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+            assert_eq!(se.get_start_end_positions(2).1,
+                       ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
             // check close
             data_map = se.close();
         }
@@ -811,3 +813,4 @@ mod test {
         }
     }
 }
+*/
