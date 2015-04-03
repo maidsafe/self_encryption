@@ -25,8 +25,8 @@
 //! in the data validity.
 //!
 //! # Use
-//! To use this lib you must implement a trait wiht two functiona, these are to allow
-//! get_chunk and put_chunk from storage however you set that up (memory/disk/key value store etc).
+//! To use this lib you must implement a trait with two functions, these are to allow get_chunk and
+//! put_chunk from storage however you set that up (memory/disk/key value store etc).
 //!
 //!
 
