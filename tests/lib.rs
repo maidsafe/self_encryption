@@ -177,7 +177,7 @@ fn new_read() {
 }
 
 #[test]
-fn write_random_size_random_position() {
+fn write_random_sizes_at_random_positions() {
     let mut rng = thread_rng();
     let mut my_storage = MyStorage::new();
     let max_broken_size : u64 = 20 * 1024;
@@ -241,7 +241,7 @@ fn write_random_size_random_position() {
 #[test]
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
-fn write_random_size_out_of_sequence_with_gaps_and_overlaps() {
+fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     let mut my_storage = MyStorage::new();
     let parts = 20usize;
     assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);

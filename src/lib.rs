@@ -120,15 +120,27 @@ impl<'a> SelfEncryptor<'a> {
         let mut sequencer : Vec<u8> = Vec::with_capacity(1024 * 1024 * 100);
         let file_size = my_datamap.len();
 
+        let mut chunks = vec![];
         match my_datamap {
-            datamap::DataMap::Content(ref content) => sequencer.push_all(&content),
-            _ => {}
+            datamap::DataMap::Content(ref content) => {
+                sequencer.push_all(&content);
+                chunks.push(Chunks{number: 0, status: ChunkStatus::AlreadyEncrypted,
+                                   location: ChunkLocation::Remote})
+            },
+            datamap::DataMap::Chunks(ref data_map_chunks) => {
+                for chunk in data_map_chunks.iter() {
+                    chunks.push(Chunks{number: chunk.chunk_num,
+                                       status: ChunkStatus::AlreadyEncrypted,
+                                       location: ChunkLocation::Remote});
+                }
+            },
+            datamap::DataMap::None => {},
         }
 
         SelfEncryptor {
             storage: my_storage,
             my_datamap: my_datamap,
-            chunks: vec![],
+            chunks: chunks,
             sequencer: sequencer,
             file_size: file_size,
         }
@@ -193,7 +205,7 @@ impl<'a> SelfEncryptor<'a> {
                     }
                     // assert(tmp.len() == this_size && "vector diff size from chunk size");
 
-                    let mut name = vec![0u8; 128];
+                    let mut name = vec![0u8; 64];
                     let mut hash = Sha512::new();
                     hash.input(&mut tmp[..]);
                     hash.result(&mut name[..]);
@@ -222,7 +234,7 @@ impl<'a> SelfEncryptor<'a> {
                         tmp[i] = self.sequencer[i + pos as usize].clone();
                     }
                     let content = self.encrypt_chunk(chunk.number, tmp);
-                    let mut name = vec![0u8; 128];
+                    let mut name = vec![0u8; 64];
                     let mut hash = Sha512::new();
                     hash.input(&content);
                     hash.result(&mut name[..]);
@@ -417,7 +429,6 @@ impl<'a> SelfEncryptor<'a> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -493,7 +504,7 @@ mod test {
     #[test]
     fn check_3_min_chunks_minus1() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -503,16 +514,15 @@ mod test {
             assert_eq!(se.chunks.len(), 0);
             assert_eq!(se.sequencer.len(), bytes_len as usize);
             match se.my_datamap {
-                datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
-                datamap::DataMap::Content(ref content) =>
-                    panic!("shall not return DataMap::Content"),
+                datamap::DataMap::Chunks(_) => panic!("shall not return DataMap::Chunks"),
+                datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
                 datamap::DataMap::None => {}
             }
             // check close
             data_map = se.close();
         }
         match data_map {
-            datamap::DataMap::Chunks(ref chunks) => panic!("shall not return DataMap::Chunks"),
+            datamap::DataMap::Chunks(_) => panic!("shall not return DataMap::Chunks"),
             datamap::DataMap::Content(ref content) => assert_eq!(content.len(), bytes_len as usize),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
@@ -525,7 +535,7 @@ mod test {
     #[test]
     fn check_3_min_chunks() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
         {
             let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
@@ -555,7 +565,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -567,7 +577,7 @@ mod test {
     #[test]
     fn check_3_min_chunks_plus1() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -597,7 +607,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -609,7 +619,7 @@ mod test {
     #[test]
     fn check_3_max_chunks() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -639,7 +649,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -651,7 +661,7 @@ mod test {
     #[test]
     fn check_3_max_chunks_plus1() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -684,7 +694,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -696,7 +706,7 @@ mod test {
     #[test]
     fn check_7_and_a_bit_max_chunks() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -730,7 +740,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -743,7 +753,7 @@ mod test {
     fn check_large_file_size_over_11_chunks() {
         // has been tested for 50 chunks
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let number_of_chunks : u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
         let the_bytes = random_bytes(bytes_len);
@@ -777,7 +787,7 @@ mod test {
                     assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
                 }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
@@ -789,7 +799,7 @@ mod test {
     #[test]
     fn check_5_and_extend_to_7_plus_one() {
         let mut my_storage = MyStorage::new();
-        let mut data_map = datamap::DataMap::None;
+        let mut data_map: datamap::DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 5;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -808,9 +818,8 @@ mod test {
                   assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
               }
             }
-            datamap::DataMap::Content(ref content) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
     }
 }
-*/
