@@ -40,7 +40,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
     loop {
         let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
 
-        final_result.push_all(write_buffer.take_read_buffer().take_remaining());
+        final_result.extend(write_buffer.take_read_buffer().take_remaining().iter().map(|&x| x));
 
         match result {
             BufferResult::BufferUnderflow => break,
@@ -65,7 +65,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
     loop {
         let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
-        final_result.push_all(write_buffer.take_read_buffer().take_remaining());
+        final_result.extend(write_buffer.take_read_buffer().take_remaining().iter().map(|&x| x));
         match result {
             BufferResult::BufferUnderflow => break,
             BufferResult::BufferOverflow => { }

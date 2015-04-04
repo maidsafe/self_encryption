@@ -16,16 +16,10 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
-#![feature(collections)]
-
 extern crate self_encryption;
 extern crate rand;
 extern crate tempdir;
 pub use self_encryption::*;
-//use std::path::Path;
-//use std::fs::File;
-//use std::io::*;
-//use tempdir::TempDir as TempDir;
 use rand::{thread_rng, Rng};
 
 fn random_bytes(length: usize) -> Vec<u8> {
@@ -73,49 +67,6 @@ impl Storage for MyStorage {
     }
 }
 
-// pub struct MyStorage {
-//   temp_dir : TempDir
-// }
-
-// impl MyStorage {
-//   pub fn new() -> MyStorage {
-//     MyStorage { temp_dir: match TempDir::new("encrypt_storage") {
-//         Ok(dir) => dir,
-//         Err(why) => panic!("couldn't create temporary directory: {}", why)
-//     } }
-//   }
-// }
-
-// impl Storage for MyStorage {
-//   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-//     let file_name = String::from_utf8(name).unwrap();
-//     let file_path = self.temp_dir.path().join(Path::new(&file_name));
-//     let mut f = match File::open(&file_path) {
-//         // The `desc` field of `IoError` is a string that describes the error
-//         Err(why) => panic!("on get couldn't open: {}", why),
-//         Ok(file) => file,
-//     };
-//     let mut s = String::new();
-//     //f.read_to_string(&mut s); put f into a string
-//     match f.read_to_string(&mut s){
-//         Err(why) => panic!("on get couldn't read: {}", why),
-//         Ok(_) => print!("contains:\n{}", s),
-//     }
-//     s.into_bytes()
-//   }
-
-//   #[allow(unused_must_use)]
-//   fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-//     let file_name = String::from_utf8(name).unwrap();
-//     let file_path = self.temp_dir.path().join(Path::new(&file_name));
-//     let mut f = match File::create(&file_path) {
-//         // The `desc` field of `IoError` is a string that describes the error
-//         Err(why) => panic!("on put couldn't open: {}", why),
-//         Ok(file) => file,
-//     };
-//     f.write_all(&data);
-//   }
-// }
 
 #[test]
 fn new_read() {
@@ -150,28 +101,19 @@ fn new_read() {
             assert_eq!(original[read_position ..(read_position+read_size)].to_vec(),
                        decrypted);
 
-            // read beyond the file, output is padded with default initalisation
-            // TODO(Ben: 2015-03-27) follow-up if SE behaviour is changed!
-            read_position = content_len - read_size + 2000;
-            let decrypted = se.read(read_position as u64, read_size as u64);
-            let mut padded : Vec<u8> = Vec::with_capacity(read_size);
-            padded.push_all(&original[read_position..content_len]);
-            padded.resize(read_size, 0u8);
-            assert_eq!(padded, decrypted);
         }
 
         { // Finish with many small reads
             let mut decrypted : Vec<u8> = Vec::with_capacity(content_len);
             read_position = 0usize;
             for _ in 0..15 {
-                decrypted.push_all(&se.read(read_position as u64, read_size as u64));
+                decrypted.extend(se.read(read_position as u64, read_size as
+                u64).iter().map(|&x| x));
                 assert_eq!(original[0..(read_position+read_size)].to_vec(),
                            decrypted);
                 read_position += read_size;
             }
         }
-        //TODO(Ben:2015-03-27) Panics at MyStorage::Put, when writing datamap!
-        //     Possible cause of bug, by reading sequencer over file-end
         se.close();
     }
 }
@@ -213,7 +155,7 @@ fn write_random_sizes_at_random_positions() {
         None => panic!("Should never occur. Error in test itself."),
         Some(overlap) => {
             let mut extra : Vec<u8> = overlap.1.to_vec();
-            extra.push_all(&mut random_bytes(7usize)[..]);
+            extra.extend(random_bytes(7usize)[..].iter().map(|&x| x));
             let post_overlap : (u64, &[u8]) = (overlap.0, &mut extra[..]);
             let post_position: u64 = overlap.0 + overlap.1.len() as u64;
             let mut wtotal : u64 = 0;
@@ -228,8 +170,9 @@ fn write_random_sizes_at_random_positions() {
             assert_eq!(original, decrypted);
 
             let mut overwrite = original[0..post_overlap.0 as usize].to_vec();
-            overwrite.push_all(post_overlap.1);
-            overwrite.push_all(&original[post_position as usize + 7..DATA_SIZE as usize]);
+            overwrite.extend((post_overlap.1).to_vec().iter().map(|&x| x));
+            overwrite.extend(original[post_position as usize + 7..DATA_SIZE as
+            usize].iter().map(|&x| x));
             se.write(post_overlap.1, post_overlap.0);
             let decrypted = se.read(0u64, DATA_SIZE);
             assert_eq!(overwrite.len(), decrypted.len());

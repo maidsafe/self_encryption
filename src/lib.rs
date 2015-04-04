@@ -33,14 +33,13 @@
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
-#![feature(collections, rustc_private)]
 
 extern crate rand;
 extern crate crypto;
-extern crate rustc_back;
 use std::cmp;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
+use std::iter::repeat;
 
 // This is pub to test the tests directory integration tests; these are temp and need to be
 // replaced with actual integration tests and this should be private
@@ -123,7 +122,7 @@ impl<'a> SelfEncryptor<'a> {
         let mut chunks = vec![];
         match my_datamap {
             datamap::DataMap::Content(ref content) => {
-                sequencer.push_all(&content);
+                sequencer.extend(content.iter().map(|&x| x));
                 chunks.push(Chunks{number: 0, status: ChunkStatus::AlreadyEncrypted,
                                    location: ChunkLocation::Remote})
             },
@@ -257,7 +256,7 @@ impl<'a> SelfEncryptor<'a> {
         let old_size = self.file_size;
         self.file_size = position;  //  All helper methods calculate from file size
         if position < old_size {
-            self.sequencer.resize(position as usize, 0u8);
+            self.sequencer.truncate(position as usize);
             let last_chunk = self.get_chunk_number(position) + 1;
             self.chunks.truncate(last_chunk as usize);
         } else {
@@ -277,7 +276,8 @@ impl<'a> SelfEncryptor<'a> {
     /// it will possibly read-in some chunks from external storage.
     fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
         if (length + position) as usize > self.sequencer.len() {
-            self.sequencer.resize((length + position) as usize, 0u8);
+          let tmp_size = self.sequencer.len();
+            self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
         }
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 { return }
         let mut first_chunk = self.get_chunk_number(position);
