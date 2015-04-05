@@ -20,15 +20,72 @@
 //!
 //! This library will provide convergent encryption on file based data and produce a
 //! ```DataMap``` type and several chunks of data. Each chunk is max 1Mb in size
-//! and has a name. This name is the ``Sah512``` of the content. This allows the chunks
+//! and has a name. This name is the ```Sha512``` of the content. This allows the chunks
 //! to be confirmed and if using size and Hash checks then there is a high degree of certainty
 //! in the data validity.
 //!
-//! # Use
-//! To use this lib you must implement a trait with two functions, these are to allow get_chunk and
-//! put_chunk from storage however you set that up (memory/disk/key value store etc).
+//! # **Use**
 //!
+//! To use this lib you must implement a trait with two functions, these are to allow ```get_chunk``` and
+//! ```put_chunk``` from storage however you set that up.
+//! This is achived by implementing the Storage trait (see below);
+//! The trait can allow chunks to be stored in a key value store, disk, vector (as per example below) 
+//! , a network based DHT, key/Value store is particularly well suited.
+//! 
 //!
+//! # **Examples**
+//!
+//! This is a simple setup for a memory based chunk store. A working implementation can be found 
+//! in the test crate of this project.
+//!
+//!``` 
+//!pub struct Entry {
+//!    name: Vec<u8>,
+//!    data: Vec<u8>
+//!}
+//!
+//!pub struct MyStorage {
+//!    entries: Vec<Entry>
+//!}
+//!
+//!impl MyStorage {
+//!    pub fn new() -> MyStorage {
+//!        MyStorage { entries: Vec::new() }
+//!    }
+//!
+//!    pub fn has_chunk(&self, name: Vec<u8>) -> bool {
+//!        for entry in self.entries.iter() {
+//!            if entry.name == name { return true }
+//!        }
+//!        false
+//!    }
+//! }
+//!
+//! impl Storage for MyStorage {
+//!    fn get(&self, name: Vec<u8>) -> Vec<u8> {
+//!        for entry in self.entries.iter() {
+//!            if entry.name == name { return entry.data.to_vec() }
+//!        }
+//!        vec![]
+//!    }
+//!
+//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+//!        self.entries.push(Entry { name : name, data : data })
+//!    }
+//!}
+//!``` 
+
+//! Use of this setup would be to set up a self encryptor e.g  
+//! ```let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);```
+//!
+//! Then call write (and read after write) etc. on the encryptor.
+//! The ```close()``` method will return a ```DataMap```. This can be passed to create a new encryptor 
+//! to access the content ```let data_map = se.close();```
+//! 
+//! This is then used to open the data content in future sessions; e.g. ```let mut self_encryptor = SelfEncryptor::new(&mut my_storage, data_map);```
+//! where the ```data_map``` is the object returned from the ```close()``` call of previous use of this file content
+//! via the self_encryptor.
+//! Storage of the ```DataMap``` is outwith the scope of this library and must be implemented by the user.
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
@@ -53,11 +110,6 @@ pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
 pub const MIN_CHUNK_SIZE: u32 = 1024;
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
-/// ### Usage
-///    let data = vec![1u8, 2u8, 3u8, 4u8, 5u8];
-///    let pad = vec![8u8, 7u8];
-///    let xor_result = xor(&data, &pad);
-///
 pub fn xor(data: &[u8], pad: &[u8]) -> Vec<u8> {
     data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
@@ -88,8 +140,6 @@ struct Chunks {
 /// Data stored in Storage is encrypted, name is the SHA512 hash of content.
 /// Storage can be in-memory HashMap or disk based
 pub trait Storage {
-    // TODO : the trait for fn get shall be Option<Vec<u8>> to cover the situation that cannot
-    //        fetched requested content. Instead, the current implementation return empty Vec
     /// Fetch the data bearing the name
     fn get(&self, name: Vec<u8>) -> Vec<u8>;
 
