@@ -23,6 +23,7 @@
 //! and has a name. This name is the ```Sha512``` of the content. This allows the chunks
 //! to be confirmed and if using size and Hash checks then there is a high degree of certainty
 //! in the data validity.
+//! [github page](https://github.com/dirvine/self_encryption)
 //!
 //! # **Use**
 //!
