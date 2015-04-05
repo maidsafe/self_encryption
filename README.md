@@ -41,6 +41,7 @@ Code Coverage
 - [x] Integrations tests in tests module
 - [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
 - [ ] API stable version 0.1.0
+- [ ] Add compression pre encrypt and post encrypt in encrypt and decrypt methods
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
@@ -48,7 +49,7 @@ Code Coverage
     - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
-- [ ] Coverage analysis (coveralls ?)
+- [x] Coverage analysis (coveralls ?)
 
 #Video of the process 
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
