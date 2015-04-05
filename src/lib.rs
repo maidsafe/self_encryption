@@ -39,21 +39,23 @@
 //! in the test crate of this project.
 //!
 //!``` 
-//!pub struct Entry {
+//!extern crate self_encryption;
+//!
+//!struct Entry {
 //!    name: Vec<u8>,
 //!    data: Vec<u8>
 //!}
 //!
-//!pub struct MyStorage {
+//!struct MyStorage {
 //!    entries: Vec<Entry>
 //!}
 //!
 //!impl MyStorage {
-//!    pub fn new() -> MyStorage {
+//!    fn new() -> MyStorage {
 //!        MyStorage { entries: Vec::new() }
 //!    }
 //!
-//!    pub fn has_chunk(&self, name: Vec<u8>) -> bool {
+//!    fn has_chunk(&self, name: Vec<u8>) -> bool {
 //!        for entry in self.entries.iter() {
 //!            if entry.name == name { return true }
 //!        }
@@ -61,7 +63,7 @@
 //!    }
 //! }
 //!
-//! impl Storage for MyStorage {
+//! impl self_encryption::Storage for MyStorage {
 //!    fn get(&self, name: Vec<u8>) -> Vec<u8> {
 //!        for entry in self.entries.iter() {
 //!            if entry.name == name { return entry.data.to_vec() }
