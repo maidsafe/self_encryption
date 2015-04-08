@@ -13,5 +13,6 @@ homepage = "http://www.maidsafe.net"
 [dependencies]
 rand = "*"
 tempdir = "*"
+docopt = "*"
 rustc-serialize = "*"
 rust-crypto = "*"
