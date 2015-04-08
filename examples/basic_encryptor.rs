@@ -18,22 +18,19 @@
 
 extern crate self_encryption;
 extern crate rand;
-extern crate cbor;
 extern crate tempdir;
 extern crate docopt;
 extern crate rustc_serialize;
-
 use docopt::Docopt;
 use std::fs;
-use std::fs::{File, OpenOptions};
-use std::io;
+use std::fs::{File};
 use std::io::prelude::*;
 use std::path::Path;
 use self_encryption::*;
 use std::string::String;
 use std::error::Error;
-use cbor::{Encoder, Decoder};
-
+// use serialize::json;
+// TODO wait for stabalisation on Beta channel
 // Write the Docopt usage string.
 static USAGE: &'static str = "
 Usage: basic_encryptor -e filename
@@ -65,7 +62,7 @@ impl Storage for MyStorage {
       Err(_) => panic!("couldn't open file"),
         Ok(file) => file,
     };
-    let tmpname = ("chunk_store_test/".to_string() + &pathstr);
+    let tmpname = "chunk_store_test/".to_string() + &pathstr;
     let path = Path::new(&tmpname);
     let display = path.display();
     let mut file = match File::open(&path) {
@@ -73,7 +70,7 @@ impl Storage for MyStorage {
         Ok(f) => f,
     };
     let mut data = Vec::new();
-    file.read_to_end(&mut data);
+    file.read_to_end(&mut data).unwrap();
     data
   }
 
@@ -82,7 +79,7 @@ impl Storage for MyStorage {
       Err(_) => panic!("couldn't open file"),
         Ok(file) =>  file
     }; 
-    let tmpname = ("chunk_store_test/".to_string() + &pathstr);
+    let tmpname = "chunk_store_test/".to_string() + &pathstr;
     let path = Path::new(&tmpname);
     let mut file = match File::create(&path) {
            Err(_) => panic!("couldn't create"),
@@ -118,18 +115,17 @@ fn main() {
               Ok(f) => f,
             };
     let mut data = Vec::new();
-    file.read_to_end(&mut data);
+    file.read_to_end(&mut data).unwrap();
       
     se.write(&data, 0);
-    let data_map = se.close();
+    // let data_map = se.close();
     
-    let mut file = match File::create("data_map") {
-           Err(_) => panic!("couldn't create data_map"),
-           Ok(f) => f 
-    }; 
-
-    let mut enc = Encoder::from_memory();
-    // enc.encode(&data_map.iter());
+    // let mut file = match File::create("data_map") {
+    //        Err(_) => panic!("couldn't create data_map"),
+    //        Ok(f) => f 
+    // }; 
+// Todo - will force nightly as json unstable so park for a couple of weeks
+  //  let encoded =  json::encode(&data_map).unwrap();
     //        
     // match file.write_all(&enc.as_bytes()[..]) {
     //          Err(_) => panic!("couldn't write "),
@@ -140,7 +136,5 @@ fn main() {
     
     
    // let decrypted = se.read(read_position as u64, read_size as u64);
-
-
 
 }

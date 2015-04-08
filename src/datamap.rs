@@ -16,8 +16,10 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
+extern crate rustc_serialize;
+
 /// Struct holds pre and post encryption hashes as well as original chunk size.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
     pub chunk_num: u32,
@@ -43,7 +45,7 @@ impl ChunkDetails {
 
 /// Holds the information that's required to recover the content of the encrypted file.  Depending
 /// on the file size, such info can be held as a vector of ChunkDetails, or as raw data directly.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If file was large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this holds the list
     /// of chunks' info.

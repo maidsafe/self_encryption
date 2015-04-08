@@ -97,6 +97,7 @@
 
 extern crate rand;
 extern crate crypto;
+extern crate rustc_serialize;
 use std::cmp;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
