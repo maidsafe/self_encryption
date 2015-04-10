@@ -77,6 +77,7 @@ mod test {
     use super::*;
     use crypto::digest::Digest;
     use crypto::sha2::Sha512  as Sha512;
+    use rand;
     use rand::Rng;
 
 #[test]
@@ -95,7 +96,7 @@ mod test {
         let mut key: [u8; 32] = [0; 32];
         let mut iv: [u8; 16] = [0; 16];
 
-        let mut rng = super::rand::OsRng::new().unwrap();
+        let mut rng = rand::OsRng::new().unwrap();
         rng.fill_bytes(&mut key);
         rng.fill_bytes(&mut iv);
 
