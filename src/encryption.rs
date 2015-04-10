@@ -29,7 +29,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
@@ -55,7 +55,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
