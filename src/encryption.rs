@@ -16,9 +16,6 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
-extern crate rand;
-extern crate crypto;
-
 use crypto::{symmetriccipher, aes, blockmodes};
 use crypto::buffer::{self, ReadBuffer, WriteBuffer, BufferResult};
 
