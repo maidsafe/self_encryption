@@ -16,9 +16,6 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
-extern crate rand;
-extern crate crypto;
-
 use crypto::{symmetriccipher, aes, blockmodes};
 use crypto::buffer::{self, ReadBuffer, WriteBuffer, BufferResult};
 
@@ -32,7 +29,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
@@ -58,7 +55,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
@@ -80,6 +77,7 @@ mod test {
     use super::*;
     use crypto::digest::Digest;
     use crypto::sha2::Sha512  as Sha512;
+    use rand;
     use rand::Rng;
 
 #[test]
@@ -98,7 +96,7 @@ mod test {
         let mut key: [u8; 32] = [0; 32];
         let mut iv: [u8; 16] = [0; 16];
 
-        let mut rng = super::rand::OsRng::new().unwrap();
+        let mut rng = rand::OsRng::new().unwrap();
         rng.fill_bytes(&mut key);
         rng.fill_bytes(&mut iv);
 
