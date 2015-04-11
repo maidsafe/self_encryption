@@ -41,6 +41,7 @@
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
 - [x] Coverage analysis (coveralls ?)
+- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
 #Video of the process 
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)

@@ -803,9 +803,69 @@ mod test {
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     }
+    
+    #[test]
+    fn check_large_file_1_byte_under_11_chunks() {
+        let mut my_storage = MyStorage::new();
+        let mut data_map: datamap::DataMap;
+        let number_of_chunks : u32 = 11;
+        let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) - 1;
+        let the_bytes = random_bytes(bytes_len);
+        {
+            let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+            se.write(&the_bytes, 0);
+            assert_eq!(se.get_num_chunks(), number_of_chunks);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            data_map = se.close();
+        }
+        match data_map {
+            datamap::DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), number_of_chunks as usize);
+                assert_eq!(my_storage.entries.len(), number_of_chunks as usize);
+                for chunk_detail in chunks.iter() {
+                    assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+                }
+            }
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::None => panic!("shall not return DataMap::None"),
+        }
+        let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
+        let fetched = new_se.read(0, bytes_len as u64);
+        assert_eq!(fetched, the_bytes);
+    }
 
     #[test]
-    fn check_large_file_size_over_11_chunks() {
+    fn check_large_file_1_byte_over_11_chunks() {
+        let mut my_storage = MyStorage::new();
+        let mut data_map: datamap::DataMap;
+        let number_of_chunks : u32 = 11;
+        let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1;
+        let the_bytes = random_bytes(bytes_len);
+        {
+            let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+            se.write(&the_bytes, 0);
+            assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            data_map = se.close();
+        }
+        match data_map {
+            datamap::DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), number_of_chunks as usize + 1);
+                assert_eq!(my_storage.entries.len(), number_of_chunks as usize + 1);
+                for chunk_detail in chunks.iter() {
+                    assert_eq!(my_storage.has_chunk(chunk_detail.hash.to_vec()), true);
+                }
+            }
+            datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
+            datamap::DataMap::None => panic!("shall not return DataMap::None"),
+        }
+        let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
+        let fetched = new_se.read(0, bytes_len as u64);
+        assert_eq!(fetched, the_bytes);
+    }
+
+    #[test]
+    fn check_large_file_size_1024_over_11_chunks() {
         // has been tested for 50 chunks
         let mut my_storage = MyStorage::new();
         let mut data_map: datamap::DataMap;
