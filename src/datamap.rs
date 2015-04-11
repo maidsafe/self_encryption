@@ -16,8 +16,6 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
-extern crate rustc_serialize;
-
 /// Struct holds pre and post encryption hashes as well as original chunk size.
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
