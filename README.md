@@ -7,13 +7,14 @@
 |:--------------------------:|:-------------------:|:-----------:|
 |[![Build Status](https://travis-ci.org/dirvine/self_encryption.svg?branch=master)](https://travis-ci.org/dirvine/self_encryption)|[![Build status](https://ci.appveyor.com/api/projects/status/qveqoe45n56atlk7?svg=true)](https://ci.appveyor.com/project/dirvine/self-encryption) | [![Coverage Status](https://coveralls.io/repos/dirvine/self_encryption/badge.svg?branch=master)](https://coveralls.io/r/dirvine/self_encryption?branch=master)|
 
-[Documentation](http://dirvine.github.io/self_encryption/self_encryption/)
+| [API Documentation](http://dirvine.github.io/self_encryption/self_encryption/) | [MaidSafe System Documention](http://systemdocs.maidsafe.net/) | [MaidSafe web site](http:://www.maidsafe.net) | [Safe Community site](http:://www.maidsafe.org) |
 
-[MaidSafe System Documention](http://systemdocs.maidsafe.net/)
+#Overview
 
-[MaidSafe web site](http:://www.maidsafe.net)
+A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that can be utilised in any application that provides POSIX like a filesystem interface, where it will deal very effectively with the content part of any data (in tests the parallelised approach here can actually be faster than reading/writing data as a single stream). It is important to realise two important aspects of this library:
 
-[MaidSafe Community site](http:://www.maidsafe.org)
+1. This library deals with file content **only**
+2. This library provides very secure data, but does return a data structure (DataMap) that in turn requires to be secured.
 
 ![image of self encryption] (https://github.com/dirvine/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
