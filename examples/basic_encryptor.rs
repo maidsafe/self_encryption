@@ -23,24 +23,28 @@ extern crate rand;
 extern crate tempdir;
 extern crate docopt;
 extern crate rustc_serialize;
-use docopt::Docopt;
+extern crate cbor;
+
 use std::fmt;
 use std::fs;
 use std::fs::{File};
 use std::io::prelude::*;
 use std::path::Path;
-use self_encryption::*;
 use std::string::String;
 use std::error::Error;
-// use serialize::json;
-// TODO wait for stabalisation on Beta channel
-// Write the Docopt usage string.
+
+use docopt::Docopt;
+use cbor::{ Encoder, Decoder};
+
+use self_encryption::*;
 
 // basic_encryptor -e filename
 // basic_encryptor -d datamap destination
 // basic_encryptor -h | --help
 static USAGE: &'static str = "
-Usage: basic_encryptor [options] <target> [dest]
+Usage: basic_encryptor -h
+       basic_encryptor -e <target>
+       basic_encryptor -d <target> <dest>
 
 Options:
     -h, --help      This message.
@@ -118,41 +122,53 @@ fn main() {
                             .unwrap_or_else(|e| e.exit());
     if args.flag_help { println!("{:?}", args) }
 
-    println!("{:?}", args);
-
     match fs::create_dir(&Path::new("chunk_store_test")) {
-        Err(why) => println!("! {:?}", why.kind()),
+        Err(why) => println!("! chunk_store_test {:?}", why.kind()),
         Ok(_) => {},
     }
     let mut my_storage = MyStorage { storage_path : "chunk_store_test/".to_string() };
     
     if args.flag_encrypt && args.arg_target.is_some() {
-        let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
         let mut file = match File::open(&args.arg_target.clone().unwrap()) {
               Err(_) => panic!("couldn't open {}", args.arg_target.clone().unwrap()),
               Ok(f) => f,
             };
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
-            println!("length read is {}", data.len());
+
+        let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
         se.write(&data, 0);
         let data_map = se.close();
-
-        // let mut file = match File::create("data_map") {
-        //        Err(_) => panic!("couldn't create data_map"),
-        //        Ok(f) => f 
-        // }; 
-    // Todo - will force nightly as json unstable so park for a couple of weeks
-      //  let encoded =  json::encode(&data_map).unwrap();
-        //        
-        // match file.write_all(&enc.as_bytes()[..]) {
-        //          Err(_) => panic!("couldn't write "),
-        //          Ok(_) => println!("chunk  written")
-        //     };
+        let mut file = match File::create("data_map") {
+            Err(_) => panic!("couldn't create data_map"),
+            Ok(f) => f
+        };
+        let mut encoded = Encoder::from_memory();
+        encoded.encode(&[&data_map]).unwrap();
+        match file.write_all(&encoded.as_bytes()[..]) {
+            Err(_) => panic!("couldn't write "),
+            Ok(_) => println!("chunk  written")
+        };
     }
+    if args.flag_decrypt && args.arg_target.is_some() && args.arg_dest.is_some() {
+        let mut file = match File::open(&args.arg_target.clone().unwrap()) {
+              Err(_) => panic!("couldn't open {}", args.arg_target.clone().unwrap()),
+              Ok(f) => f,
+            };
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        let mut d = Decoder::from_bytes(data);
+        let data_map : datamap::DataMap = d.decode().next().unwrap().unwrap();
 
-    
-    
-   // let decrypted = se.read(read_position as u64, read_size as u64);
-
+        let mut se = SelfEncryptor::new(&mut my_storage, data_map);
+        let length = se.len();
+        let mut file = match File::create(&args.arg_dest.clone().unwrap()) {
+            Err(_) => panic!("couldn't create {}", args.arg_dest.clone().unwrap()),
+            Ok(f) => f
+        };
+        match file.write_all(&se.read(0, length)[..]) {
+            Err(_) => panic!("couldn't write "),
+            Ok(_) => println!("chunk  written")
+        };
+    }
 }
