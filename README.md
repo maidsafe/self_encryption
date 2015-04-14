@@ -28,11 +28,11 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 - [x] Windows CI set-up (ci.AppVeyor.com)
 - [x] Read/Write file in memory based buffer
 - [x] API version 0.0.8
-- [ ] Implement disk based interface as example
+- [x] Implement disk based interface as example
 - [x] Full unit tests in lib.rs
 - [x] Integrations tests in tests module
 - [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
-- [ ] API stable version 0.1.0
+- [x] API stable version 0.1.0
 - [ ] Add compression pre encrypt and post encrypt in encrypt and decrypt methods
 - [ ] Add task passing to allow cores to be lit up when handling chunks
 - [ ] Allow any size file
