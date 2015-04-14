@@ -16,12 +16,15 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
+#![feature(convert, collections)]
+
 extern crate self_encryption;
 extern crate rand;
 extern crate tempdir;
 extern crate docopt;
 extern crate rustc_serialize;
 use docopt::Docopt;
+use std::fmt;
 use std::fs;
 use std::fs::{File};
 use std::io::prelude::*;
@@ -32,10 +35,12 @@ use std::error::Error;
 // use serialize::json;
 // TODO wait for stabalisation on Beta channel
 // Write the Docopt usage string.
+
+// basic_encryptor -e filename
+// basic_encryptor -d datamap destination
+// basic_encryptor -h | --help
 static USAGE: &'static str = "
-Usage: basic_encryptor -e filename
-       basic_encryptor -d datamap destination
-       basic_encryptor -h | --help
+Usage: basic_encryptor [options] <target> [dest]
 
 Options:
     -h, --help      This message.
@@ -45,24 +50,41 @@ Options:
 
 #[derive(RustcDecodable, Debug)]
 struct Args {
-    arg_filename: String,
-    arg_destination: String,
-    arg_datamap: String,
+    arg_target: Option<String>,
+    arg_dest: Option<String>,
     flag_encrypt: bool,
     flag_decrypt: bool,
     flag_help: bool,
 }
 
 
-pub struct MyStorage;
+fn to_hex(char: u8) -> String {
+    let hex = fmt::format(format_args!("{:x}", char));
+    if hex.len() == 1 {
+        let mut s = String::from_str("0");
+        s.push_str(hex.as_str());
+        s
+    } else {
+        hex
+    }
+}
+
+fn file_name(name: &Vec<u8>) -> String {
+    let mut string = String::new();
+    for i in 0..name.len() {
+        string.push_str(to_hex(name[i]).as_str());
+    }
+    string
+}
+
+pub struct MyStorage {
+    pub storage_path : String
+}
 
 impl Storage for MyStorage {
   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-    let pathstr = match String::from_utf8(name) {
-      Err(_) => panic!("couldn't open file"),
-        Ok(file) => file,
-    };
-    let tmpname = "chunk_store_test/".to_string() + &pathstr;
+    let pathstr = file_name(&name);
+    let tmpname = self.storage_path.clone() + &pathstr;
     let path = Path::new(&tmpname);
     let display = path.display();
     let mut file = match File::open(&path) {
@@ -75,11 +97,8 @@ impl Storage for MyStorage {
   }
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-    let pathstr = match String::from_utf8(name) {
-      Err(_) => panic!("couldn't open file"),
-        Ok(file) =>  file
-    }; 
-    let tmpname = "chunk_store_test/".to_string() + &pathstr;
+    let pathstr = file_name(&name);
+    let tmpname = self.storage_path.clone() + &pathstr;
     let path = Path::new(&tmpname);
     let mut file = match File::create(&path) {
            Err(_) => panic!("couldn't create"),
@@ -101,36 +120,35 @@ fn main() {
 
     println!("{:?}", args);
 
-
     match fs::create_dir(&Path::new("chunk_store_test")) {
         Err(why) => println!("! {:?}", why.kind()),
         Ok(_) => {},
     }
-    let mut my_storage = MyStorage;
+    let mut my_storage = MyStorage { storage_path : "chunk_store_test/".to_string() };
     
-    if args.flag_encrypt && args.arg_filename != "" {
+    if args.flag_encrypt && args.arg_target.is_some() {
         let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
-        let mut file = match File::open(&args.arg_filename) {
-              Err(_) => panic!("couldn't open {}", args.arg_filename),
+        let mut file = match File::open(&args.arg_target.clone().unwrap()) {
+              Err(_) => panic!("couldn't open {}", args.arg_target.clone().unwrap()),
               Ok(f) => f,
             };
-    let mut data = Vec::new();
-    file.read_to_end(&mut data).unwrap();
-      
-    se.write(&data, 0);
-    // let data_map = se.close();
-    
-    // let mut file = match File::create("data_map") {
-    //        Err(_) => panic!("couldn't create data_map"),
-    //        Ok(f) => f 
-    // }; 
-// Todo - will force nightly as json unstable so park for a couple of weeks
-  //  let encoded =  json::encode(&data_map).unwrap();
-    //        
-    // match file.write_all(&enc.as_bytes()[..]) {
-    //          Err(_) => panic!("couldn't write "),
-    //          Ok(_) => println!("chunk  written")
-    //     };
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+            println!("length read is {}", data.len());
+        se.write(&data, 0);
+        let data_map = se.close();
+
+        // let mut file = match File::create("data_map") {
+        //        Err(_) => panic!("couldn't create data_map"),
+        //        Ok(f) => f 
+        // }; 
+    // Todo - will force nightly as json unstable so park for a couple of weeks
+      //  let encoded =  json::encode(&data_map).unwrap();
+        //        
+        // match file.write_all(&enc.as_bytes()[..]) {
+        //          Err(_) => panic!("couldn't write "),
+        //          Ok(_) => println!("chunk  written")
+        //     };
     }
 
     
