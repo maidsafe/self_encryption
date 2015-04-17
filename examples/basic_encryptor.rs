@@ -16,7 +16,6 @@
 // See the Licences for the specific language governing permissions and limitations relating to
 // use of the MaidSafe Software.
 
-#![feature(convert, collections)]
 
 extern crate self_encryption;
 extern crate rand;
@@ -62,12 +61,11 @@ struct Args {
 }
 
 
-fn to_hex(char: u8) -> String {
-    let hex = fmt::format(format_args!("{:x}", char));
+fn to_hex(ch: u8) -> String {
+    let hex = fmt::format(format_args!("{:x}", ch));
     if hex.len() == 1 {
-        let mut s = String::from_str("0");
-        s.push_str(hex.as_str());
-        s
+        let s = "0".to_string();
+        s + &hex
     } else {
         hex
     }
@@ -76,7 +74,7 @@ fn to_hex(char: u8) -> String {
 fn file_name(name: &Vec<u8>) -> String {
     let mut string = String::new();
     for i in 0..name.len() {
-        string.push_str(to_hex(name[i]).as_str());
+        string.push_str(&to_hex(name[i]));
     }
     string
 }

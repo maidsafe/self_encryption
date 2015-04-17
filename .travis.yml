@@ -7,7 +7,7 @@ env:
       secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
 language: rust
 rust: 
-#    - 1.0.0-beta
+    - 1.0.0-beta
     - nightly
 before_install:
     - sudo apt-get update -qq
