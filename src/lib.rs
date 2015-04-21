@@ -1,39 +1,37 @@
 // Copyright 2015 MaidSafe.net limited
 //
-// This MaidSafe Software is licensed to you under (1) the MaidSafe.net Commercial License,
+// This SAFE Network Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
 // licence you accepted on initial access to the Software (the "Licences").
 //
-// By contributing code to the MaidSafe Software, or to this project generally, you agree to be
+// By contributing code to the SAFE Network Software, or to this project generally, you agree to be
 // bound by the terms of the MaidSafe Contributor Agreement, version 1.0, found in the root
 // directory of this project at LICENSE, COPYING and CONTRIBUTOR respectively and also
-// available at: http://www.maidsafe.net/licenses
+// available at: http://maidsafe.net/network-platform-licensing
 //
 // Unless required by applicable law or agreed to in writing, the MaidSafe Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
 // OF ANY KIND, either express or implied.
 //
-// See the Licences for the specific language governing permissions and limitations relating to
-// use of the MaidSafe Software.
+// Please review the Licences for the specific language governing permissions and limitations relating to
+// use of the SAFE Network Software.
 
 //! A file **content** self encryptor
 //!
 //! This library will provide convergent encryption on file based data and produce a `DataMap` type
 //! and several chunks of data. Each chunk is max 1Mb in size and has a name. This name is the
-//! `Sha512` of the content. This allows the chunks to be confirmed and if using size and Hash
-//! checks then there is a high degree of certainty in the data validity.
+//! `Sha512` of the content, this allows the chunks to be confirmed. If size and hash
+//! checks are utilised, a high degree of certainty in the validity of the data can be expected.
 //! 
 //! [Project github page](https://github.com/dirvine/self_encryption)
 //!
 //! # Use
 //!
 //! To use this lib you must implement a trait with two functions, these are to allow `get_chunk`
-//! and `put_chunk` from storage however you set that up.
-//!
-//! This is achived by implementing the Storage trait (see below);
+//! and `put_chunk` from storage. This must be set up by implementing the Storage trait (see below);
 //!
 //! The trait can allow chunks to be stored in a key value store, disk, vector (as per example
-//! below), a network based DHT, key/Value store is particularly well suited.
+//! below), or a network based DHT.
 //!
 //! # Examples
 //!
@@ -79,17 +77,17 @@
 //! }
 //! ``` 
 //!
-//! Use of this setup would be to set up a self encryptor e.g  `let mut se =
+//! Use of this setup would be to implement a self encryptor e.g  `let mut se =
 //! SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);`
 //!
-//! Then call write (and read after write) etc. on the encryptor. The `close()` method will return
+//! Then call write (and read after write)…etc… on the encryptor. The `close()` method will return
 //! a `DataMap`. This can be passed to create a new encryptor to access the content `let data_map =
 //! se.close();`
 //! 
 //! This is then used to open the data content in future sessions; e.g. `let mut self_encryptor =
 //! SelfEncryptor::new(&mut my_storage, data_map);` where the `data_map` is the object returned
 //! from the `close()` call of previous use of this file content via the self_encryptor. Storage of
-//! the `DataMap` is outwith the scope of this library and must be implemented by the user.
+//! the `DataMap` is out with the scope of this library and must be implemented by the user.
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
@@ -103,8 +101,8 @@ use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
 use std::iter::repeat;
 
-// This is pub to test the tests directory integration tests; these are temp and need to be
-// replaced with actual integration tests and this should be private
+// This is pub to test the tests directory integration tests; these are temporary and need to be
+// replaced with actual integration tests. This should be private
 pub mod encryption;
 /// Information required to recover file content from chunks.
 pub mod datamap;
@@ -152,7 +150,7 @@ pub trait Storage {
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>);
 }
 
-/// This is the encryption object and all file handling should be done via this as the low level
+/// This is the encryption object and all file handling should be done using this object as the low level
 /// mechanism to read and write *content*. This library has no knowledge of file metadata. This is
 /// a library to ensure content is secured.
 pub struct SelfEncryptor<'a> {
@@ -164,12 +162,12 @@ pub struct SelfEncryptor<'a> {
 }
 
 impl<'a> SelfEncryptor<'a> {
-    /// This is the only constructor, for encryptor object.
+    /// This is the only constructor for an encryptor object.
     /// Each SelfEncryptor is used for a single file.
     /// The parameters are a DataMap and Storage.
     /// If new file, use DataMap::None as first parameter.
     /// The get and put of Storage need to be implemented to
-    /// allow the SelfEncryptor to store encrypted chunks and retrieve when necessary.
+    /// allow the SelfEncryptor to store encrypted chunks and retrieve them when necessary.
     pub fn new(my_storage:&'a mut Storage, my_datamap: datamap::DataMap) -> SelfEncryptor {
         let mut sequencer = Vec::with_capacity(1024 * 1024 * 100);
         let file_size = my_datamap.len();
@@ -204,7 +202,7 @@ impl<'a> SelfEncryptor<'a> {
     pub fn get_storage(&mut self) -> &mut Storage { self.storage }
 
     /// Write method mirrors a posix type write mechanism.
-    /// It losely mimics a filesystem interface for easy connection to FUSE like
+    /// It loosely mimics a filesystem interface for easy connection to FUSE like
     /// programs as well as fine grained access to system level libraries for developers.
     /// The input data will be written from the specified position (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
@@ -230,7 +228,7 @@ impl<'a> SelfEncryptor<'a> {
     }
 
     /// This function returns a DataMap, which is the info required to recover encrypted content
-    /// from storage.  Content temporarily held in self_encryptor will only get flushed into storage
+    /// from data storage location.  Content temporarily held in self_encryptor will only get flushed into storage
     /// when this function gets called.
     pub fn close(mut self) -> datamap::DataMap {
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
@@ -328,7 +326,7 @@ impl<'a> SelfEncryptor<'a> {
     }
 
     /// Prepare a sliding window to ensure there are enough chunk slots for write;
-    /// it will possibly read-in some chunks from external storage.
+    /// the algorithm may read-in some chunks from external storage.
     fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
         if (length + position) as usize > self.sequencer.len() {
           let tmp_size = self.sequencer.len();
@@ -750,7 +748,7 @@ mod test {
             datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read, write
+        // check read and write
         let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
@@ -796,7 +794,7 @@ mod test {
             datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read, write
+        // check read and write
         let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
@@ -903,7 +901,7 @@ mod test {
             datamap::DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             datamap::DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read, write
+        // check read and write
         let mut new_se = SelfEncryptor::new(&mut my_storage, data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert_eq!(fetched, the_bytes);

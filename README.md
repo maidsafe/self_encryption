@@ -11,7 +11,7 @@
 
 #Overview
 
-A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that can be utilised in any application that provides POSIX like a filesystem interface, where it will deal very effectively with the content part of any data (in tests the parallelised approach here can actually be faster than reading/writing data as a single stream). It is important to realise two important aspects of this library:
+A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that can be utilised in any application that provides a POSIX like filesystem interface, dealing very effectively with the content part of any data (in tests the parallelised approach can actually be faster than reading/writing data as a single stream). It is important to realise two important aspects of this library:
 
 1. This library deals with file content **only**
 2. This library provides very secure data, but does return a data structure (DataMap) that in turn requires to be secured.
