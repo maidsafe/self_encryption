@@ -1,23 +1,19 @@
-// Copyright 2015 MaidSafe.net limited
+// Copyright 2015 MaidSafe.net limited.
 //
-// This MaidSafe Software is licensed to you under (1) the MaidSafe.net Commercial License,
+// This SAFE Network Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
 // licence you accepted on initial access to the Software (the "Licences").
 //
-// By contributing code to the MaidSafe Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0, found in the root
-// directory of this project at LICENSE, COPYING and CONTRIBUTOR respectively and also
-// available at: http://www.maidsafe.net/licenses
+// By contributing code to the SAFE Network Software, or to this project generally, you agree to be
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the MaidSafe Software distributed
-// under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
-// OF ANY KIND, either express or implied.
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.
 //
-// See the Licences for the specific language governing permissions and limitations relating to
-// use of the MaidSafe Software.
-
-extern crate rand;
-extern crate crypto;
+// Please review the Licences for the specific language governing permissions and limitations
+// relating to use of the SAFE Network Software.
 
 use crypto::{symmetriccipher, aes, blockmodes};
 use crypto::buffer::{self, ReadBuffer, WriteBuffer, BufferResult};
@@ -32,7 +28,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
@@ -58,7 +54,7 @@ Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
                                            iv,
                                            blockmodes::PkcsPadding);
 
-    let mut final_result = Vec::<u8>::new();
+    let mut final_result = Vec::new();
     let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
@@ -80,6 +76,7 @@ mod test {
     use super::*;
     use crypto::digest::Digest;
     use crypto::sha2::Sha512  as Sha512;
+    use rand;
     use rand::Rng;
 
 #[test]
@@ -98,7 +95,7 @@ mod test {
         let mut key: [u8; 32] = [0; 32];
         let mut iv: [u8; 16] = [0; 16];
 
-        let mut rng = super::rand::OsRng::new().unwrap();
+        let mut rng = rand::OsRng::new().unwrap();
         rng.fill_bytes(&mut key);
         rng.fill_bytes(&mut iv);
 

@@ -1,9 +1,9 @@
 [package]
 
 name = "self_encryption"
-version = "0.0.8"
-authors = ["David Irvine <david.irvine@maidsafe.net>"]
-description = "This is Pre alpha, and not useful, no code worth looking at."
+version = "0.1.1"
+authors = ["MaidSafe Developers <dev@maidsafe.net>"]
+description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "http://rust-ci.org/dirvine/self_encryption"
 repository = "https://github.com/dirvine/self_encryption"
 readme = "README.md"
@@ -13,5 +13,7 @@ homepage = "http://www.maidsafe.net"
 [dependencies]
 rand = "*"
 tempdir = "*"
+docopt = "*"
 rustc-serialize = "*"
 rust-crypto = "*"
+cbor = "*"

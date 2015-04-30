@@ -1,23 +1,22 @@
-// Copyright 2015 MaidSafe.net limited
+// Copyright 2015 MaidSafe.net limited.
 //
-// This MaidSafe Software is licensed to you under (1) the MaidSafe.net Commercial License,
+// This SAFE Network Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
 // licence you accepted on initial access to the Software (the "Licences").
 //
-// By contributing code to the MaidSafe Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0, found in the root
-// directory of this project at LICENSE, COPYING and CONTRIBUTOR respectively and also
-// available at: http://www.maidsafe.net/licenses
+// By contributing code to the SAFE Network Software, or to this project generally, you agree to be
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the MaidSafe Software distributed
-// under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
-// OF ANY KIND, either express or implied.
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.
 //
-// See the Licences for the specific language governing permissions and limitations relating to
-// use of the MaidSafe Software.
+// Please review the Licences for the specific language governing permissions and limitations
+// relating to use of the SAFE Network Software.
 
 /// Struct holds pre and post encryption hashes as well as original chunk size.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
     pub chunk_num: u32,
@@ -41,14 +40,14 @@ impl ChunkDetails {
     }
 }
 
-/// Holds the information that's required to recover the content of the encrypted file.  Depending
-/// on the file size, such info can be held as a vector of ChunkDetails, or as raw data directly.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+/// Holds the information that is required to recover the content of the encrypted file.  Depending
+/// on the file size, such info can be held as a vector of ChunkDetails, or as raw data.
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
-    /// If file was large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this holds the list
-    /// of chunks' info.
+    /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm holds the list
+    /// of the files chunks and corresponding hashes.
     Chunks(Vec<ChunkDetails>),
-    /// very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are put here in entirely
+    /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and are put in here in their entirety.
     Content(Vec<u8>),
     /// empty datamap
     None
@@ -64,7 +63,7 @@ impl DataMap {
         }
     }
 
-    /// Returns the list of chunks' info if present.
+    /// Returns the list of chunks pre and post encryption hashes if present.
     pub fn get_chunks(&self) -> Vec<ChunkDetails> {
         match *self {
             DataMap::Chunks(ref chunks) => chunks.to_vec(),
@@ -72,7 +71,7 @@ impl DataMap {
         }
     }
 
-    /// We require this to be a sorted list to allow get_pad_iv_key to get the correct
+    /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the correct
     /// pre-encryption hashes for decryption/encryption.
     pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
         match *self {
@@ -102,4 +101,7 @@ impl DataMap {
     fn chunks_sort(chunks: &mut [ChunkDetails]) {
         chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
     }
+}
+#[test]
+fn dummy()  {
 }
