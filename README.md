@@ -46,3 +46,28 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 #Video of the process 
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
+
+#Basic self_encryptor example DIY instructions
+
+Instructions to use the 'basic_encryptor' example to encrypted a file into encrypted chunks and a datamap and then decrypted the datamap and restore the file.
+
+1. install rust Nightly (the compiler) http://www.rust-lang.org/install.html or on mac / linux
+    `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
+
+2. install gcc ( linux `sudo apt-get install gcc` / windows [one example](http://tdm-gcc.tdragon.net/download) )
+
+3. clone self_encryption (install git if you don't have it `sudo apt-get install git` on linux)
+    `git clone http://github.com/dirvine/self_encryption.git`
+
+4. go into the folder:
+    `cd self_encryption`
+
+5. encrypt a file with the example `basic_encryptor` by
+    `cargo run --example basic_encryptor -- -e <full_path_to_my_file>`
+
+You now have the executable in `../self_encryption/target/debug/examples/` your data_map and folder with the encrypted chunks is written where you ran the example from.
+
+1. to decrypt your file, run
+    `cargo run --example basic_encryptor -- -d <full_path_to>/data_map <full_destination_path_including_filename>` 
+
+This will restore your file.
