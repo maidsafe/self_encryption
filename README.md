@@ -49,7 +49,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 #Basic self_encryptor example DIY instructions
 
-Instructions to use the 'basic_encryptor' example to encrypt a file into encrypted chunks and a datamap and then decrypt the datamap and restore the file.
+Instructions to use the 'basic_encryptor' example. This library splits a file into encrypted chunks producing a data map. The correct credentials decrypt the data map enabling the file to be reconstituted. 
 
 1. install rust Nightly (the compiler) http://www.rust-lang.org/install.html or on mac / linux
     `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
