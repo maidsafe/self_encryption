@@ -47,27 +47,32 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 #Video of the process 
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
-#Basic self_encryptor example DIY instructions
+# Examples
 
-Instructions to use the 'basic_encryptor' example. This library splits a file into encrypted chunks producing a data map. The correct credentials decrypt the data map enabling the file to be reconstituted. 
+## Using `self_encryptor`
 
-1. install rust Nightly (the compiler) http://www.rust-lang.org/install.html or on mac / linux
-    `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
+This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows: 
 
-2. install gcc ( linux `sudo apt-get install gcc` / windows [one example](http://tdm-gcc.tdragon.net/download) )
+1. Install RUST(Nightly build).
+ - OSX / Linux: `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
+ - Windows: Download Exe installer from http://www.rust-lang.org/install.html
 
-3. clone self_encryption (install git if you don't have it `sudo apt-get install git` on linux)
-    `git clone http://github.com/dirvine/self_encryption.git`
+2. Install gcc.
+ - Linux: `sudo apt-get install gcc`
+ - Windows: Any compatible gcc such as [TDM-GCC](http://tdm-gcc.tdragon.net/download)
 
-4. go into the folder:
-    `cd self_encryption`
+3. Clone this repo / Download as zip and extract archive.
+ - To clone via Git: `git clone http://github.com/dirvine/self_encryption.git`
 
-5. encrypt a file with the example `basic_encryptor` by
-    `cargo run --example basic_encryptor -- -e <full_path_to_my_file>`
+4. Browse to repo locally in terminal / command prompt.
+ - `cd self_encryption`
 
-You now have the executable in `../self_encryption/target/debug/examples/` your data_map and folder with the encrypted chunks is written where you ran the example from.
+5. Encrypt a file:
+ - `cargo run --example basic_encryptor -- -e <full_path_to_any_file>`
 
-1. to decrypt your file, run
-    `cargo run --example basic_encryptor -- -d <full_path_to>/data_map <full_destination_path_including_filename>` 
+  You should now have the example binary in `../self_encryption/target/debug/examples/`. The `data_map` for the given file and it's encrypted chunks will be written to the current directory.
 
-This will restore your file.
+6. Decrypt a file:
+ - `cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>` 
+
+  This will restore the original file to the given destination path.
