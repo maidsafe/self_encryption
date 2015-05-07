@@ -1,38 +1,37 @@
 os:
   - linux
   - osx
-sudo: true
+  
+language: rust
+
+sudo: required
+
+rust:
+  - beta
+
+before_script:
+  - |
+      sudo apt-get update -qq &&
+      sudo apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev &&
+      pip install 'travis-cargo<0.2' --user &&
+      export PATH=$HOME/.local/bin:$PATH
+
+install:
+  - wget https://github.com/jedisct1/libsodium/releases/download/1.0.0/libsodium-1.0.0.tar.gz
+  - tar xvfz libsodium-1.0.0.tar.gz
+  - cd libsodium-1.0.0 && ./configure --prefix=/usr && make && sudo make install && cd ..
+
+script:
+  - |
+      travis-cargo build &&
+      travis-cargo test &&
+      travis-cargo bench &&
+      travis-cargo --only beta doc
+
+after_success:
+  - travis-cargo --only beta doc-upload
+  - travis-cargo coveralls
+
 env:
   global:
-      secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
-language: rust
-rust: 
-    - beta
-    - nightly
-before_install:
-    - sudo apt-get update -qq
-    - sudo apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev 
-install:
-- wget https://github.com/jedisct1/libsodium/releases/download/1.0.0/libsodium-1.0.0.tar.gz
-- tar xvfz libsodium-1.0.0.tar.gz
-- cd libsodium-1.0.0 && ./configure --prefix=/usr && make && sudo make install && cd ..
-- wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz
-- tar xzf master.tar.gz
-- mkdir kcov-master/build
-- cd kcov-master/build
-- cmake ..
-- make
-- sudo make install
-- cd ../..
-
-after_success: |
-  [ $TRAVIS_BRANCH = master ] &&
-  [ $TRAVIS_PULL_REQUEST = false ] &&
-  cargo doc &&
-  echo "<meta http-equiv=refresh content=0;url=`echo $TRAVIS_REPO_SLUG | cut -d '/' -f 2`/index.html>" > target/doc/index.html &&
-  sudo pip install ghp-import &&
-  ghp-import -n target/doc &&
-  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages;
-  cargo clean;
-  cargo test --no-run;
-  kcov --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo target/kcov target/debug/self_encryption-*;
+  - secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
