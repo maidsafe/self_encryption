@@ -249,6 +249,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             let real_chunk_count = self.get_num_chunks();
             let mut tmp_chunks = vec![datamap::ChunkDetails::new(); real_chunk_count as usize];
 
+            let mut vec_deferred = Vec::new();
             for chunk in self.chunks.iter() {
                 let missing_pre_encryption_hash = if self.my_datamap.has_chunks() {
                     self.my_datamap.get_sorted_chunks()[chunk.number as usize].pre_hash.len() == 0
@@ -266,18 +267,22 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     }
                     // assert(tmp.len() == this_size && "vector diff size from chunk size");
 
-                    let mut name = vec![0; 64];
-                    let mut hash = Sha512::new();
-                    hash.input(&mut tmp[..]);
-                    hash.result(&mut name[..]);
-                    {
-                        tmp_chunks[chunk.number as usize].pre_hash.clear();
-                        tmp_chunks[chunk.number as usize].pre_hash = name.to_vec();
-                        tmp_chunks[chunk.number as usize].source_size = this_size as u64;
-                        tmp_chunks[chunk.number as usize].chunk_num = chunk.number;
-                    // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
-                    }
+                    let chunk_number = chunk.number.clone(); 
+                    vec_deferred.push(Deferred::<_,String>::new(move || {
+                        let mut name = vec![0; 64];
+                        let mut hash = Sha512::new();
+                        hash.input(&mut tmp[..]);
+                        hash.result(&mut name[..]);
+                        Ok((chunk_number, name, this_size))
+                    }));
                 }
+            }
+            for (chunk_number, name, this_size) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
+                tmp_chunks[chunk_number as usize].pre_hash.clear();
+                tmp_chunks[chunk_number as usize].pre_hash = name.to_vec();
+                tmp_chunks[chunk_number as usize].source_size = this_size as u64;
+                tmp_chunks[chunk_number as usize].chunk_num = chunk_number;
+                // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
             }
             self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
             for chunk in self.chunks.iter_mut() {
@@ -364,17 +369,18 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             }
         }
         // [TODO]: Thread next - 2015-02-28 06:09pm
+        let mut vec_deferred = Vec::new();
         for i in (first_chunk..last_chunk) {
-            let mut found = false;
+            let mut found = false;            
             for itr in self.chunks.iter() {
                 if itr.number == i {
-                    let mut pos = self.get_start_end_positions(i).0;
+                    let pos = self.get_start_end_positions(i).0;
                     if itr.location == ChunkLocation::Remote  {
-                        let vec = self.decrypt_chunk(i);
-                        for itr2 in vec.iter() {
-                            self.sequencer[pos as usize] = *itr2;
-                            pos += 1;
-                        }
+                        vec_deferred.push(self.decrypt_chunk(i)
+                            .chain::<_,String,_>(move |res|{ 
+                                Ok((pos, res.unwrap()) )
+                            })
+                        );
                     }
                     found = true;
                     break;
@@ -389,7 +395,14 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                                            location: ChunkLocation::InSequencer});
                 }
             }
-        }
+        }        
+        for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
+            let mut pos_aux = pos;
+            for itr2 in vec.iter() {
+                self.sequencer[pos_aux as usize] = *itr2;
+                pos_aux += 1;
+            }
+        }        
     }
 
    // [TODO]: use fixed width arrays here, derived
@@ -404,12 +417,15 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     }
 
     /// Performs the decryption algorithm to decrypt chunk of data.
-    fn decrypt_chunk(&self, chunk_number: u32) -> Vec<u8> {
+    fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>,String> {
         let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let kvp = &self.get_pad_iv_key(chunk_number);
-        let xor_result = xor(&self.storage.get(name), &kvp.0);
-        encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap()
+        let kvp = self.get_pad_iv_key(chunk_number);
+        let content = self.storage.get(name);
+        Deferred::<Vec<u8>, String>::new(move ||{
+            let xor_result = xor(&content, &kvp.0);
+            Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
+        })
     }
 
     /// Performs encryption algorithm on chunk of data.
