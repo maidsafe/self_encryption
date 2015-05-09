@@ -54,7 +54,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows: 
 
 1. Install RUST(Nightly build).
- - OSX / Linux: `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
+ - OSX / Linux: `curl -s https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly`
  - Windows: Download Exe installer from http://www.rust-lang.org/install.html
 
 2. Install gcc.
@@ -62,7 +62,7 @@ This library splits a file into encrypted chunks and also produces a data map fo
  - Windows: Any compatible gcc such as [TDM-GCC](http://tdm-gcc.tdragon.net/download)
 
 3. Clone this repo / Download as zip and extract archive.
- - To clone via Git: `git clone http://github.com/dirvine/self_encryption.git`
+ - To clone via Git: `git clone http://github.com/maidsafe/self_encryption.git`
 
 4. Browse to repo locally in terminal / command prompt.
  - `cd self_encryption`
