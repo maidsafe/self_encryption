@@ -6,8 +6,8 @@ environment:
     - RUST_INSTALL_TRIPLE: x86_64-pc-windows-gnu
 
 install:
-  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-1.0.0-beta.3-$Env:RUST_INSTALL_TRIPLE.exe"
-  - cmd: rust-1.0.0-beta.3-%RUST_INSTALL_TRIPLE%.exe /VERYSILENT /NORESTART /COMPONENTS="rust,gcc,cargo" /DIR="%RUST_INSTALL_DIR%"
+  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-1.0.0-beta.4-$Env:RUST_INSTALL_TRIPLE.exe"
+  - cmd: rust-1.0.0-beta.4-%RUST_INSTALL_TRIPLE%.exe /VERYSILENT /NORESTART /COMPONENTS="rust,gcc,cargo" /DIR="%RUST_INSTALL_DIR%"
   - cmd: SET PATH=%PATH%;%RUST_INSTALL_DIR%\bin;
   - rustc -V
   - cargo -V  
