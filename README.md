@@ -62,7 +62,7 @@ This library splits a file into encrypted chunks and also produces a data map fo
  - Windows: Any compatible gcc such as [TDM-GCC](http://tdm-gcc.tdragon.net/download)
 
 3. Clone this repo / Download as zip and extract archive.
- - To clone via Git: `git clone http://github.com/dirvine/self_encryption.git`
+ - To clone via Git: `git clone http://github.com/maidsafe/self_encryption.git`
 
 4. Browse to repo locally in terminal / command prompt.
  - `cd self_encryption`
