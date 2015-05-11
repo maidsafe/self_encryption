@@ -374,12 +374,16 @@ impl<'a> SelfEncryptor<'a> {
    // [TODO]: use fixed width arrays here, derived
    // from key size of cipher used (compile time) - 2015-03-02 01:01am
     fn get_pad_iv_key(&self, chunk_number: u32) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        let vec = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
+        let mut vec = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
         let n_1 = self.get_previous_chunk_number(chunk_number);
         let n_1_vec = self.my_datamap.get_sorted_chunks()[n_1 as usize].pre_hash.clone();
         let n_2 = self.get_previous_chunk_number(n_1);
         let n_2_vec = self.my_datamap.get_sorted_chunks()[n_2 as usize].pre_hash.clone();
-        (vec + &n_1_vec[48..64] + &n_2_vec[..] , n_1_vec[0..32].to_vec() , n_1_vec[32..48].to_vec())
+
+        vec.extend(n_1_vec[48..64].to_vec());
+        vec.extend(n_2_vec[..].to_vec());
+
+        (vec, n_1_vec[0..32].to_vec(), n_1_vec[32..48].to_vec())
     }
 
     /// Performs the decryption algorithm to decrypt chunk of data.
