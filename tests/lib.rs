@@ -20,6 +20,7 @@ extern crate rand;
 extern crate tempdir;
 pub use self_encryption::*;
 use rand::{thread_rng, Rng};
+use std::sync::{Arc,Mutex};
 
 fn random_bytes(length: usize) -> Vec<u8> {
     let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -37,16 +38,17 @@ pub struct Entry {
 }
 
 pub struct MyStorage {
-    entries: Vec<Entry>
+    entries: Arc<Mutex<Vec<Entry>>>
 }
 
 impl MyStorage {
     pub fn new() -> MyStorage {
-        MyStorage { entries: Vec::new() }
+        MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
     }
 
     pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-        for entry in self.entries.iter() {
+        let lock = self.entries.lock().unwrap();
+        for entry in lock.iter() {
             if entry.name == name { return true }
         }
         false
@@ -55,14 +57,16 @@ impl MyStorage {
 
 impl Storage for MyStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        for entry in self.entries.iter() {
+        let lock = self.entries.lock().unwrap();
+        for entry in lock.iter() {
             if entry.name == name { return entry.data.to_vec() }
         }
         vec![]
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-        self.entries.push(Entry { name : name, data : data })
+    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
+        let mut lock = self.entries.lock().unwrap();
+        lock.push(Entry { name : name, data : data })
     }
 }
 
@@ -72,10 +76,10 @@ fn new_read() {
     let read_size : usize = 4096;
     let mut read_position : usize = 0;
     let content_len : usize = 4 * MAX_CHUNK_SIZE as usize;
-    let mut my_storage = MyStorage::new();
+    let my_storage = Arc::new(MyStorage::new());
     let original = random_bytes(content_len);
     {
-        let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+        let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
         se.write(&original, 0);
         {
             let decrypted = se.read(read_position as u64, read_size as u64);
@@ -120,7 +124,7 @@ fn new_read() {
 #[test]
 fn write_random_sizes_at_random_positions() {
     let mut rng = thread_rng();
-    let mut my_storage = MyStorage::new();
+    let my_storage = Arc::new(MyStorage::new());
     let max_broken_size : u64 = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
@@ -159,7 +163,7 @@ fn write_random_sizes_at_random_positions() {
             let post_position: u64 = overlap.0 + overlap.1.len() as u64;
             let mut wtotal : u64 = 0;
 
-            let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+            let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
             for element in broken_data.iter() {
                 se.write(element.1, element.0);
                 wtotal += element.1.len() as u64;
@@ -184,7 +188,7 @@ fn write_random_sizes_at_random_positions() {
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
 fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
-    let mut my_storage = MyStorage::new();
+    let my_storage = Arc::new(MyStorage::new());
     let parts = 20usize;
     assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
     let mut rng = thread_rng();
@@ -193,7 +197,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     let mut original = vec![0u8; DATA_SIZE as usize];
 
     {
-        let mut self_encryptor = SelfEncryptor::new(&mut my_storage, data_map);
+        let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
 
         for i in 0..parts {
             // Get random values for the piece size and intended offset
@@ -228,10 +232,10 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         // again.
         data_map = self_encryptor.close();
     }
-
-    let mut self_encryptor = SelfEncryptor::new(&mut my_storage, data_map);
+    
+    let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
-    assert_eq!(total_size, self_encryptor.len());
+    assert_eq!(total_size, self_encryptor.len());    
 }

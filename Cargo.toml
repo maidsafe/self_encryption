@@ -17,6 +17,7 @@ docopt = "*"
 rustc-serialize = "*"
 rust-crypto = "*"
 cbor = "*"
+asynchronous = "*"
 
 [[example]]
 name = "basic_encryptor"

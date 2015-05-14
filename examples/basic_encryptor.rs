@@ -30,6 +30,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::string::String;
 use std::error::Error;
+use std::sync::Arc;
 
 use docopt::Docopt;
 use cbor::{ Encoder, Decoder};
@@ -97,7 +98,7 @@ impl Storage for MyStorage {
     data
   }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
     let pathstr = file_name(&name);
     let tmpname = self.storage_path.clone() + &pathstr;
     let path = Path::new(&tmpname);
@@ -123,7 +124,7 @@ fn main() {
         Err(why) => println!("! chunk_store_test {:?}", why.kind()),
         Ok(_) => {},
     }
-    let mut my_storage = MyStorage { storage_path : "chunk_store_test/".to_string() };
+    let my_storage = Arc::new(MyStorage { storage_path : "chunk_store_test/".to_string() });
     
     if args.flag_encrypt && args.arg_target.is_some() {
         let mut file = match File::open(&args.arg_target.clone().unwrap()) {
@@ -133,7 +134,7 @@ fn main() {
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
 
-        let mut se = SelfEncryptor::new(&mut my_storage, datamap::DataMap::None);
+        let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
         se.write(&data, 0);
         let data_map = se.close();
         let mut file = match File::create("data_map") {
@@ -157,7 +158,7 @@ fn main() {
         let mut d = Decoder::from_bytes(data);
         let data_map : datamap::DataMap = d.decode().next().unwrap().unwrap();
 
-        let mut se = SelfEncryptor::new(&mut my_storage, data_map);
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
         let length = se.len();
         let mut file = match File::create(&args.arg_dest.clone().unwrap()) {
             Err(_) => panic!("couldn't create {}", args.arg_dest.clone().unwrap()),
