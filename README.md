@@ -1,11 +1,15 @@
 # self_encryption
 
+**Primary Maintainer:**     Brian Smith (brian.smith@maidsafe.net)
+
+**Secondary Maintainer:**   Qi Ma (qi.ma@maidsafe.net)
+
 **Self encrypting files (convergent encryption plus obfuscation)**
 
 
-|Crate|Travis|Appveyor|Coverage|
-|:------:|:-------:|:-------:|:-------:|
-|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)|[![Build status](https://ci.appveyor.com/api/projects/status/ooqbay2j1vvmpalj/branch/master?svg=true)](https://ci.appveyor.com/project/dirvine/self-encryption-ahxlh/branch/master) | [![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|
+|Crate|Travis|Windows|OSX|Coverage|
+|:------:|:-------:|:-------:|:-------:|:-------:|
+|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)| [![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_win64_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_win64_status_badge/)|[![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_osx_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_osx_status_badge/) | [![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|
 
 | [API Documentation](http://maidsafe.github.io/self_encryption/self_encryption/) | [MaidSafe System Documention](http://systemdocs.maidsafe.net/) | [MaidSafe web site](http://www.maidsafe.net) | [Safe Community site](https://forum.safenetwork.io) |
 
@@ -44,14 +48,14 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 - [x] Coverage analysis (coveralls ?)
 - [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
-#Video of the process 
+#Video of the process
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
 # Examples
 
 ## Using `self_encryptor`
 
-This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows: 
+This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows:
 
 1. Install RUST(Nightly build).
  - OSX / Linux: `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
@@ -73,6 +77,6 @@ This library splits a file into encrypted chunks and also produces a data map fo
   You should now have the example binary in `../self_encryption/target/debug/examples/`. The `data_map` for the given file and it's encrypted chunks will be written to the current directory.
 
 6. Decrypt a file:
- - `cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>` 
+ - `cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>`
 
   This will restore the original file to the given destination path.
