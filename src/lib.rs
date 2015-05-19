@@ -387,7 +387,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     if itr.location == ChunkLocation::Remote  {
                         vec_deferred.push(self.decrypt_chunk(i)
                             .chain::<_,String,_>(move |res|{ 
-                                Ok((pos, res.unwrap()) )
+                                Ok((pos, res.unwrap()))
                             })
                         );
                     }
@@ -441,16 +441,24 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             let xor_result = xor(&content, &kvp.0);
             match encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]) {
                 Ok(decrypted) => {
-                    let decoder = GzDecoder::new(&decrypted[..]);
-                    if decoder.is_ok() {
-                        let mut chunk = Vec::new();
-                        let size = decoder.unwrap().read_to_end(&mut chunk);
-                        if size.unwrap() > 0 {
-                            return Ok(chunk)
+                    let mut chunk = Vec::new();
+                    match GzDecoder::new(&decrypted[..]) {
+                        Ok(mut decoder) => {
+                            match decoder.read_to_end(&mut chunk) {
+                                Ok(size) => {
+                                    if size > 0 {
+                                        return Ok(chunk)
+                                    }
+                                    return Err("Decompression failure".to_string())
+                                },
+                                Err(error) => {
+                                    Err(error.description().to_string())
+                                }
+                            }
+                        },
+                        Err(_) => {
+                            Ok(chunk)
                         }
-                        Err("Compression failure".to_string())
-                    } else {
-                        Err("Compression failure".to_string())
                     }
                 },
                 Err(error) => {
@@ -461,16 +469,6 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         })
-
-
-        // let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
-        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        // let kvp = self.get_pad_iv_key(chunk_number);
-        // let content = self.storage.get(name);
-        // Deferred::<Vec<u8>, String>::new(move ||{
-        //     let xor_result = xor(&content, &kvp.0);
-        //     Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
-        // })
     }
 
     /// Performs encryption algorithm on chunk of data.
@@ -505,14 +503,6 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         })
-
-
-        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        // let kvp = self.get_pad_iv_key(chunk_number);
-        // Deferred::<Vec<u8>, String>::new(move ||{
-        //     let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
-        //     Ok(xor(&enc, &kvp.0))
-        // })
     }
 
     // Helper methods.
