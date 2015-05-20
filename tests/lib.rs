@@ -233,6 +233,8 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         data_map = self_encryptor.close();
     }
     
+    println!("Reloading data map...");
+
     let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
