@@ -22,30 +22,21 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 ![image of self encryption] (https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
-## ToDo list
+# Todo Items
 
-- [x] Initial structure
-- [x] Test set-up
-- [x] Travis integration
-- [x] Docs creation
-- [x] Docs hosting (github.io)
-- [x] Windows CI set-up (ci.AppVeyor.com)
-- [x] Read/Write file in memory based buffer
-- [x] API version 0.0.8
-- [x] Implement disk based interface as example
-- [x] Full unit tests in lib.rs
-- [x] Integrations tests in tests module
-- [x] Benchmark tests for varying file sizes from 1 byte to 10 M/b
-- [x] API stable version 0.1.0
+## [0.1.2] - Parallel processing and compression.
 - [ ] Add compression pre encrypt and post encrypt in encrypt and decrypt methods
 - [ ] Add task passing to allow cores to be lit up when handling chunks
+
+## [0.1.3] - Unrestricted file sizes.
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
     - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
     - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
-- [x] Coverage analysis (coveralls ?)
+
+## [?] - Requires Beta channel.
 - [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
 #Video of the process
