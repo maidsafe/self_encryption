@@ -18,9 +18,11 @@
 extern crate self_encryption;
 extern crate rand;
 extern crate tempdir;
+
 pub use self_encryption::*;
 use rand::{thread_rng, Rng};
 use std::sync::{Arc,Mutex};
+use std::char;
 
 fn random_bytes(length: usize) -> Vec<u8> {
     let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -233,9 +235,76 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         data_map = self_encryptor.close();
     }
     
+    println!("Reloading data map...");
+
     let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
     assert_eq!(total_size, self_encryptor.len());    
+}
+
+#[test]
+fn cross_platform_check() {
+    let mut value: u32 = 57344;  // 0xE000, valid ranges [0x0,0xD7FF], [0xE000,0x10FFFF]
+    let size: u32 = 1 << 18;  // produces ~1Mb of data for each chunk
+
+    let mut chars0 = String::new();
+    let mut chars1 = String::new();
+    let mut chars2 = String::new();
+
+    chars0.push(char::from_u32(0).unwrap());
+    chars1.push(char::from_u32(1).unwrap());
+    chars2.push(char::from_u32(2).unwrap());
+
+    for _ in 1..size {
+        match char::from_u32(value) {
+            Some(char) => {
+                chars0.push(char);
+                chars1.push(char);
+                chars2.push(char);
+            },
+            None => panic!("undefined char")
+        }
+        value += 1;
+    }
+
+    let storage = Arc::new(MyStorage::new());
+    let mut data_map = datamap::DataMap::None;
+
+    {
+        let mut self_encryptor = SelfEncryptor::new(storage.clone(), data_map);
+        self_encryptor.write(&chars0.as_bytes(), 0);
+        self_encryptor.write(&chars1.as_bytes(), chars0.len() as u64);
+        self_encryptor.write(&chars2.as_bytes(), chars0.len() as u64 + chars1.len() as u64);
+        data_map = self_encryptor.close();
+    }
+
+    static EXPECTED_HASHES: [[u8; 64]; 3] = [
+        [026, 044, 196, 020, 067, 228, 167, 164, 119, 217, 016, 148, 141, 046, 066, 222,
+         053, 070, 253, 135, 012, 137, 085, 074, 088, 100, 171, 083, 120, 131, 212, 162,
+         218, 123, 102, 073, 031, 151, 096, 083, 189, 050, 136, 189, 081, 175, 069, 080,
+         031, 176, 082, 004, 037, 067, 092, 017, 116, 163, 179, 221, 051, 217, 050, 088],
+        [194, 153, 023, 109, 193, 022, 152, 097, 044, 071, 224, 179, 176, 227, 095, 101,
+         191, 059, 153, 017, 084, 017, 178, 237, 065, 098, 033, 118, 118, 133, 184, 171,
+         194, 163, 222, 050, 065, 192, 110, 146, 211, 199, 128, 006, 043, 222, 148, 156,
+         127, 057, 158, 183, 047, 192, 241, 230, 223, 030, 207, 141, 097, 232, 228, 165],
+        [091, 205, 245, 040, 046, 131, 124, 173, 051, 178, 065, 219, 124, 149, 151, 241,
+         116, 194, 077, 038, 223, 182, 004, 107, 180, 026, 082, 221, 038, 211, 215, 223,
+         095, 048, 166, 029, 193, 016, 039, 252, 050, 254, 242, 142, 137, 028, 163, 209,
+         005, 033, 148, 160, 147, 148, 087, 158, 156, 135, 221, 243, 127, 112, 198, 029]
+    ];
+
+    assert_eq!(3, data_map.get_chunks().len());
+
+    let chunks = data_map.get_chunks();
+
+    for i in 0..chunks.len() {
+        println!("");
+        for j in 0..chunks[i].hash.len() {
+            assert_eq!(EXPECTED_HASHES[i][j], chunks[i].hash[j]);
+            print!("({},{}) ", EXPECTED_HASHES[i][j], chunks[i].hash[j]);
+        }
+        println!("");
+    }
 }

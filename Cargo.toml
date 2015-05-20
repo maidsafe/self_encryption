@@ -18,6 +18,7 @@ rustc-serialize = "*"
 rust-crypto = "*"
 cbor = "*"
 asynchronous = "*"
+flate2 = "0.2"
 
 [[example]]
 name = "basic_encryptor"
