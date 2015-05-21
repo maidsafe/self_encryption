@@ -485,7 +485,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let kvp = self.get_pad_iv_key(chunk_number);
         Deferred::<Vec<u8>, String>::new(move || {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::Fast);
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::Best);
             match encoder.write_all(&content[..]) {
                 Ok(()) => {
                     match encoder.finish() {
