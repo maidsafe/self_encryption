@@ -22,7 +22,6 @@ extern crate tempdir;
 pub use self_encryption::*;
 use rand::{thread_rng, Rng};
 use std::sync::{Arc,Mutex};
-use std::char;
 
 fn random_bytes(length: usize) -> Vec<u8> {
     let mut bytes : Vec<u8> = Vec::with_capacity(length);
@@ -246,53 +245,46 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
 
 #[test]
 fn cross_platform_check() {
-    let mut value: u32 = 57344;  // 0xE000, valid ranges [0x0,0xD7FF], [0xE000,0x10FFFF]
-    let size: u32 = 1 << 18;  // produces ~1Mb of data for each chunk
+    let mut chars0 = Vec::<u8>::new();
+    let mut chars1 = Vec::<u8>::new();
+    let mut chars2 = Vec::<u8>::new();
 
-    let mut chars0 = String::new();
-    let mut chars1 = String::new();
-    let mut chars2 = String::new();
-
-    chars0.push(char::from_u32(0).unwrap());
-    chars1.push(char::from_u32(1).unwrap());
-    chars2.push(char::from_u32(2).unwrap());
-
-    for _ in 1..size {
-        match char::from_u32(value) {
-            Some(char) => {
-                chars0.push(char);
-                chars1.push(char);
-                chars2.push(char);
-            },
-            None => panic!("undefined char")
+    // 1Mb of data for each chunk...
+    for _ in 0..8192 {
+        for j in 0..128 {
+            chars0.push(j);
+            chars1.push(j);
+            chars2.push(j);
         }
-        value += 1;
     }
+
+    chars1[0] = 1;
+    chars2[0] = 2;
 
     let storage = Arc::new(MyStorage::new());
     let mut data_map = datamap::DataMap::None;
 
     {
         let mut self_encryptor = SelfEncryptor::new(storage.clone(), data_map);
-        self_encryptor.write(&chars0.as_bytes(), 0);
-        self_encryptor.write(&chars1.as_bytes(), chars0.len() as u64);
-        self_encryptor.write(&chars2.as_bytes(), chars0.len() as u64 + chars1.len() as u64);
+        self_encryptor.write(&chars0[..], 0);
+        self_encryptor.write(&chars1[..], chars0.len() as u64);
+        self_encryptor.write(&chars2[..], chars0.len() as u64 + chars1.len() as u64);
         data_map = self_encryptor.close();
     }
 
     static EXPECTED_HASHES: [[u8; 64]; 3] = [
-        [026, 044, 196, 020, 067, 228, 167, 164, 119, 217, 016, 148, 141, 046, 066, 222,
-         053, 070, 253, 135, 012, 137, 085, 074, 088, 100, 171, 083, 120, 131, 212, 162,
-         218, 123, 102, 073, 031, 151, 096, 083, 189, 050, 136, 189, 081, 175, 069, 080,
-         031, 176, 082, 004, 037, 067, 092, 017, 116, 163, 179, 221, 051, 217, 050, 088],
-        [194, 153, 023, 109, 193, 022, 152, 097, 044, 071, 224, 179, 176, 227, 095, 101,
-         191, 059, 153, 017, 084, 017, 178, 237, 065, 098, 033, 118, 118, 133, 184, 171,
-         194, 163, 222, 050, 065, 192, 110, 146, 211, 199, 128, 006, 043, 222, 148, 156,
-         127, 057, 158, 183, 047, 192, 241, 230, 223, 030, 207, 141, 097, 232, 228, 165],
-        [091, 205, 245, 040, 046, 131, 124, 173, 051, 178, 065, 219, 124, 149, 151, 241,
-         116, 194, 077, 038, 223, 182, 004, 107, 180, 026, 082, 221, 038, 211, 215, 223,
-         095, 048, 166, 029, 193, 016, 039, 252, 050, 254, 242, 142, 137, 028, 163, 209,
-         005, 033, 148, 160, 147, 148, 087, 158, 156, 135, 221, 243, 127, 112, 198, 029]
+        [184, 094, 027, 193, 121, 086, 180, 175, 184, 009, 147, 087, 172, 070, 024, 083,
+         204, 235, 154, 094, 140, 162, 133, 056, 161, 114, 173, 105, 005, 140, 215, 228,
+         115, 126, 250, 084, 252, 194, 101, 145, 128, 063, 102, 039, 216, 115, 019, 075,
+         050, 114, 006, 011, 178, 071, 234, 159, 063, 019, 188, 218, 106, 252, 199, 058],
+        [187, 107, 252, 117, 238, 253, 185, 072, 035, 099, 024, 008, 146, 100, 128, 088,
+         062, 054, 220, 185, 215, 174, 027, 159, 191, 016, 078, 147, 079, 130, 194, 097,
+         134, 107, 040, 221, 071, 136, 007, 060, 206, 134, 232, 124, 051, 057, 065, 160,
+         067, 145, 027, 042, 048, 089, 211, 188, 180, 171, 152, 115, 118, 044, 103, 237],
+        [055, 062, 079, 033, 046, 142, 113, 186, 240, 084, 155, 173, 165, 231, 209, 141,
+         229, 058, 237, 209, 092, 164, 048, 167, 140, 195, 128, 192, 244, 061, 112, 181,
+         015, 244, 207, 189, 168, 180, 019, 081, 134, 121, 196, 069, 150, 202, 068, 130,
+         085, 177, 076, 167, 058, 147, 007, 086, 248, 089, 219, 038, 250, 123, 155, 207]
     ];
 
     assert_eq!(3, data_map.get_chunks().len());
