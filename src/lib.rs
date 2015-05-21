@@ -431,77 +431,93 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
     /// Performs the decryption algorithm to decrypt chunk of data.
     fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>,String> {
+        // let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
+        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
+        // let kvp = self.get_pad_iv_key(chunk_number);
+        // let content = self.storage.get(name);
+
+        // Deferred::<Vec<u8>, String>::new(move || {
+        //     if content.len() == 0 { () }
+        //     let xor_result = xor(&content, &kvp.0);
+        //     match encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]) {
+        //         Ok(decrypted) => {
+        //             let mut chunk = Vec::new();
+        //             match GzDecoder::new(&decrypted[..]) {
+        //                 Ok(mut decoder) => {
+        //                     match decoder.read_to_end(&mut chunk) {
+        //                         Ok(size) => {
+        //                             if size > 0 {
+        //                                 return Ok(chunk)
+        //                             }
+        //                             return Err("Decompression failure".to_string())
+        //                         },
+        //                         Err(error) => {
+        //                             Err(error.description().to_string())
+        //                         }
+        //                     }
+        //                 },
+        //                 Err(_) => {
+        //                     Ok(chunk)
+        //                 }
+        //             }
+        //         },
+        //         Err(error) => {
+        //             match error {
+        //                 InvalidLength => Err("InvalidLength".to_string()),
+        //                 InvalidPadding => Err("InvalidPadding".to_string()),
+        //             }
+        //         }
+        //     }
+        // })
+
         let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let kvp = self.get_pad_iv_key(chunk_number);
         let content = self.storage.get(name);
-
-        Deferred::<Vec<u8>, String>::new(move || {
-            if content.len() == 0 { () }
+        Deferred::<Vec<u8>, String>::new(move ||{
             let xor_result = xor(&content, &kvp.0);
-            match encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]) {
-                Ok(decrypted) => {
-                    let mut chunk = Vec::new();
-                    match GzDecoder::new(&decrypted[..]) {
-                        Ok(mut decoder) => {
-                            match decoder.read_to_end(&mut chunk) {
-                                Ok(size) => {
-                                    if size > 0 {
-                                        return Ok(chunk)
-                                    }
-                                    return Err("Decompression failure".to_string())
-                                },
-                                Err(error) => {
-                                    Err(error.description().to_string())
-                                }
-                            }
-                        },
-                        Err(_) => {
-                            Ok(chunk)
-                        }
-                    }
-                },
-                Err(error) => {
-                    match error {
-                        InvalidLength => Err("InvalidLength".to_string()),
-                        InvalidPadding => Err("InvalidPadding".to_string()),
-                    }
-                }
-            }
+            Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
         })
     }
 
     /// Performs encryption algorithm on chunk of data.
     fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>,String> {
+        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
+        // let kvp = self.get_pad_iv_key(chunk_number);
+        // Deferred::<Vec<u8>, String>::new(move || {
+        //     let mut encoder = GzEncoder::new(Vec::new(), Compression::Default);
+        //     match encoder.write_all(&content[..]) {
+        //         Ok(()) => {
+        //             match encoder.finish() {
+        //                 Ok(compressed) => {
+        //                     match encryption::encrypt(&compressed, &kvp.1[..], &kvp.2[..]) {
+        //                         Ok(encrypted) => {
+        //                             Ok(xor(&encrypted, &kvp.0))
+        //                         },
+        //                         Err(error) => {
+        //                             match error {
+        //                                 InvalidLength => Err("InvalidLength".to_string()),
+        //                                 InvalidPadding => Err("InvalidPadding".to_string()),
+        //                             }
+        //                         }
+        //                     }
+        //                 },
+        //                 Err(error) => {
+        //                     Err(error.description().to_string())
+        //                 }
+        //             }
+        //         },
+        //         Err(error) => {
+        //             Err(error.description().to_string())
+        //         }
+        //     }
+        // })
+
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let kvp = self.get_pad_iv_key(chunk_number);
-        Deferred::<Vec<u8>, String>::new(move || {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::Default);
-            match encoder.write_all(&content[..]) {
-                Ok(()) => {
-                    match encoder.finish() {
-                        Ok(compressed) => {
-                            match encryption::encrypt(&compressed, &kvp.1[..], &kvp.2[..]) {
-                                Ok(encrypted) => {
-                                    Ok(xor(&encrypted, &kvp.0))
-                                },
-                                Err(error) => {
-                                    match error {
-                                        InvalidLength => Err("InvalidLength".to_string()),
-                                        InvalidPadding => Err("InvalidPadding".to_string()),
-                                    }
-                                }
-                            }
-                        },
-                        Err(error) => {
-                            Err(error.description().to_string())
-                        }
-                    }
-                },
-                Err(error) => {
-                    Err(error.description().to_string())
-                }
-            }
+        Deferred::<Vec<u8>, String>::new(move ||{
+            let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
+            Ok(xor(&enc, &kvp.0))
         })
     }
 
