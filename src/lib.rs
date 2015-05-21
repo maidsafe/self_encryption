@@ -100,22 +100,14 @@ extern crate rand;
 extern crate crypto;
 extern crate rustc_serialize;
 extern crate asynchronous;
-extern crate flate2;
 
 use std::sync::Arc;
 use std::cmp;
 use crypto::sha2::Sha512 as Sha512;
 use crypto::digest::Digest;
-use crypto::symmetriccipher::SymmetricCipherError::{InvalidLength, InvalidPadding};
 use std::iter::repeat;
 use asynchronous::Deferred;
 use asynchronous::ControlFlow;
-use std::io::Write;
-use std::io::Read;
-use std::error::Error;
-use flate2::write::GzEncoder;
-use flate2::read::GzDecoder;
-use flate2::Compression;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
 // replaced with actual integration tests. This should be private
@@ -435,90 +427,20 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let kvp = self.get_pad_iv_key(chunk_number);
         let content = self.storage.get(name);
-
-        Deferred::<Vec<u8>, String>::new(move || {
-            if content.len() == 0 { () }
+        Deferred::<Vec<u8>, String>::new(move ||{
             let xor_result = xor(&content, &kvp.0);
-            match encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]) {
-                Ok(decrypted) => {
-                    let mut chunk = Vec::new();
-                    match GzDecoder::new(&decrypted[..]) {
-                        Ok(mut decoder) => {
-                            match decoder.read_to_end(&mut chunk) {
-                                Ok(size) => {
-                                    if size > 0 {
-                                        return Ok(chunk)
-                                    }
-                                    return Err("Decompression failure".to_string())
-                                },
-                                Err(error) => {
-                                    Err(error.description().to_string())
-                                }
-                            }
-                        },
-                        Err(_) => {
-                            Ok(chunk)
-                        }
-                    }
-                },
-                Err(error) => {
-                    match error {
-                        InvalidLength => Err("InvalidLength".to_string()),
-                        InvalidPadding => Err("InvalidPadding".to_string()),
-                    }
-                }
-            }
+            Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
         })
-
-        // let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
-        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        // let kvp = self.get_pad_iv_key(chunk_number);
-        // let content = self.storage.get(name);
-        // Deferred::<Vec<u8>, String>::new(move ||{
-        //     let xor_result = xor(&content, &kvp.0);
-        //     Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
-        // })
     }
 
     /// Performs encryption algorithm on chunk of data.
     fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>,String> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let kvp = self.get_pad_iv_key(chunk_number);
-        Deferred::<Vec<u8>, String>::new(move || {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::Best);
-            match encoder.write_all(&content[..]) {
-                Ok(()) => {
-                    match encoder.finish() {
-                        Ok(compressed) => {
-                            match encryption::encrypt(&compressed, &kvp.1[..], &kvp.2[..]) {
-                                Ok(encrypted) => {
-                                    Ok(xor(&encrypted, &kvp.0))
-                                },
-                                Err(error) => {
-                                    match error {
-                                        InvalidLength => Err("InvalidLength".to_string()),
-                                        InvalidPadding => Err("InvalidPadding".to_string()),
-                                    }
-                                }
-                            }
-                        },
-                        Err(error) => {
-                            Err(error.description().to_string())
-                        }
-                    }
-                },
-                Err(error) => {
-                    Err(error.description().to_string())
-                }
-            }
+        Deferred::<Vec<u8>, String>::new(move ||{
+            let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
+            Ok(xor(&enc, &kvp.0))
         })
-
-        // // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        // let kvp = self.get_pad_iv_key(chunk_number);
-        // Deferred::<Vec<u8>, String>::new(move ||{
-        //     let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
-        //     Ok(xor(&enc, &kvp.0))
-        // })
     }
 
     // Helper methods.
