@@ -100,6 +100,7 @@ extern crate rand;
 extern crate crypto;
 extern crate rustc_serialize;
 extern crate asynchronous;
+
 use std::sync::Arc;
 use std::cmp;
 use crypto::sha2::Sha512 as Sha512;
@@ -378,7 +379,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     if itr.location == ChunkLocation::Remote  {
                         vec_deferred.push(self.decrypt_chunk(i)
                             .chain::<_,String,_>(move |res|{ 
-                                Ok((pos, res.unwrap()) )
+                                Ok((pos, res.unwrap()))
                             })
                         );
                     }
@@ -440,14 +441,6 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
             Ok(xor(&enc, &kvp.0))
         })
-        // let result = xor(&enc, &kvp.0);
-        // let mut name : Vec<u8> = Vec::new();
-        // name.reserve(4096);
-        // let mut hash = Sha512::new();
-        // hash.input(result.as_slice());
-        // hash.result(name.as_mut_slice());
-        // self.storage.put(name, result.to_vec());
-        // result
     }
 
     // Helper methods.

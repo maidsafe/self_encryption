@@ -18,6 +18,7 @@
 extern crate self_encryption;
 extern crate rand;
 extern crate tempdir;
+
 pub use self_encryption::*;
 use rand::{thread_rng, Rng};
 use std::sync::{Arc,Mutex};
@@ -233,9 +234,70 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         data_map = self_encryptor.close();
     }
     
+    println!("Reloading data map...");
+
     let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
     assert_eq!(total_size, self_encryptor.len());    
+}
+
+#[test]
+fn cross_platform_check() {
+    let mut chars0 = Vec::<u8>::new();
+    let mut chars1 = Vec::<u8>::new();
+    let mut chars2 = Vec::<u8>::new();
+
+    // 1Mb of data for each chunk...
+    for _ in 0..8192 {
+        for j in 0..128 {
+            chars0.push(j);
+            chars1.push(j);
+            chars2.push(j);
+        }
+    }
+
+    chars1[0] = 1;
+    chars2[0] = 2;
+
+    let storage = Arc::new(MyStorage::new());
+    let mut data_map = datamap::DataMap::None;
+
+    {
+        let mut self_encryptor = SelfEncryptor::new(storage.clone(), data_map);
+        self_encryptor.write(&chars0[..], 0);
+        self_encryptor.write(&chars1[..], chars0.len() as u64);
+        self_encryptor.write(&chars2[..], chars0.len() as u64 + chars1.len() as u64);
+        data_map = self_encryptor.close();
+    }
+
+    // no compression...
+    static EXPECTED_HASHES: [[u8; 64]; 3] = [
+        [118, 247, 202, 197, 048, 078, 032, 120, 127, 152, 055, 038, 132, 187, 158, 078,
+         198, 059, 024, 187, 254, 086, 018, 212, 136, 090, 198, 222, 055, 217, 046, 024,
+         220, 123, 139, 175, 183, 044, 153, 043, 146, 146, 151, 118, 219, 135, 250, 078,
+         038, 179, 034, 157, 202, 090, 036, 232, 127, 247, 127, 146, 016, 039, 229, 244],
+        [173, 011, 204, 080, 163, 184, 016, 069, 230, 252, 046, 250, 071, 173, 159, 077,
+         123, 099, 057, 220, 227, 249, 186, 000, 231, 107, 199, 216, 181, 243, 029, 180,
+         179, 218, 115, 243, 046, 067, 004, 049, 173, 228, 214, 202, 114, 149, 215, 128,
+         170, 170, 107, 034, 249, 168, 255, 012, 167, 147, 085, 034, 075, 063, 008, 025],
+        [201, 127, 114, 214, 162, 008, 001, 204, 073, 145, 233, 053, 242, 092, 236, 232,
+         212, 214, 128, 083, 008, 189, 119, 244, 074, 076, 191, 120, 177, 073, 214, 176,
+         026, 249, 031, 048, 004, 016, 164, 102, 235, 200, 191, 098, 095, 075, 045, 147,
+         241, 086, 176, 055, 116, 180, 195, 033, 241, 084, 117, 084, 107, 084, 129, 044]
+    ];
+
+    assert_eq!(3, data_map.get_chunks().len());
+
+    let chunks = data_map.get_chunks();
+
+    for i in 0..chunks.len() {
+        println!("");
+        for j in 0..chunks[i].hash.len() {
+            assert_eq!(EXPECTED_HASHES[i][j], chunks[i].hash[j]);
+            print!("({},{}) ", EXPECTED_HASHES[i][j], chunks[i].hash[j]);
+        }
+        println!("");
+    }
 }
