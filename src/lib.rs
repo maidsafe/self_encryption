@@ -95,6 +95,7 @@
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
+#![forbid(bad_style, warnings)]
 
 extern crate rand;
 extern crate crypto;
