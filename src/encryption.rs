@@ -15,75 +15,38 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use crypto::{symmetriccipher, aes, blockmodes};
-use crypto::buffer::{self, ReadBuffer, WriteBuffer, BufferResult};
+extern crate sodiumoxide;
 
 /* use self::rand::{ Rng, OsRng }; */
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-pub fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) ->
-Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-    let mut encryptor = aes::cbc_encryptor(aes::KeySize::KeySize256,
-                                           key,
-                                           iv,
-                                           blockmodes::PkcsPadding);
+pub use sodiumoxide::crypto::secretbox::Key as Key;
+pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
 
-    let mut final_result = Vec::new();
-    let mut read_buffer = buffer::RefReadBuffer::new(data);
-    let mut buffer = [0; 4096];
-    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
+pub const KEY_SIZE: usize = sodiumoxide::crypto::secretbox::KEYBYTES;
+pub const IV_SIZE: usize = sodiumoxide::crypto::secretbox::NONCEBYTES;
 
-    loop {
-        let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
-
-        final_result.extend(write_buffer.take_read_buffer().take_remaining().iter().map(|&x| x));
-
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => { }
-        }
-    }
-
-    Ok(final_result)
+pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
+    sodiumoxide::crypto::secretbox::seal(data, iv, key)
 }
 
-pub fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) ->
-Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-    let mut decryptor = aes::cbc_decryptor(aes::KeySize::KeySize256,
-                                           key,
-                                           iv,
-                                           blockmodes::PkcsPadding);
-
-    let mut final_result = Vec::new();
-    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
-    let mut buffer = [0; 4096];
-    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
-
-    loop {
-        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
-        final_result.extend(write_buffer.take_read_buffer().take_remaining().iter().map(|&x| x));
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => { }
-        }
-    }
-
-    Ok(final_result)
+pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Option<Vec<u8>> {
+    sodiumoxide::crypto::secretbox::open(encrypted_data, iv, key)
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    use crypto::digest::Digest;
-    use crypto::sha2::Sha512  as Sha512;
+mod tests {
     use rand;
     use rand::Rng;
+    use rustc_serialize::hex::ToHex;
+    use sodiumoxide::crypto::hash::sha512;
+    use super::*;
 
 #[test]
     fn test_hash_sha_512() {
-        let mut hasher = Sha512::new();
-        hasher.input_str("abc");
-        let hex = hasher.result_str();
+        let input = ['a' as u8, 'b' as u8, 'c' as u8];
+        let sha512::Digest(name) = sha512::hash(&input);
+        let hex = name.to_vec().as_slice().to_hex();
         assert_eq!(hex, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a\
                         2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
     }
@@ -92,15 +55,15 @@ mod test {
     fn test_aes_cbc() {
         let message = "Hello World!";
 
-        let mut key: [u8; 32] = [0; 32];
-        let mut iv: [u8; 16] = [0; 16];
+        let mut key = [0u8; KEY_SIZE];
+        let mut iv = [0u8; IV_SIZE];
 
         let mut rng = rand::OsRng::new().unwrap();
         rng.fill_bytes(&mut key);
         rng.fill_bytes(&mut iv);
 
-        let encrypted_data = encrypt(message.as_bytes(), &key, &iv).unwrap();
-        let decrypted_data = decrypt(&encrypted_data[..], &key, &iv).unwrap();
+        let encrypted_data = encrypt(message.as_bytes(), &Key(key), &Iv(iv));
+        let decrypted_data = decrypt(&encrypted_data[..], &Key(key), &Iv(iv)).unwrap();
 
         assert!(message.as_bytes() == &decrypted_data[..]);
     }

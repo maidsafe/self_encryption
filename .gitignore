@@ -7,7 +7,6 @@ build-tests/
 target/
 *~
 /.idea
-tests/tmp*
-src/tmp*
+/.project
 *.sublime-*
-.project
+/bin/

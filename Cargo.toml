@@ -1,23 +1,22 @@
 [package]
-
 name = "self_encryption"
 version = "0.1.4"
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
-documentation = "http://rust-ci.org/dirvine/self_encryption"
-repository = "https://github.com/dirvine/self_encryption"
+documentation = "http://maidsafe.net/self_encryption/self_encryption/index.html"
+repository = "https://github.com/maidsafe/self_encryption"
 readme = "README.md"
 license = "GPL-3.0"
-homepage = "http://www.maidsafe.net"
+homepage = "http://maidsafe.net"
 
 [dependencies]
-rand = "*"
-tempdir = "*"
-docopt = "*"
-rustc-serialize = "*"
-rust-crypto = "0.2.30"
-cbor = "*"
 asynchronous = "*"
+cbor = "*"
+docopt = "*"
+rand = "*"
+rustc-serialize = "*"
+sodiumoxide = "*"
+tempdir = "*"
 
 [[example]]
 name = "basic_encryptor"
