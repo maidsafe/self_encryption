@@ -1,7 +1,7 @@
 [package]
 
 name = "self_encryption"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "http://rust-ci.org/dirvine/self_encryption"
@@ -15,7 +15,7 @@ rand = "*"
 tempdir = "*"
 docopt = "*"
 rustc-serialize = "*"
-rust-crypto = "*"
+rust-crypto = "0.2.30"
 cbor = "*"
 asynchronous = "*"
 
