@@ -46,7 +46,7 @@ mod tests {
     fn test_hash_sha_512() {
         let input = ['a' as u8, 'b' as u8, 'c' as u8];
         let sha512::Digest(name) = sha512::hash(&input);
-        let hex = name.to_vec().as_slice().to_hex();
+        let hex = &name.to_vec()[..].to_hex();
         assert_eq!(hex, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a\
                         2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
     }
