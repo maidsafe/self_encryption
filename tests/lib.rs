@@ -15,8 +15,8 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-extern crate self_encryption;
 extern crate rand;
+extern crate self_encryption;
 extern crate tempdir;
 
 pub use self_encryption::*;
@@ -199,6 +199,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
 
     {
         let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
+        println!("");
 
         for i in 0..parts {
             // Get random values for the piece size and intended offset
@@ -233,14 +234,14 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         // again.
         data_map = self_encryptor.close();
     }
-    
+
     println!("Reloading data map...");
 
     let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
-    assert_eq!(total_size, self_encryptor.len());    
+    assert_eq!(total_size, self_encryptor.len());
 }
 
 #[test]
@@ -274,18 +275,18 @@ fn cross_platform_check() {
 
     // no compression...
     static EXPECTED_HASHES: [[u8; 64]; 3] = [
-        [118, 247, 202, 197, 048, 078, 032, 120, 127, 152, 055, 038, 132, 187, 158, 078,
-         198, 059, 024, 187, 254, 086, 018, 212, 136, 090, 198, 222, 055, 217, 046, 024,
-         220, 123, 139, 175, 183, 044, 153, 043, 146, 146, 151, 118, 219, 135, 250, 078,
-         038, 179, 034, 157, 202, 090, 036, 232, 127, 247, 127, 146, 016, 039, 229, 244],
-        [173, 011, 204, 080, 163, 184, 016, 069, 230, 252, 046, 250, 071, 173, 159, 077,
-         123, 099, 057, 220, 227, 249, 186, 000, 231, 107, 199, 216, 181, 243, 029, 180,
-         179, 218, 115, 243, 046, 067, 004, 049, 173, 228, 214, 202, 114, 149, 215, 128,
-         170, 170, 107, 034, 249, 168, 255, 012, 167, 147, 085, 034, 075, 063, 008, 025],
-        [201, 127, 114, 214, 162, 008, 001, 204, 073, 145, 233, 053, 242, 092, 236, 232,
-         212, 214, 128, 083, 008, 189, 119, 244, 074, 076, 191, 120, 177, 073, 214, 176,
-         026, 249, 031, 048, 004, 016, 164, 102, 235, 200, 191, 098, 095, 075, 045, 147,
-         241, 086, 176, 055, 116, 180, 195, 033, 241, 084, 117, 084, 107, 084, 129, 044]
+        [94, 114, 188, 100, 39, 196, 184, 169, 56, 113, 54, 64, 74, 145, 237, 241, 79, 77, 75, 66,
+         239, 126, 22, 100, 129, 109, 170, 37, 49, 124, 44, 243, 5, 99, 197, 151, 33, 87, 214, 164,
+         247, 229, 172, 200, 29, 123, 145, 153, 24, 96, 58, 132, 185, 57, 175, 17, 57, 31, 221, 166,
+         133, 118, 190, 91],
+        [125, 84, 173, 78, 42, 69, 54, 40, 174, 254, 174, 130, 154, 35, 119, 116, 73, 54, 133, 217,
+         128, 19, 88, 7, 130, 57, 230, 55, 246, 249, 2, 43, 33, 17, 199, 227, 223, 29, 25, 254, 18,
+         13, 184, 218, 177, 194, 247, 171, 32, 90, 53, 140, 77, 242, 60, 241, 251, 124, 208, 235,
+         121, 208, 40, 200],
+        [192, 225, 246, 36, 219, 157, 117, 31, 93, 133, 8, 206, 10, 229, 208, 69, 218, 225, 57, 120,
+         94, 49, 229, 132, 32, 103, 93, 224, 189, 29, 244, 159, 189, 7, 10, 4, 170, 0, 48, 99, 229,
+         54, 113, 1, 55, 32, 214, 195, 185, 22, 150, 56, 191, 215, 87, 109, 49, 183, 126, 33, 69,
+         152, 195, 255]
     ];
 
     assert_eq!(3, data_map.get_chunks().len());
@@ -293,11 +294,8 @@ fn cross_platform_check() {
     let chunks = data_map.get_chunks();
 
     for i in 0..chunks.len() {
-        println!("");
         for j in 0..chunks[i].hash.len() {
             assert_eq!(EXPECTED_HASHES[i][j], chunks[i].hash[j]);
-            print!("({},{}) ", EXPECTED_HASHES[i][j], chunks[i].hash[j]);
         }
-        println!("");
     }
 }

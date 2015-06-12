@@ -21,7 +21,7 @@
 //! and several chunks of data. Each chunk is max 1Mb in size and has a name. This name is the
 //! `Sha512` of the content, this allows the chunks to be confirmed. If size and hash
 //! checks are utilised, a high degree of certainty in the validity of the data can be expected.
-//! 
+//!
 //! [Project github page](https://github.com/dirvine/self_encryption)
 //!
 //! # Use
@@ -34,36 +34,36 @@
 //!
 //! # Examples
 //!
-//! This is a simple setup for a memory based chunk store. A working implementation can be found 
+//! This is a simple setup for a memory based chunk store. A working implementation can be found
 //! in the test crate of this project.
 //!
-//! ``` 
+//! ```
 //! extern crate self_encryption;
 //! use std::sync::{Arc,Mutex};
-//! 
+//!
 //! struct Entry {
 //!     name: Vec<u8>,
 //!     data: Vec<u8>
 //! }
-//! 
+//!
 //! struct MyStorage {
 //!     entries: Arc<Mutex<Vec<Entry>>>
 //! }
-//! 
+//!
 //! impl MyStorage {
 //!     fn new() -> MyStorage {
 //!         MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
 //!     }
-//! 
+//!
 //!     fn has_chunk(&self, name: Vec<u8>) -> bool {
-//!         let lock = self.entries.lock().unwrap();    
+//!         let lock = self.entries.lock().unwrap();
 //!         for entry in lock.iter() {
 //!             if entry.name == name { return true }
 //!         }
 //!         false
 //!     }
 //!  }
-//! 
+//!
 //!  impl self_encryption::Storage for MyStorage {
 //!     fn get(&self, name: Vec<u8>) -> Vec<u8> {
 //!         let lock = self.entries.lock().unwrap();
@@ -72,13 +72,13 @@
 //!         }
 //!         vec![]
 //!     }
-//! 
+//!
 //!     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
 //!         let mut lock = self.entries.lock().unwrap();
 //!         lock.push(Entry { name : name, data : data })
 //!     }
 //! }
-//! ``` 
+//! ```
 //!
 //! Use of this setup would be to implement a self encryptor e.g  `let mut se =
 //! SelfEncryptor::new(my_storage, datamap::DataMap::None);`
@@ -86,7 +86,7 @@
 //! Then call write (and read after write)…etc… on the encryptor. The `close()` method will return
 //! a `DataMap`. This can be passed to create a new encryptor to access the content `let data_map =
 //! se.close();`
-//! 
+//!
 //! This is then used to open the data content in future sessions; e.g. `let mut self_encryptor =
 //! SelfEncryptor::new(my_storage, data_map);` where the `data_map` is the object returned
 //! from the `close()` call of previous use of this file content via the self_encryptor. Storage of
@@ -94,27 +94,33 @@
 
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-       html_root_url = "http://rust-ci.org/dirvine/self_encryption/")]
+       html_root_url = "http://maidsafe.net/self_encryption/self_encryption/index.html")]
 #![forbid(bad_style, warnings)]
+#![allow(unused_attributes, unused_features)]
 
-extern crate rand;
-extern crate crypto;
-extern crate rustc_serialize;
 extern crate asynchronous;
-
-use std::sync::Arc;
-use std::cmp;
-use crypto::sha2::Sha512 as Sha512;
-use crypto::digest::Digest;
-use std::iter::repeat;
-use asynchronous::Deferred;
-use asynchronous::ControlFlow;
+extern crate rand;
+extern crate rustc_serialize;
+extern crate sodiumoxide;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
 // replaced with actual integration tests. This should be private
-pub mod encryption;
+mod encryption;
 /// Information required to recover file content from chunks.
 pub mod datamap;
+
+use std::cmp;
+use std::iter::repeat;
+use std::sync::Arc;
+
+use asynchronous::{ControlFlow, Deferred};
+use sodiumoxide::crypto::hash::sha512;
+use encryption::{decrypt, encrypt, Key, Iv, KEY_SIZE, IV_SIZE};
+
+const HASH_SIZE: usize = sha512::HASHBYTES;
+const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
+
+struct Pad(pub [u8; PAD_SIZE]);
 
 /// MAX_CHUNK_SIZE defined as 1MB.
 pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
@@ -122,7 +128,7 @@ pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
 pub const MIN_CHUNK_SIZE: u32 = 1024;
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
-pub fn xor(data: &[u8], pad: &[u8]) -> Vec<u8> {
+fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
     data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
 
@@ -208,7 +214,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     }
 
     /// This is an implementation of the get_storage function from example.
-    pub fn get_storage(&self) -> Arc<S> { 
+    pub fn get_storage(&self) -> Arc<S> {
         self.storage.clone()
     }
 
@@ -218,7 +224,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// The input data will be written from the specified position (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
         self.file_size = cmp::max(self.file_size , data.len() as u64 + position);
-        self.prepare_window(data.len() as u64, position, true);
+        self.prepare_window(data.len() as u64, position);
         for i in 0..data.len() {
             self.sequencer[position as usize + i] = data[i];
         }
@@ -229,7 +235,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// and return content filled with 0u8 in the gap.  Any other unwritten gaps will also be filled
     /// with '0u8's.
     pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
-        self.prepare_window(length, position, false);
+        self.prepare_window(length, position);
         let mut read_vec = Vec::with_capacity(length as usize);
         for i in self.sequencer.iter().skip(position as usize).take(length as usize) {
             read_vec.push(i.clone());
@@ -239,9 +245,14 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     }
 
     /// This function returns a DataMap, which is the info required to recover encrypted content
-    /// from data storage location.  Content temporarily held in self_encryptor will only get flushed into storage
-    /// when this function gets called.
-    pub fn close(mut self) -> datamap::DataMap {
+    /// from data storage location.  Content temporarily held in self_encryptor will only get
+    /// flushed into storage when this function gets called.
+    pub fn close(&mut self) -> datamap::DataMap {
+        // Call prepare_window for the full file size to force any missing chunks to be inserted
+        // into self.chunks.
+        let file_size = self.file_size;
+        self.prepare_window(file_size, 0);
+
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             let mut content = self.sequencer.to_vec();
             content.truncate(self.file_size as usize);
@@ -263,28 +274,28 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     let this_size = self.get_chunk_size(chunk.number) as usize;
                     let pos = self.get_start_end_positions(chunk.number).0;
 
-                    let mut tmp = vec![0; this_size];
+                    let mut tmp = vec![0u8; this_size];
                     for i in 0..this_size {
                         tmp[i] = self.sequencer[i + pos as usize].clone();
                     }
                     // assert(tmp.len() == this_size && "vector diff size from chunk size");
 
-                    let chunk_number = chunk.number.clone(); 
-                    vec_deferred.push(Deferred::<_,String>::new(move || {
-                        let mut name = vec![0; 64];
-                        let mut hash = Sha512::new();
-                        hash.input(&mut tmp[..]);
-                        hash.result(&mut name[..]);
+                    let chunk_number = chunk.number.clone();
+                    vec_deferred.push(Deferred::<_, String>::new(move || {
+                        let sha512::Digest(name) = sha512::hash(&tmp[..]);
                         Ok((chunk_number, name, this_size))
                     }));
                 }
             }
-            for (chunk_number, name, this_size) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
-                tmp_chunks[chunk_number as usize].pre_hash.clear();
-                tmp_chunks[chunk_number as usize].pre_hash = name.to_vec();
-                tmp_chunks[chunk_number as usize].source_size = this_size as u64;
-                tmp_chunks[chunk_number as usize].chunk_num = chunk_number;
-                // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
+            if let Ok(result) =
+                    Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync() {
+                for (chunk_number, name, this_size) in result {
+                    tmp_chunks[chunk_number as usize].pre_hash.clear();
+                    tmp_chunks[chunk_number as usize].pre_hash = name.to_vec();
+                    tmp_chunks[chunk_number as usize].source_size = this_size as u64;
+                    tmp_chunks[chunk_number as usize].chunk_num = chunk_number;
+                    // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
+                }
             }
             self.my_datamap = datamap::DataMap::Chunks(tmp_chunks.to_vec());
             for chunk in self.chunks.iter_mut() {
@@ -304,30 +315,30 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     }
 
                     let storage = self.storage.clone();
-                    let chunk_number = chunk.number.clone();                    
+                    let chunk_number = chunk.number.clone();
                     let def = self.encrypt_chunk(chunk.number, tmp).chain::<_,String,_>(move |res| {
                         let content = res.unwrap();
-                        let mut name = vec![0; 64];
-                        let mut hash = Sha512::new();
-                        hash.input(&content);
-                        hash.result(&mut name[..]);                                        
-                        storage.put(name.to_vec(), content);                    
+                        let sha512::Digest(name) = sha512::hash(&content);
+                        storage.put(name.to_vec(), content);
                         Ok((chunk_number, name))
-                    });    
+                    });
                     vec_deferred.push(def);
                 }
             }
-            for (chunk_number, name) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
-                tmp_chunks[chunk_number as usize].hash = name;
+            if let Ok(result) =
+                    Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync() {
+                for (chunk_number, name) in result {
+                    tmp_chunks[chunk_number as usize].hash = name.to_vec();
+                }
             }
-            
+
             for chunk in self.chunks.iter_mut() {
                 if chunk.status == ChunkStatus::ToBeEncrypted {
                     chunk.status = ChunkStatus::AlreadyEncrypted;
                 }
             }
 
-        datamap::DataMap::Chunks(tmp_chunks)
+            datamap::DataMap::Chunks(tmp_chunks)
         }
     }
 
@@ -341,7 +352,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             self.chunks.truncate(last_chunk as usize);
         } else {
             // assert(position - old_size < std::numeric_limits<size_t>::max());
-            self.prepare_window((position - old_size), old_size, true);
+            self.prepare_window((position - old_size), old_size);
         }
 
         true
@@ -352,9 +363,9 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         self.file_size
     }
 
-    /// Prepare a sliding window to ensure there are enough chunk slots for write;
-    /// the algorithm may read-in some chunks from external storage.
-    fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
+    /// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in
+    /// any absent chunks from external storage.
+    fn prepare_window(&mut self, length: u64, position: u64) {
         if (length + position) as usize > self.sequencer.len() {
           let tmp_size = self.sequencer.len();
           self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
@@ -367,19 +378,21 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             last_chunk = 3;
         } else {
             for _ in 0..2 {
-                if last_chunk < self.get_num_chunks() { last_chunk += 1; }
+                if last_chunk < self.get_num_chunks() {
+                    last_chunk += 1;
+                }
             }
         }
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
         for i in (first_chunk..last_chunk) {
-            let mut found = false;            
+            let mut found = false;
             for itr in self.chunks.iter() {
                 if itr.number == i {
                     let pos = self.get_start_end_positions(i).0;
-                    if itr.location == ChunkLocation::Remote  {
+                    if itr.location == ChunkLocation::Remote {
                         vec_deferred.push(self.decrypt_chunk(i)
-                            .chain::<_,String,_>(move |res|{ 
+                            .chain::<_,String,_>(move |res|{
                                 Ok((pos, res.unwrap()))
                             })
                         );
@@ -389,58 +402,69 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
             if !found {
-                if write {
-                    self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
-                                           location: ChunkLocation::InSequencer});
-                } else {
-                    self.chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted,
-                                           location: ChunkLocation::InSequencer});
-                }
+                self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
+                                        location: ChunkLocation::InSequencer});
             }
-        }        
+        }
         for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
             let mut pos_aux = pos;
             for itr2 in vec.iter() {
                 self.sequencer[pos_aux as usize] = *itr2;
                 pos_aux += 1;
             }
-        }        
+        }
     }
 
-   // [TODO]: use fixed width arrays here, derived
-   // from key size of cipher used (compile time) - 2015-03-02 01:01am
-    fn get_pad_iv_key(&self, chunk_number: u32) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    fn get_pad_key_and_iv(&self, chunk_number: u32) -> (Pad, Key, Iv) {
         let mut vec = self.my_datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
         let n_1 = self.get_previous_chunk_number(chunk_number);
         let n_1_vec = self.my_datamap.get_sorted_chunks()[n_1 as usize].pre_hash.clone();
         let n_2 = self.get_previous_chunk_number(n_1);
         let n_2_vec = self.my_datamap.get_sorted_chunks()[n_2 as usize].pre_hash.clone();
 
-        vec.extend(n_1_vec[48..64].to_vec());
+        vec.extend(n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE].to_vec());
         vec.extend(n_2_vec[..].to_vec());
 
-        (vec, n_1_vec[0..32].to_vec(), n_1_vec[32..48].to_vec())
+        let mut pad = [0u8; PAD_SIZE];
+        for element in vec.into_iter().enumerate() {
+            pad[element.0] = element.1;
+        }
+
+        let mut key = [0u8; KEY_SIZE];
+        for element in n_1_vec[0..KEY_SIZE].to_vec().into_iter().enumerate() {
+            key[element.0] = element.1;
+        }
+
+        let mut iv = [0u8; IV_SIZE];
+        for element in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].to_vec().into_iter().enumerate() {
+            iv[element.0] = element.1;
+        }
+
+        (Pad(pad), Key(key), Iv(iv))
     }
 
     /// Performs the decryption algorithm to decrypt chunk of data.
     fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>,String> {
         let name = self.my_datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let kvp = self.get_pad_iv_key(chunk_number);
+        let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
         let content = self.storage.get(name);
         Deferred::<Vec<u8>, String>::new(move ||{
-            let xor_result = xor(&content, &kvp.0);
-            Ok(encryption::decrypt(&xor_result, &kvp.1[..], &kvp.2[..]).unwrap())
+            let xor_result = xor(&content, &pad_key_and_iv.0);
+            match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
+                Some(result) => Ok(result),
+                None => Err(format!("Failed decrypting chunk {}", chunk_number)),
+            }
         })
     }
 
     /// Performs encryption algorithm on chunk of data.
-    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>,String> {
+    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>, String> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let kvp = self.get_pad_iv_key(chunk_number);
+        let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
         Deferred::<Vec<u8>, String>::new(move ||{
-            let enc = &encryption::encrypt(&content, &kvp.1[..], &kvp.2[..]).unwrap();
-            Ok(xor(&enc, &kvp.0))
+            let enc = encrypt(&content, &pad_key_and_iv.1, &pad_key_and_iv.2);
+            Ok(xor(&enc, &pad_key_and_iv.0))
         })
     }
 
@@ -576,14 +600,14 @@ mod test {
     #[test]
     fn test_xor() {
         let mut data: Vec<u8> = vec![];
-        let mut pad: Vec<u8> = vec![];
+        let mut pad = [0u8; super::PAD_SIZE];
         for _ in (0..800) {
             data.push(super::rand::random::<u8>());
         }
-        for _ in (0..333) {
-            pad.push(super::rand::random::<u8>());
+        for i in (0..super::PAD_SIZE) {
+            pad[i] = super::rand::random::<u8>();
         }
-        assert_eq!(data, xor(&xor(&data,&pad), &pad));
+        assert_eq!(data, super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
     }
 
     #[test]
@@ -604,7 +628,7 @@ mod test {
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);            
+            let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
             se.write(&the_bytes, 0);
             assert_eq!(se.get_num_chunks(), 0);
             assert_eq!(se.chunks.len(), 0);
@@ -844,7 +868,7 @@ mod test {
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     }
-    
+
     #[test]
     fn check_large_file_1_byte_under_11_chunks() {
         let my_storage = Arc::new(MyStorage::new());
