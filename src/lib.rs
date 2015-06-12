@@ -97,7 +97,6 @@
        html_root_url = "http://maidsafe.net/self_encryption/self_encryption/index.html")]
 #![forbid(bad_style, warnings)]
 #![allow(unused_attributes, unused_features)]
-#![feature(convert)]
 
 extern crate asynchronous;
 extern crate rand;
