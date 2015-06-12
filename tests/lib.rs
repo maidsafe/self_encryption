@@ -186,7 +186,6 @@ fn write_random_sizes_at_random_positions() {
 }
 
 #[test]
-#[ignore]
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
 fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {

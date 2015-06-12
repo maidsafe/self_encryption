@@ -52,7 +52,7 @@ mod tests {
     }
 
 #[test]
-    fn test_aes_cbc() {
+    fn test_salsa20poly1305() {
         let message = "Hello World!";
 
         let mut key = [0u8; KEY_SIZE];

@@ -225,7 +225,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// The input data will be written from the specified position (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
         self.file_size = cmp::max(self.file_size , data.len() as u64 + position);
-        self.prepare_window(data.len() as u64, position, true);
+        self.prepare_window(data.len() as u64, position);
         for i in 0..data.len() {
             self.sequencer[position as usize + i] = data[i];
         }
@@ -236,7 +236,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// and return content filled with 0u8 in the gap.  Any other unwritten gaps will also be filled
     /// with '0u8's.
     pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
-        self.prepare_window(length, position, false);
+        self.prepare_window(length, position);
         let mut read_vec = Vec::with_capacity(length as usize);
         for i in self.sequencer.iter().skip(position as usize).take(length as usize) {
             read_vec.push(i.clone());
@@ -248,7 +248,12 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// This function returns a DataMap, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in self_encryptor will only get
     /// flushed into storage when this function gets called.
-    pub fn close(mut self) -> datamap::DataMap {
+    pub fn close(&mut self) -> datamap::DataMap {
+        // Call prepare_window for the full file size to force any missing chunks to be inserted
+        // into self.chunks.
+        let file_size = self.file_size;
+        self.prepare_window(file_size, 0);
+
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             let mut content = self.sequencer.to_vec();
             content.truncate(self.file_size as usize);
@@ -348,7 +353,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             self.chunks.truncate(last_chunk as usize);
         } else {
             // assert(position - old_size < std::numeric_limits<size_t>::max());
-            self.prepare_window((position - old_size), old_size, true);
+            self.prepare_window((position - old_size), old_size);
         }
 
         true
@@ -359,9 +364,9 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         self.file_size
     }
 
-    /// Prepare a sliding window to ensure there are enough chunk slots for write;
-    /// the algorithm may read-in some chunks from external storage.
-    fn prepare_window(&mut self, length: u64, position: u64, write: bool) {
+    /// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in
+    /// any absent chunks from external storage.
+    fn prepare_window(&mut self, length: u64, position: u64) {
         if (length + position) as usize > self.sequencer.len() {
           let tmp_size = self.sequencer.len();
           self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
@@ -374,7 +379,9 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             last_chunk = 3;
         } else {
             for _ in 0..2 {
-                if last_chunk < self.get_num_chunks() { last_chunk += 1; }
+                if last_chunk < self.get_num_chunks() {
+                    last_chunk += 1;
+                }
             }
         }
         // [TODO]: Thread next - 2015-02-28 06:09pm
@@ -384,7 +391,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             for itr in self.chunks.iter() {
                 if itr.number == i {
                     let pos = self.get_start_end_positions(i).0;
-                    if itr.location == ChunkLocation::Remote  {
+                    if itr.location == ChunkLocation::Remote {
                         vec_deferred.push(self.decrypt_chunk(i)
                             .chain::<_,String,_>(move |res|{
                                 Ok((pos, res.unwrap()))
@@ -396,13 +403,8 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
             if !found {
-                if write {
-                    self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
-                                           location: ChunkLocation::InSequencer});
-                } else {
-                    self.chunks.push(Chunks{number: i, status: ChunkStatus::AlreadyEncrypted,
-                                           location: ChunkLocation::InSequencer});
-                }
+                self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
+                                        location: ChunkLocation::InSequencer});
             }
         }
         for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
@@ -450,12 +452,15 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         let content = self.storage.get(name);
         Deferred::<Vec<u8>, String>::new(move ||{
             let xor_result = xor(&content, &pad_key_and_iv.0);
-            Ok(decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2).unwrap())
+            match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
+                Some(result) => Ok(result),
+                None => Err(format!("Failed decrypting chunk {}", chunk_number)),
+            }
         })
     }
 
     /// Performs encryption algorithm on chunk of data.
-    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>,String> {
+    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>, String> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
         Deferred::<Vec<u8>, String>::new(move ||{
