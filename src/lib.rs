@@ -95,11 +95,16 @@
 #![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://maidsafe.net/self_encryption/self_encryption/index.html")]
-#![forbid(bad_style, warnings)]
-#![allow(unused_attributes, unused_features)]
+#![forbid(missing_docs, warnings)]
+#![deny(bad_style, deprecated, drop_with_repr_extern, improper_ctypes, non_shorthand_field_patterns,
+        overflowing_literals, plugin_as_library, private_no_mangle_fns, private_no_mangle_statics,
+        raw_pointer_derive, stable_features, unconditional_recursion, unknown_lints, unsafe_code,
+        unsigned_negation, unused, unused_allocation, unused_attributes, unused_comparisons,
+        unused_features, unused_parens, while_true)]
+#![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+        unused_qualifications, unused_results, variant_size_differences)]
 
 extern crate asynchronous;
-extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
 
@@ -542,13 +547,15 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
 #[cfg(test)]
 mod test {
+    extern crate rand;
+
     use super::*;
     use std::sync::{Arc,Mutex};
 
     fn random_bytes(length: usize) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::with_capacity(length);
         for _ in (0..length) {
-            bytes.push(super::rand::random::<u8>());
+            bytes.push(rand::random::<u8>());
         }
         bytes
     }
@@ -602,10 +609,10 @@ mod test {
         let mut data: Vec<u8> = vec![];
         let mut pad = [0u8; super::PAD_SIZE];
         for _ in (0..800) {
-            data.push(super::rand::random::<u8>());
+            data.push(rand::random::<u8>());
         }
         for i in (0..super::PAD_SIZE) {
-            pad[i] = super::rand::random::<u8>();
+            pad[i] = rand::random::<u8>();
         }
         assert_eq!(data, super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
     }
