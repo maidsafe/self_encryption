@@ -85,31 +85,31 @@ pub struct MyStorage {
 
 impl Storage for MyStorage {
   fn get(&self, name: Vec<u8>) -> Vec<u8> {
-    let pathstr = file_name(&name);
-    let tmpname = self.storage_path.clone() + &pathstr;
-    let path = Path::new(&tmpname);
-    let display = path.display();
-    let mut file = match File::open(&path) {
-      Err(_) => panic!("couldn't open {}", display),
-        Ok(f) => f,
-    };
-    let mut data = Vec::new();
-    file.read_to_end(&mut data).unwrap();
-    data
+        let pathstr = file_name(&name);
+        let tmpname = self.storage_path.clone() + &pathstr;
+        let path = Path::new(&tmpname);
+        let display = path.display();
+        let mut file = match File::open(&path) {
+            Err(_) => panic!("couldn't open {}", display),
+            Ok(f) => f,
+        };
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        data
   }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-    let pathstr = file_name(&name);
-    let tmpname = self.storage_path.clone() + &pathstr;
-    let path = Path::new(&tmpname);
-    let mut file = match File::create(&path) {
-           Err(_) => panic!("couldn't create"),
-           Ok(f) => f 
-    }; 
-           
-    match file.write_all(&data[..]) {
-             Err(_) => panic!("couldn't write "),
-             Ok(_) => println!("chunk  written")
+        let pathstr = file_name(&name);
+        let tmpname = self.storage_path.clone() + &pathstr;
+        let path = Path::new(&tmpname);
+        let mut file = match File::create(&path) {
+            Err(_) => panic!("couldn't create"),
+            Ok(f) => f
+        };
+
+        match file.write_all(&data[..]) {
+            Err(_) => panic!("chunk write failed"),
+            Ok(_) => println!("chunk written")
         };
     }
 }
@@ -121,52 +121,64 @@ fn main() {
     if args.flag_help { println!("{:?}", args) }
 
     match fs::create_dir(&Path::new("chunk_store_test")) {
-        Err(why) => println!("! chunk_store_test {:?}", why.kind()),
+        Err(why) => println!("!chunk_store_test {:?}", why.kind()),
         Ok(_) => {},
     }
     let my_storage = Arc::new(MyStorage { storage_path : "chunk_store_test/".to_string() });
     
     if args.flag_encrypt && args.arg_target.is_some() {
-        let mut file = match File::open(&args.arg_target.clone().unwrap()) {
-              Err(_) => panic!("couldn't open {}", args.arg_target.clone().unwrap()),
-              Ok(f) => f,
-            };
-        let mut data = Vec::new();
-        file.read_to_end(&mut data).unwrap();
+        if let Ok(mut file) = File::open(&args.arg_target.clone().unwrap()) {
+            let mut data = Vec::new();
+            file.read_to_end(&mut data).unwrap();
 
-        let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
-        se.write(&data, 0);
-        let data_map = se.close();
-        let mut file = match File::create("data_map") {
-            Err(_) => panic!("couldn't create data_map"),
-            Ok(f) => f
-        };
-        let mut encoded = Encoder::from_memory();
-        encoded.encode(&[&data_map]).unwrap();
-        match file.write_all(&encoded.as_bytes()[..]) {
-            Err(_) => panic!("couldn't write "),
-            Ok(_) => println!("chunk  written")
-        };
+            let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
+            se.write(&data, 0);
+            let data_map = se.close();
+
+            if let Ok(mut file) = File::create("data_map") {
+                let mut encoded = Encoder::from_memory();
+                encoded.encode(&[&data_map]).unwrap();
+                if let Ok(_) = file.write_all(&encoded.as_bytes()[..]) {
+                    println!("data map written")
+                } else {
+                    return println!("data map write failed");
+                }
+            } else {
+                return println!("failed to create data_map");
+            }
+        } else {
+            return println!("failed to open {}", args.arg_target.clone().unwrap());
+        }
     }
     if args.flag_decrypt && args.arg_target.is_some() && args.arg_dest.is_some() {
-        let mut file = match File::open(&args.arg_target.clone().unwrap()) {
-              Err(_) => panic!("couldn't open {}", args.arg_target.clone().unwrap()),
-              Ok(f) => f,
-            };
-        let mut data = Vec::new();
-        file.read_to_end(&mut data).unwrap();
-        let mut d = Decoder::from_bytes(data);
-        let data_map : datamap::DataMap = d.decode().next().unwrap().unwrap();
+        if let Ok(mut file) = File::open(&args.arg_target.clone().unwrap()) {
+            let mut data = Vec::new();
+            file.read_to_end(&mut data).unwrap();
+            let mut d = Decoder::from_bytes(data);
 
-        let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
-        let length = se.len();
-        let mut file = match File::create(&args.arg_dest.clone().unwrap()) {
-            Err(_) => panic!("couldn't create {}", args.arg_dest.clone().unwrap()),
-            Ok(f) => f
-        };
-        match file.write_all(&se.read(0, length)[..]) {
-            Err(_) => panic!("couldn't write "),
-            Ok(_) => println!("chunk  written")
-        };
+            if let Ok(data_map) = d.decode().next().unwrap() {
+                let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+                let length = se.len();
+                if let Ok(mut file) = File::create(&args.arg_dest.clone().unwrap()) {
+                    // if let content = se.read(0, length) {
+                        let content = se.read(0, length);
+                        // TODO: fix, assumes that content non-zero
+                        if content.len() != 0usize {
+                            match file.write_all(&content[..]) {
+                                Err(_) => println!("file write failed"),
+                                Ok(_) => println!("file written")
+                            };
+                        } else {
+                            return println!("failed to decrypt file content");
+                        }
+                } else {
+                    return println!("failed to create {}", args.arg_dest.clone().unwrap());
+                }
+            } else {
+                return println!("failed to decode data map possible corruption");
+            }
+        } else {
+            return println!("failed to open {}", args.arg_target.clone().unwrap());
+        }
     }
 }
