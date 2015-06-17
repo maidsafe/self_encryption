@@ -160,17 +160,11 @@ fn main() {
                 let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
                 let length = se.len();
                 if let Ok(mut file) = File::create(&args.arg_dest.clone().unwrap()) {
-                    // if let content = se.read(0, length) {
                         let content = se.read(0, length);
-                        // TODO: fix, assumes that content non-zero
-                        if content.len() != 0usize {
-                            match file.write_all(&content[..]) {
-                                Err(_) => println!("file write failed"),
-                                Ok(_) => println!("file written")
-                            };
-                        } else {
-                            return println!("failed to decrypt file content");
-                        }
+                        match file.write_all(&content[..]) {
+                            Err(_) => println!("file write failed"),
+                            Ok(_) => println!("file written")
+                        };
                 } else {
                     return println!("failed to create {}", args.arg_dest.clone().unwrap());
                 }
