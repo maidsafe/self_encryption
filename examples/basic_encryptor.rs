@@ -33,7 +33,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use docopt::Docopt;
-use cbor::{ Encoder, Decoder};
+use cbor::{Encoder, Decoder};
 
 use self_encryption::*;
 
@@ -150,6 +150,7 @@ fn main() {
             return println!("failed to open {}", args.arg_target.clone().unwrap());
         }
     }
+
     if args.flag_decrypt && args.arg_target.is_some() && args.arg_dest.is_some() {
         if let Ok(mut file) = File::open(&args.arg_target.clone().unwrap()) {
             let mut data = Vec::new();
@@ -160,11 +161,11 @@ fn main() {
                 let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
                 let length = se.len();
                 if let Ok(mut file) = File::create(&args.arg_dest.clone().unwrap()) {
-                        let content = se.read(0, length);
-                        match file.write_all(&content[..]) {
-                            Err(_) => println!("file write failed"),
-                            Ok(_) => println!("file written")
-                        };
+                    let content = se.read(0, length);
+                    match file.write_all(&content[..]) {
+                        Err(_) => println!("file write failed"),
+                        Ok(_) => println!("file written")
+                    };
                 } else {
                     return println!("failed to create {}", args.arg_dest.clone().unwrap());
                 }
