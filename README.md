@@ -23,20 +23,18 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 # Todo Items
 
-## [0.1.2] - Parallel processing and compression.
+## [0.2.1] - Parallel processing and compression.
 - [ ] Add compression pre encrypt and post encrypt in encrypt and decrypt methods
 - [ ] Add task passing to allow cores to be lit up when handling chunks
+- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
-## [0.1.3] - Unrestricted file sizes.
+## [0.2.2] - Unrestricted file sizes.
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
     - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
     - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
-
-## [?] - Requires Beta channel.
-- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
 #Video of the process
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
