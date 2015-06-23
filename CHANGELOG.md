@@ -1,7 +1,7 @@
 
-# Self-Encryption - Change Log  
+# Self-Encryption - Change Log
 
-## [0.0.0 - 0.1.1]
+## [0.0.0 - 0.2.0]
 - Initial structure
 - Test set-up
 - Travis integration
