@@ -10,7 +10,8 @@ Self encrypting files (convergent encryption plus obfuscation)
 |:------:|:-------:|:-------:|:-------:|:-------:|
 |[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)| [![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_win64_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_win64_status_badge/)|[![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_osx_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_osx_status_badge/) | [![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|
 
-| [API Documentation - Master branch](http://maidsafe.github.io/self_encryption/self_encryption/) | [SAFENetwork System Documention](http://systemdocs.maidsafe.net/) | [MaidSafe website](http://www.maidsafe.net) | [Safe Community site](https://forum.safenetwork.io) |
+| [API Documentation - master branch](http://maidsafe.net/self_encryption/master) | [SAFE Network System Documention](http://systemdocs.maidsafe.net) | [MaidSafe website](http://maidsafe.net) | [Safe Community site](https://forum.safenetwork.io) |
+|:------:|:-------:|:-------:|:-------:|
 
 #Overview
 
