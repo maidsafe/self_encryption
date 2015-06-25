@@ -30,6 +30,9 @@ pub struct ChunkDetails {
 }
 
 impl ChunkDetails {
+    /// Holds information required for successful recovery of a chunk, as well as for the
+    /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
+    /// corresponding DataMap.
     pub fn new() -> ChunkDetails {
         ChunkDetails {
             chunk_num: 0,
@@ -44,10 +47,11 @@ impl ChunkDetails {
 /// on the file size, such info can be held as a vector of ChunkDetails, or as raw data.
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
-    /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm holds the list
-    /// of the files chunks and corresponding hashes.
+    /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
+    /// holds the list of the files chunks and corresponding hashes.
     Chunks(Vec<ChunkDetails>),
-    /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and are put in here in their entirety.
+    /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
+    /// are put in here in their entirety.
     Content(Vec<u8>),
     /// empty datamap
     None
@@ -71,8 +75,8 @@ impl DataMap {
         }
     }
 
-    /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the correct
-    /// pre-encryption hashes for decryption/encryption.
+    /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
+    /// correct pre-encryption hashes for decryption/encryption.
     pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
         match *self {
             DataMap::Chunks(ref chunks) =>  {
@@ -102,6 +106,7 @@ impl DataMap {
         chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
     }
 }
+
 #[test]
 fn dummy()  {
 }

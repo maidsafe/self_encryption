@@ -13,10 +13,12 @@ homepage = "http://maidsafe.net"
 asynchronous = "*"
 cbor = "*"
 docopt = "*"
-rand = "*"
 rustc-serialize = "*"
 sodiumoxide = "*"
 tempdir = "*"
+
+[dev-dependencies]
+rand = "*"
 
 [[example]]
 name = "basic_encryptor"

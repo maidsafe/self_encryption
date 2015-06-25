@@ -1,14 +1,16 @@
 # self_encryption
 
+[![](https://img.shields.io/badge/Project%20SAFE-Approved-green.svg)](http://maidsafe.net/applications) [![](https://img.shields.io/badge/License-GPL3-green.svg)](https://github.com/maidsafe/self_encryption/blob/master/COPYING)
+
 **Primary Maintainer:**     Brian Smith (brian.smith@maidsafe.net)
 
 **Secondary Maintainer:**   Qi Ma (qi.ma@maidsafe.net)
 
 Self encrypting files (convergent encryption plus obfuscation)
 
-|Crate|Linux|Windows|OSX|Coverage|
-|:------:|:-------:|:-------:|:-------:|:-------:|
-|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)| [![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_win64_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_win64_status_badge/)|[![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_osx_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_osx_status_badge/) | [![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|
+|Crate|Linux|Windows|OSX|Coverage|Issues|
+|:------:|:-------:|:-------:|:-------:|:-------:|:-------:|
+|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)| [![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_win64_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_win64_status_badge/)|[![Build Status](http://ci.maidsafe.net:8080/buildStatus/icon?job=self_encryption_osx_status_badge)](http://ci.maidsafe.net:8080/job/self_encryption_osx_status_badge/) | [![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|[![Stories in Ready](https://badge.waffle.io/maidsafe/self_encryption.png?label=ready&title=Ready)](https://waffle.io/maidsafe/self_encryption)
 
 | [API Documentation - master branch](http://maidsafe.net/self_encryption/master) | [SAFE Network System Documention](http://systemdocs.maidsafe.net) | [MaidSafe website](http://maidsafe.net) | [Safe Community site](https://forum.safenetwork.io) |
 |:------:|:-------:|:-------:|:-------:|

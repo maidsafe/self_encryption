@@ -36,31 +36,29 @@ pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use rand;
-    use rand::Rng;
     use rustc_serialize::hex::ToHex;
     use sodiumoxide::crypto::hash::sha512;
+    use sodiumoxide::randombytes::randombytes_into;
     use super::*;
 
-#[test]
+    #[test]
     fn test_hash_sha_512() {
         let input = ['a' as u8, 'b' as u8, 'c' as u8];
         let sha512::Digest(name) = sha512::hash(&input);
         let hex = &name.to_vec()[..].to_hex();
         assert_eq!(hex, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a\
-                        2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
+                         2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
     }
 
-#[test]
+    #[test]
     fn test_salsa20poly1305() {
         let message = "Hello World!";
 
         let mut key = [0u8; KEY_SIZE];
         let mut iv = [0u8; IV_SIZE];
 
-        let mut rng = rand::OsRng::new().unwrap();
-        rng.fill_bytes(&mut key);
-        rng.fill_bytes(&mut iv);
+        randombytes_into(&mut key);
+        randombytes_into(&mut iv);
 
         let encrypted_data = encrypt(message.as_bytes(), &Key(key), &Iv(iv));
         let decrypted_data = decrypt(&encrypted_data[..], &Key(key), &Iv(iv)).unwrap();
