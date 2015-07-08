@@ -1,5 +1,7 @@
-
 # Self-Encryption - Change Log
+
+## [0.2.1]
+- Fixed lint warnings caused by latest Rust nightly
 
 ## [0.0.0 - 0.2.0]
 - Initial structure
