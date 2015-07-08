@@ -518,7 +518,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Returns ordering of chunks.
     fn get_start_end_positions(&self, chunk_number: u32) -> (u64, u64) {
         if self.get_num_chunks() == 0 { return (0, 0) }
-        let mut start;
+        let start;
         let penultimate = (self.get_num_chunks() - 2) == chunk_number;
         let last = (self.get_num_chunks() - 1) == chunk_number;
         if last {
@@ -631,7 +631,7 @@ mod test {
     #[test]
     fn check_3_min_chunks_minus1() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -662,7 +662,7 @@ mod test {
     #[test]
     fn check_3_min_chunks() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
@@ -704,7 +704,7 @@ mod test {
     #[test]
     fn check_3_min_chunks_plus1() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -746,7 +746,7 @@ mod test {
     #[test]
     fn check_3_max_chunks() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -788,7 +788,7 @@ mod test {
     #[test]
     fn check_3_max_chunks_plus1() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -833,7 +833,7 @@ mod test {
     #[test]
     fn check_7_and_a_bit_max_chunks() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
         let the_bytes = random_bytes(bytes_len as usize);
         {
@@ -879,7 +879,7 @@ mod test {
     #[test]
     fn check_large_file_1_byte_under_11_chunks() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let number_of_chunks : u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) - 1;
         let the_bytes = random_bytes(bytes_len);
@@ -909,7 +909,7 @@ mod test {
     #[test]
     fn check_large_file_1_byte_over_11_chunks() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let number_of_chunks : u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1;
         let the_bytes = random_bytes(bytes_len);
@@ -940,7 +940,7 @@ mod test {
     fn check_large_file_size_1024_over_11_chunks() {
         // has been tested for 50 chunks
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let number_of_chunks : u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
         let the_bytes = random_bytes(bytes_len);
@@ -986,7 +986,7 @@ mod test {
     #[test]
     fn check_5_and_extend_to_7_plus_one() {
         let my_storage = Arc::new(MyStorage::new());
-        let mut data_map: datamap::DataMap;
+        let data_map: datamap::DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 5;
         let the_bytes = random_bytes(bytes_len as usize);
         {
