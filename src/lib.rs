@@ -124,8 +124,8 @@ use sodiumoxide::crypto::hash::sha512;
 use encryption::{decrypt, encrypt, Key, Iv, KEY_SIZE, IV_SIZE};
 use std::io::{Write, Read};
 use std::error::Error;
-use flate2::write::GzEncoder;
-use flate2::read::GzDecoder;
+use flate2::write::DeflateEncoder;
+use flate2::read::DeflateDecoder;
 use flate2::Compression;
 
 const HASH_SIZE: usize = sha512::HASHBYTES;
@@ -468,19 +468,15 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
                 Some(decrypted) => {
                     let mut chunk = Vec::new();
-                    match GzDecoder::new(&decrypted[..]) {
-                        Ok(mut decoder) => {
-                            match decoder.read_to_end(&mut chunk) {
-                                Ok(size) => {
-                                    if size > 0 {
-                                        return Ok(chunk)
-                                    }
-                                    return Err("Decompression failure".to_string())
-                                },
-                                Err(error) => { Err(error.description().to_string()) }
+                    let mut decoder = DeflateDecoder::new(&decrypted[..]);
+                    match decoder.read_to_end(&mut chunk) {
+                        Ok(size) => {
+                            if size > 0 {
+                                return Ok(chunk)
                             }
+                            return Err("Decompression failure".to_string())
                         },
-                        Err(_) => { Ok(chunk) }
+                        Err(error) => { Err(error.description().to_string()) }
                     }
                 },
                 None => Err(format!("Failed decrypting chunk {}", chunk_number)),
@@ -493,7 +489,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
         Deferred::<Vec<u8>, String>::new(move || {
-            let mut encoder = GzEncoder::new(Vec::new(), Compression::Default);
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
             match encoder.write_all(&content[..]) {
                 Ok(()) => {
                     match encoder.finish() {
