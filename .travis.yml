@@ -25,7 +25,7 @@ script:
   - |
       travis-cargo build &&
       travis-cargo test &&
-      travis-cargo bench &&
+      travis-cargo --only nightly bench &&
       travis-cargo --only beta doc
 
 after_success: |
