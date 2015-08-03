@@ -16,6 +16,7 @@ docopt = "*"
 rustc-serialize = "*"
 maidsafe_sodiumoxide = "*"
 tempdir = "*"
+flate2 = "*"
 
 [dev-dependencies]
 rand = "*"
