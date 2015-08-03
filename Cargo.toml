@@ -14,8 +14,9 @@ asynchronous = "*"
 cbor = "*"
 docopt = "*"
 rustc-serialize = "*"
-sodiumoxide = "*"
+maidsafe_sodiumoxide = "*"
 tempdir = "*"
+flate2 = "*"
 
 [dev-dependencies]
 rand = "*"
