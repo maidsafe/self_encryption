@@ -106,7 +106,7 @@
 
 extern crate asynchronous;
 extern crate rustc_serialize;
-extern crate sodiumoxide;
+extern crate maidsafe_sodiumoxide as sodiumoxide;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
 // replaced with actual integration tests. This should be private
@@ -189,6 +189,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// The get and put of Storage need to be implemented to
     /// allow the SelfEncryptor to store encrypted chunks and retrieve them when necessary.
     pub fn new(my_storage:Arc<S>, my_datamap: datamap::DataMap) -> SelfEncryptor<S> {
+        sodiumoxide::init();
         let mut sequencer = Vec::with_capacity(1024 * 1024 * 100);
         let file_size = my_datamap.len();
 
