@@ -15,7 +15,7 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-extern crate sodiumoxide;
+extern crate maidsafe_sodiumoxide as sodiumoxide;
 
 /* use self::rand::{ Rng, OsRng }; */
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015

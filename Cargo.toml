@@ -14,7 +14,7 @@ asynchronous = "*"
 cbor = "*"
 docopt = "*"
 rustc-serialize = "*"
-sodiumoxide = "*"
+maidsafe_sodiumoxide = "*"
 tempdir = "*"
 
 [dev-dependencies]
