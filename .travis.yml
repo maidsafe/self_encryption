@@ -16,7 +16,7 @@ install:
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - cargo bench
+  - '[ "$TRAVIS_RUST_VERSION" != "nightly" ] || cargo bench --features unstable'
 after_success:
   - curl -sSL https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/deploy_gh-pages.sh | bash
 env:
