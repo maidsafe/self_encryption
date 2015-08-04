@@ -107,6 +107,7 @@
 extern crate asynchronous;
 extern crate rustc_serialize;
 extern crate maidsafe_sodiumoxide as sodiumoxide;
+extern crate flate2;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
 // replaced with actual integration tests. This should be private
@@ -121,6 +122,11 @@ use std::sync::Arc;
 use asynchronous::{ControlFlow, Deferred};
 use sodiumoxide::crypto::hash::sha512;
 use encryption::{decrypt, encrypt, Key, Iv, KEY_SIZE, IV_SIZE};
+use std::io::{Write, Read};
+use std::error::Error;
+use flate2::write::DeflateEncoder;
+use flate2::read::DeflateDecoder;
+use flate2::Compression;
 
 const HASH_SIZE: usize = sha512::HASHBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -455,22 +461,47 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
         let content = self.storage.get(name);
-        Deferred::<Vec<u8>, String>::new(move ||{
+
+        Deferred::<Vec<u8>, String>::new(move || {
+            if content.len() == 0 { () }
             let xor_result = xor(&content, &pad_key_and_iv.0);
             match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
-                Some(result) => Ok(result),
+                Some(decrypted) => {
+                    let mut chunk = Vec::new();
+                    let mut decoder = DeflateDecoder::new(&decrypted[..]);
+                    match decoder.read_to_end(&mut chunk) {
+                        Ok(size) => {
+                            if size > 0 {
+                                return Ok(chunk)
+                            }
+                            return Err("Decompression failure".to_string())
+                        },
+                        Err(error) => { Err(error.description().to_string()) }
+                    }
+                },
                 None => Err(format!("Failed decrypting chunk {}", chunk_number)),
             }
         })
     }
 
     /// Performs encryption algorithm on chunk of data.
-    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>, String> {
+    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>,String> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
-        Deferred::<Vec<u8>, String>::new(move ||{
-            let enc = encrypt(&content, &pad_key_and_iv.1, &pad_key_and_iv.2);
-            Ok(xor(&enc, &pad_key_and_iv.0))
+        Deferred::<Vec<u8>, String>::new(move || {
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
+            match encoder.write_all(&content[..]) {
+                Ok(()) => {
+                    match encoder.finish() {
+                        Ok(compressed) => {
+                            let encrypted = encrypt(&compressed, &pad_key_and_iv.1, &pad_key_and_iv.2);
+                            Ok(xor(&encrypted, &pad_key_and_iv.0))
+                        },
+                        Err(error) => { Err(error.description().to_string()) }
+                    }
+                },
+                Err(error) => { Err(error.description().to_string()) }
+            }
         })
     }
 
