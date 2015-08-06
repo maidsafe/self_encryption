@@ -9,6 +9,9 @@ readme = "README.md"
 license = "GPL-3.0"
 homepage = "http://maidsafe.net"
 
+[features]
+unstable = []
+
 [dependencies]
 asynchronous = "*"
 cbor = "*"

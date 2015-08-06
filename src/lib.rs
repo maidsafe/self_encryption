@@ -99,8 +99,8 @@
 #![deny(bad_style, deprecated, drop_with_repr_extern, improper_ctypes, non_shorthand_field_patterns,
         overflowing_literals, plugin_as_library, private_no_mangle_fns, private_no_mangle_statics,
         raw_pointer_derive, stable_features, unconditional_recursion, unknown_lints, unsafe_code,
-        unsigned_negation, unused, unused_allocation, unused_attributes, unused_comparisons,
-        unused_features, unused_parens, while_true)]
+        unused, unused_allocation, unused_attributes, unused_comparisons, unused_features,
+        unused_parens, while_true)]
 #![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
         unused_qualifications, unused_results, variant_size_differences)]
 
