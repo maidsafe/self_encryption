@@ -140,7 +140,7 @@ const MAX_IN_MEMORY_SIZE: usize = 50 * (1 << 20);
 #[cfg(target_arch = "x86")]
 const MAX_MEMORY_MAP_SIZE: usize = 1 << 30;
 #[cfg(target_arch = "x86_64")]
-const MAX_MEMORY_MAP_SIZE: usize = 10 * (1 << 30);
+const MAX_MEMORY_MAP_SIZE: usize = 4 * (1 << 30);
 
 struct Pad(pub [u8; PAD_SIZE]);
 
