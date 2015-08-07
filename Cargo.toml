@@ -21,6 +21,9 @@ maidsafe_sodiumoxide = "*"
 tempdir = "*"
 flate2 = "*"
 
+[dependencies.memory_map]
+git = "https://github.com/maidsafe/memory_map"
+
 [dev-dependencies]
 rand = "*"
 

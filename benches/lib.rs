@@ -178,6 +178,25 @@ fn bench_write_then_read_e_10_mb(b: &mut Bencher) {
     b.bytes = 2 * bytes_len;
 }
 
+#[bench]
+fn bench_write_then_read_f_100_mb(b: &mut Bencher) {
+    let storage = Arc::new(MyStorage::new());
+    let bytes_len = 100 * 1024 * 1024 as u64;
+    b.iter(|| {
+        let mut data_map = DataMap::None;
+        let bytes = random_bytes(bytes_len as usize);
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            data_map = se.close();
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map);
+        let fetched = se.read(0, bytes_len);
+        assert_eq!(fetched, bytes);
+    });
+    b.bytes = 2 * bytes_len;
+}
+
 /*  The assert fails !!
 #[bench]
 fn bench_write_then_read_range(b: &mut Bencher) {
