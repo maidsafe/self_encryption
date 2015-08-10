@@ -128,8 +128,20 @@ fn main() {
     
     if args.flag_encrypt && args.arg_target.is_some() {
         if let Ok(mut file) = File::open(&args.arg_target.clone().unwrap()) {
+            match file.metadata() {
+                Ok(metadata) => {
+                    if metadata.len() > self_encryption::MAX_MEMORY_MAP_SIZE as u64 {
+                        return println!("file size too large");
+                    }
+                },
+                Err(error) => return println!("{}", error.description().to_string()),
+            }
+
             let mut data = Vec::new();
-            file.read_to_end(&mut data).unwrap();
+            match file.read_to_end(&mut data) {
+                Ok(_) => (),
+                Err(error) => return println!("{}", error.description().to_string()),
+            }
 
             let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
             se.write(&data, 0);
