@@ -131,7 +131,7 @@ fn main() {
             match file.metadata() {
                 Ok(metadata) => {
                     if metadata.len() > self_encryption::MAX_MEMORY_MAP_SIZE as u64 {
-                        return println!("file size too large");
+                        return println!("file size too large {} is greater than 1Gb", metadata.len());
                     }
                 },
                 Err(error) => return println!("{}", error.description().to_string()),
