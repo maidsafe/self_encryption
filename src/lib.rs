@@ -106,7 +106,7 @@
 
 extern crate asynchronous;
 extern crate rustc_serialize;
-extern crate maidsafe_sodiumoxide as sodiumoxide;
+extern crate sodiumoxide;
 extern crate memory_map as mmap;
 extern crate flate2;
 
@@ -655,7 +655,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             if content.len() == 0 { () }
             let xor_result = xor(&content, &pad_key_and_iv.0);
             match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
-                Some(decrypted) => {
+                Ok(decrypted) => {
                     let mut chunk = Vec::new();
                     let mut decoder = DeflateDecoder::new(&decrypted[..]);
                     match decoder.read_to_end(&mut chunk) {
@@ -668,7 +668,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                         Err(error) => { Err(error.description().to_string()) }
                     }
                 },
-                None => Err(format!("Failed decrypting chunk {}", chunk_number)),
+                Err(()) => Err(format!("Failed decrypting chunk {}", chunk_number)),
             }
         })
     }
