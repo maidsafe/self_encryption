@@ -668,7 +668,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                         Err(error) => { Err(error.description().to_string()) }
                     }
                 },
-                Err(()) => Err(format!("Failed decrypting chunk {}", chunk_number)),
+                _ => Err(format!("Failed decrypting chunk {}", chunk_number)),
             }
         })
     }
