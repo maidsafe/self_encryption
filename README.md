@@ -15,7 +15,7 @@ Self encrypting files (convergent encryption plus obfuscation)
 | [API Documentation - master branch](http://maidsafe.net/self_encryption/master) | [SAFE Network System Documention](http://systemdocs.maidsafe.net) | [MaidSafe website](http://maidsafe.net) | [Safe Community site](https://forum.safenetwork.io) |
 |:------:|:-------:|:-------:|:-------:|
 
-#Overview
+## Overview
 
 A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that can be utilised in any application that provides a POSIX like filesystem interface, dealing very effectively with the content part of any data (in tests the parallelised approach can actually be faster than reading/writing data as a single stream). It is important to realise two important aspects of this library:
 
@@ -24,27 +24,23 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 ![image of self encryption] (https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
-# Todo Items
+## Todo Items
 
-## [0.2.2] - Parallel processing and compression.
-- [ ] Add compression pre encrypt and post encrypt in encrypt and decrypt methods
-- [ ] Add task passing to allow cores to be lit up when handling chunks
-- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
-
-## [0.2.3] - Unrestricted file sizes.
+### [0.2.3] - Unrestricted file sizes.
 - [ ] Allow any size file
     - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
     - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
     - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
 - [ ] Add another functor to constructor to allow storage query for chunks (not get)
 - [ ] Check for first last middle chunks on net and presume file stored
+- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
-#Video of the process
+## Video of the process
 [self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
-# Examples
+## Examples
 
-## Using `self_encryptor`
+### Using `self_encryptor`
 
 This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows:
 
