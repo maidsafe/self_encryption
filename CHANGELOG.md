@@ -1,8 +1,8 @@
 ## Self-Encryption - Change Log
 
-### [0.2.2] - Parallel processing and compression.
--  Compression pre encrypt and post encrypt in encrypt and decrypt methods
--  Task passing to allow cores to be lit up when handling chunks
+### [0.2.2]
+- Compression pre encrypt and post encrypt in encrypt and decrypt methods
+- Task passing to allow cores to be lit up when handling chunks
 
 ### [0.2.1]
 - Fixed lint warnings caused by latest Rust nightly
