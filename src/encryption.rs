@@ -15,7 +15,7 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-extern crate maidsafe_sodiumoxide as sodiumoxide;
+extern crate sodiumoxide;
 
 /* use self::rand::{ Rng, OsRng }; */
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
@@ -30,7 +30,7 @@ pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
     sodiumoxide::crypto::secretbox::seal(data, iv, key)
 }
 
-pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Option<Vec<u8>> {
+pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, ()> {
     sodiumoxide::crypto::secretbox::open(encrypted_data, iv, key)
 }
 
