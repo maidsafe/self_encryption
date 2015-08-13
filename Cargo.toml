@@ -1,6 +1,6 @@
 [package]
 name = "self_encryption"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "http://maidsafe.net/self_encryption/latest"
@@ -20,6 +20,7 @@ rustc-serialize = "*"
 sodiumoxide = "*"
 tempdir = "*"
 flate2 = "*"
+memory_map = "*"
 
 [dev-dependencies]
 rand = "*"
