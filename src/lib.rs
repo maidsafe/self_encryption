@@ -137,6 +137,7 @@ const HASH_SIZE: usize = sha512::HASHBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 const MAX_IN_MEMORY_SIZE: usize = 50 * (1 << 20);
+/// MAX_MEMORY_MAP_SIZE defined as 1GB.
 pub const MAX_MEMORY_MAP_SIZE: usize = 1 << 30;
 
 struct Pad(pub [u8; PAD_SIZE]);
