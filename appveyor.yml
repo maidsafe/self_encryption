@@ -35,4 +35,3 @@ test_script:
         }
   - cargo build --verbose %config_flags%
   - cargo test --verbose
-  
