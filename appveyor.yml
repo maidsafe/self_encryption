@@ -20,6 +20,10 @@ configuration:
 
 environment:
   matrix:
+  - TARGET: x86_64-pc-windows-msvc
+  - TARGET: i686-pc-windows-msvc
+  - TARGET: i686-pc-windows-gnu
+
 #    - RUST_VERSION: 1.1.0
 #    - RUST_VERSION: beta
     - RUST_VERSION: nightly
