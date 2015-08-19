@@ -3,12 +3,10 @@ install:
         Start-FileDownload "https://raw.githubusercontent.com/carllerche/travis-rust-matrix/master/install.ps1"; . .\install.ps1
         if($env:platform -eq 'x86') {
           $arch_expanded = "i686-pc-windows-gnu";
-          $env:PATH = "%PATH%;C:\MinGW\bin"
         } else {
           $arch_expanded = "x86_64-pc-windows-gnu";
           Start-FileDownload "http://libgd.blob.core.windows.net/mingw/mingw-w64-dgn-x86_64-20141001.7z";
           7z x -oC:\ mingw-w64-dgn-x86_64-20141001.7z;
-          $env:PATH = "%PATH%;C:\MinGW64\bin"
         }
         Start-FileDownload "https://gitlab.com/Fraser999/Dependencies/raw/master/bin/$arch_expanded/libsodium.a";
         $env:SODIUM_LIB_DIR = Resolve-Path .
@@ -37,5 +35,11 @@ test_script:
   - ps: if ($env:CONFIGURATION -eq "Release") {
           $env:config_flags = "--release"
         }
+  - ps: if ($env:platform -eq 'x86') {
+          set PATH=%PATH%;C:\MinGW\bin
+        } else {
+          set PATH=%PATH%;C:\MinGW64\bin
+        }
+
   - cargo build --verbose %config_flags%
   - cargo test --verbose
