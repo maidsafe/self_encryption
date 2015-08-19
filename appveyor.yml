@@ -35,10 +35,10 @@ test_script:
   - ps: if ($env:CONFIGURATION -eq "Release") {
           $env:config_flags = "--release"
         }
-  - ps: if ($env:platform -eq 'x86') {
-          set PATH=%PATH%;C:\MinGW\bin
+        if ($env:platform -eq 'x86') {
+          $env:PATH = "%PATH%;C:\MinGW\bin"
         } else {
-          set PATH=%PATH%;C:\MinGW64\bin
+          $env:PATH = "%PATH%;C:\MinGW64\bin"
         }
 
   - cargo build --verbose %config_flags%
