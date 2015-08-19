@@ -13,13 +13,13 @@ homepage = "http://maidsafe.net"
 unstable = []
 
 [dependencies]
+flate2 = "*"
 asynchronous = "*"
 cbor = "*"
 docopt = "*"
 rustc-serialize = "*"
 sodiumoxide = "*"
 tempdir = "*"
-flate2 = "*"
 memory_map = "*"
 
 [dev-dependencies]
