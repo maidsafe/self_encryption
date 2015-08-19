@@ -10,12 +10,12 @@ install:
         }
         Start-FileDownload "https://gitlab.com/Fraser999/Dependencies/raw/master/bin/$arch_expanded/libsodium.a";
         $env:SODIUM_LIB_DIR = Resolve-Path .
-  - if $arch_expanded == "i686-pc-windows-gnu" SET PATH=%PATH%;C:\MinGW\bin;
-  - if $arch_expanded == "x86_64-pc-windows-gnu" SET PATH=%PATH%;C:\MinGW64\bin;
 
 platform:
   - x86
+    - SET PATH=%PATH%;C:\MinGW\bin
   - x64
+    - SET PATH=%PATH%;C:\MinGW64\bin
 
 configuration:
 #  - Debug
