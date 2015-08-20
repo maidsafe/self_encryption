@@ -22,7 +22,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 1. This library deals with file content **only**
 2. This library provides very secure data, but does return a data structure (DataMap) that in turn requires to be secured.
 
-![image of self encryption] (https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
+![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
 ## Todo Items
 
@@ -36,7 +36,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 - [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
 
 ## Video of the process
-[self_encryption process and use case video] (https://www.youtube.com/watch?v=Jnvwv4z17b4)
+[self_encryption process and use case video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
 ## Examples
 
