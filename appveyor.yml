@@ -7,7 +7,7 @@ install:
         } else {
           $arch_expanded = "x86_64-pc-windows-gnu";
           Start-FileDownload "http://libgd.blob.core.windows.net/mingw/mingw-w64-dgn-x86_64-20141001.7z";
-          7z x -oC:\ mingw-w64-dgn-x86_64-20141001.7z;
+          7z x -oC:\ mingw-w64-dgn-x86_64-20141001.7z | findstr /b /c:"Everything is Ok";
           $env:Path = $env:Path + ";C:\MinGW64\bin";
         }
         Start-FileDownload "https://gitlab.com/Fraser999/Dependencies/raw/master/bin/$arch_expanded/libsodium.a";
