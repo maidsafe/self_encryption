@@ -2,6 +2,7 @@ env:
   global:
     - secure: "ZYISyBQ3ymKmc9N0+DU1hoJtT5IQG/NbiB2G6cqQIEKj+FXbEx4nzy+j2KWWXMn3+1st02Z0L2UYWCC3XDcY66n7J0JDjaaIBK/FMnFbhRt89RnllhtEUDKpcNkjmNek0rTZ7y3MKSxecEHpkWMQDts5vlgZQWfta/Fq0cJ4HaY="
     - LibSodiumVersion=1.0.3
+    - ElfUtilsVersion=0.163
 os:
   - linux
   - osx
@@ -17,10 +18,11 @@ branches:
 cache:
   directories:
     - $HOME/libsodium-$LibSodiumVersion
+    - $HOME/elfutils-$ElfUtilsVersion
 install:
   - curl -sSLO https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/install_libsodium.sh
   - . install_libsodium.sh
 script:
   - curl -sSL https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/build_and_run_tests.sh | bash
 after_success:
-  - curl -sSL https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/deploy_gh-pages.sh | bash
+  - curl -sSL https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/after_success.sh | bash
