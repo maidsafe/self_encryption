@@ -26,7 +26,7 @@ pub struct ChunkDetails {
     pub pre_hash: Vec<u8>,
     /// size before encryption (compression alters this as well as any possible padding depending
     /// on cipher used)
-    pub source_size: u64
+    pub source_size: u64,
 }
 
 impl ChunkDetails {
@@ -34,12 +34,7 @@ impl ChunkDetails {
     /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
     /// corresponding DataMap.
     pub fn new() -> ChunkDetails {
-        ChunkDetails {
-            chunk_num: 0,
-            hash: vec![],
-            pre_hash: vec![],
-            source_size: 0
-        }
+        ChunkDetails { chunk_num: 0, hash: vec![], pre_hash: vec![], source_size: 0 }
     }
 }
 
@@ -54,7 +49,7 @@ pub enum DataMap {
     /// are put in here in their entirety.
     Content(Vec<u8>),
     /// empty datamap
-    None
+    None,
 }
 
 impl DataMap {
@@ -63,7 +58,7 @@ impl DataMap {
         match *self {
             DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
             DataMap::Content(ref content) => content.len() as u64,
-            DataMap::None => 0
+            DataMap::None => 0,
         }
     }
 
@@ -71,7 +66,7 @@ impl DataMap {
     pub fn get_chunks(&self) -> Vec<ChunkDetails> {
         match *self {
             DataMap::Chunks(ref chunks) => chunks.to_vec(),
-            _ => panic!("no chunks")
+            _ => panic!("no chunks"),
         }
     }
 
@@ -79,12 +74,12 @@ impl DataMap {
     /// correct pre-encryption hashes for decryption/encryption.
     pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
         match *self {
-            DataMap::Chunks(ref chunks) =>  {
+            DataMap::Chunks(ref chunks) => {
                 let mut result = chunks.to_vec();
                 DataMap::chunks_sort(&mut result);
                 result
-            },
-            _ => panic!("no chunks")
+            }
+            _ => panic!("no chunks"),
         }
     }
 
@@ -108,5 +103,5 @@ impl DataMap {
 }
 
 #[test]
-fn dummy()  {
+fn dummy() {
 }
