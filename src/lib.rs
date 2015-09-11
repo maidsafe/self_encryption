@@ -92,7 +92,7 @@
 //! from the `close()` call of previous use of this file content via the self_encryptor. Storage of
 //! the `DataMap` is out with the scope of this library and must be implemented by the user.
 
-#![doc(html_logo_url = "http://maidsafe.net/img/Resources/branding/maidsafe_logo.fab2.png",
+#![doc(html_logo_url = "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
        html_favicon_url = "http://maidsafe.net/img/favicon.ico",
        html_root_url = "http://maidsafe.net/self_encryption/self_encryption/index.html")]
 #![forbid(missing_docs, warnings)]
