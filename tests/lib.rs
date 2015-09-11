@@ -20,11 +20,11 @@ extern crate self_encryption;
 extern crate tempdir;
 
 pub use self_encryption::*;
-use rand::{thread_rng, Rng};
-use std::sync::{Arc,Mutex};
+use rand::{Rng, thread_rng};
+use std::sync::{Arc, Mutex};
 
 fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes : Vec<u8> = Vec::with_capacity(length);
+    let mut bytes: Vec<u8> = Vec::with_capacity(length);
     for _ in (0..length) {
         bytes.push(rand::random::<u8>());
     }
@@ -35,11 +35,11 @@ const DATA_SIZE : u64 = 20 * 1024 * 1024;
 
 pub struct Entry {
     name: Vec<u8>,
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 pub struct MyStorage {
-    entries: Arc<Mutex<Vec<Entry>>>
+    entries: Arc<Mutex<Vec<Entry>>>,
 }
 
 impl MyStorage {
@@ -50,7 +50,9 @@ impl MyStorage {
     pub fn has_chunk(&self, name: Vec<u8>) -> bool {
         let lock = self.entries.lock().unwrap();
         for entry in lock.iter() {
-            if entry.name == name { return true }
+            if entry.name == name {
+                return true
+            }
         }
         false
     }
@@ -60,7 +62,9 @@ impl Storage for MyStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
         let lock = self.entries.lock().unwrap();
         for entry in lock.iter() {
-            if entry.name == name { return entry.data.to_vec() }
+            if entry.name == name {
+                return entry.data.to_vec()
+            }
         }
         vec![]
     }
@@ -74,9 +78,9 @@ impl Storage for MyStorage {
 
 #[test]
 fn new_read() {
-    let read_size : usize = 4096;
-    let mut read_position : usize = 0;
-    let content_len : usize = 4 * MAX_CHUNK_SIZE as usize;
+    let read_size: usize = 4096;
+    let mut read_position: usize = 0;
+    let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
     let my_storage = Arc::new(MyStorage::new());
     let original = random_bytes(content_len);
     {
@@ -108,7 +112,7 @@ fn new_read() {
         }
 
         { // Finish with many small reads
-            let mut decrypted : Vec<u8> = Vec::with_capacity(content_len);
+            let mut decrypted: Vec<u8> = Vec::with_capacity(content_len);
             read_position = 0usize;
             for _ in 0..15 {
                 decrypted.extend(se.read(read_position as u64, read_size as
@@ -126,24 +130,23 @@ fn new_read() {
 fn write_random_sizes_at_random_positions() {
     let mut rng = thread_rng();
     let my_storage = Arc::new(MyStorage::new());
-    let max_broken_size : u64 = 20 * 1024;
+    let max_broken_size: u64 = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
-    let mut broken_data : Vec<(u64, &[u8])> =
-          Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+    let mut broken_data: Vec<(u64, &[u8])> =
+        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
 
-    let mut offset : u64 = 0;
-    let mut last_piece : u64 = 0;
+    let mut offset: u64 = 0;
+    let mut last_piece: u64 = 0;
     while offset < DATA_SIZE {
-        let size : u64;
+        let size: u64;
         if DATA_SIZE - offset < max_broken_size {
             size = DATA_SIZE - offset;
             last_piece = offset;
         } else {
             size = rand::random::<u64>() % max_broken_size;
         }
-        let piece : (u64, &[u8]) = (offset,
-              &original[offset as usize..(offset + size) as usize]);
+        let piece: (u64, &[u8]) = (offset, &original[offset as usize..(offset + size) as usize]);
         broken_data.push(piece);
         offset += size;
     }
@@ -158,11 +161,11 @@ fn write_random_sizes_at_random_positions() {
                      .last() {
         None => panic!("Should never occur. Error in test itself."),
         Some(overlap) => {
-            let mut extra : Vec<u8> = overlap.1.to_vec();
+            let mut extra: Vec<u8> = overlap.1.to_vec();
             extra.extend(random_bytes(7usize)[..].iter().map(|&x| x));
-            let post_overlap : (u64, &[u8]) = (overlap.0, &mut extra[..]);
+            let post_overlap: (u64, &[u8]) = (overlap.0, &mut extra[..]);
             let post_position: u64 = overlap.0 + overlap.1.len() as u64;
-            let mut wtotal : u64 = 0;
+            let mut wtotal: u64 = 0;
 
             let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
             for element in broken_data.iter() {
@@ -207,8 +210,10 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             let offset = rng.gen_range(0, DATA_SIZE - MAX_CHUNK_SIZE as u64);
             total_size = std::cmp::max(total_size, offset + piece_size as u64);
             assert!(DATA_SIZE >= total_size as u64);
-            println!("{}\tWriting {} bytes.\tOffset {} bytes.\tTotal size now {} bytes.", i, piece_size,
-                     offset, total_size);
+            println!("{}\tWriting {} bytes.\tOffset {} bytes.\tTotal size now {} bytes.",
+                    i,
+                    piece_size,
+                    offset, total_size);
 
             // Create the random piece and copy to the comparison vector.
             let piece = random_bytes(piece_size);
@@ -223,8 +228,8 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             assert_eq!(total_size, self_encryptor.len());
         }
 
-        // Read back DATA_SIZE from the encryptor.  This will contain all that was written, plus likely
-        // will be reading past EOF.  Reading past the end shouldn't affect the file size.
+        // Read back DATA_SIZE from the encryptor.  This will contain all that was written, plus
+        // likely will be reading past EOF.  Reading past the end shouldn't affect the file size.
         let decrypted = self_encryptor.read(0u64, DATA_SIZE);
         assert_eq!(decrypted.len(), DATA_SIZE as usize);
         assert_eq!(decrypted, original);

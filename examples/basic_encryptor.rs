@@ -25,7 +25,7 @@ extern crate cbor;
 
 use std::fmt;
 use std::fs;
-use std::fs::{File};
+use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::string::String;
@@ -33,7 +33,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use docopt::Docopt;
-use cbor::{Encoder, Decoder};
+use cbor::{Decoder, Encoder};
 
 use self_encryption::*;
 
@@ -43,12 +43,15 @@ use self_encryption::*;
 static USAGE: &'static str = "
 Usage: basic_encryptor -h
        basic_encryptor -e <target>
-       basic_encryptor -d <target> <dest>
+       \
+                              basic_encryptor -d <target> <dest>
 
 Options:
-    -h, --help      This message.
+    -h, --help      \
+                              This message.
     -e, --encrypt   encrypt a file.
-    -d, --decrypt   decrypt a file,
+    -d, --decrypt   \
+                              decrypt a file,
 ";
 
 #[derive(RustcDecodable, Debug)]
@@ -80,11 +83,11 @@ fn file_name(name: &Vec<u8>) -> String {
 }
 
 pub struct MyStorage {
-    pub storage_path : String
+    pub storage_path: String,
 }
 
 impl Storage for MyStorage {
-  fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    fn get(&self, name: Vec<u8>) -> Vec<u8> {
         let pathstr = file_name(&name);
         let tmpname = self.storage_path.clone() + &pathstr;
         let path = Path::new(&tmpname);
@@ -96,7 +99,7 @@ impl Storage for MyStorage {
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
         data
-  }
+    }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
         let pathstr = file_name(&name);
@@ -104,12 +107,12 @@ impl Storage for MyStorage {
         let path = Path::new(&tmpname);
         let mut file = match File::create(&path) {
             Err(_) => panic!("couldn't create"),
-            Ok(f) => f
+            Ok(f) => f,
         };
 
         match file.write_all(&data[..]) {
             Err(_) => panic!("chunk write failed"),
-            Ok(_) => println!("chunk written")
+            Ok(_) => println!("chunk written"),
         };
     }
 }
@@ -118,22 +121,25 @@ fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
                             .unwrap_or_else(|e| e.exit());
-    if args.flag_help { println!("{:?}", args) }
+    if args.flag_help {
+        println!("{:?}", args)
+    }
 
     match fs::create_dir(&Path::new("chunk_store_test")) {
         Err(why) => println!("!chunk_store_test {:?}", why.kind()),
-        Ok(_) => {},
+        Ok(_) => {}
     }
-    let my_storage = Arc::new(MyStorage { storage_path : "chunk_store_test/".to_string() });
-    
+    let my_storage = Arc::new(MyStorage { storage_path: "chunk_store_test/".to_string() });
+
     if args.flag_encrypt && args.arg_target.is_some() {
         if let Ok(mut file) = File::open(&args.arg_target.clone().unwrap()) {
             match file.metadata() {
                 Ok(metadata) => {
                     if metadata.len() > self_encryption::MAX_MEMORY_MAP_SIZE as u64 {
-                        return println!("file size too large {} is greater than 1Gb", metadata.len());
+                        return println!("file size too large {} is greater than 1Gb",
+                                        metadata.len());
                     }
-                },
+                }
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
@@ -176,7 +182,7 @@ fn main() {
                     let content = se.read(0, length);
                     match file.write_all(&content[..]) {
                         Err(_) => println!("file write failed"),
-                        Ok(_) => println!("file written")
+                        Ok(_) => println!("file written"),
                     };
                 } else {
                     return println!("failed to create {}", args.arg_dest.clone().unwrap());
