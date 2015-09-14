@@ -20,7 +20,7 @@ extern crate sodiumoxide;
 /* use self::rand::{ Rng, OsRng }; */
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-pub use sodiumoxide::crypto::secretbox::Key as Key;
+pub use sodiumoxide::crypto::secretbox::Key;
 pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
 
 pub const KEY_SIZE: usize = sodiumoxide::crypto::secretbox::KEYBYTES;

@@ -30,13 +30,13 @@ extern crate asynchronous;
 use test::Bencher;
 use self_encryption::SelfEncryptor;
 use self_encryption::Storage;
-use self_encryption::datamap::DataMap as DataMap;
-use std::sync::{Arc,Mutex};
+use self_encryption::datamap::DataMap;
+use std::sync::{Arc, Mutex};
 
 //TODO(ben 2015-03-24): replace copy from src/lib.rs mod test to properly import and reuse
 
 fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes : Vec<u8> = Vec::with_capacity(length as usize);
+    let mut bytes: Vec<u8> = Vec::with_capacity(length as usize);
     for _ in (0..length) {
         bytes.push(rand::random::<u8>());
     }
@@ -45,11 +45,11 @@ fn random_bytes(length: usize) -> Vec<u8> {
 
 struct Entry {
     name: Vec<u8>,
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 struct MyStorage {
-    entries: Arc<Mutex<Vec<Entry>>>
+    entries: Arc<Mutex<Vec<Entry>>>,
 }
 
 impl MyStorage {
@@ -70,7 +70,9 @@ impl Storage for MyStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
         let lock = self.entries.lock().unwrap();
         for entry in lock.iter() {
-            if entry.name == name { return entry.data.to_vec() }
+            if entry.name == name {
+                return entry.data.to_vec()
+            }
         }
 
         vec![]
