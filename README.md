@@ -24,6 +24,9 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 ![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
+##Pre-requisite:
+`libsodium` is a native dependency for [sodiumxoide](https://github.com/dnaq/sodiumoxide). Install sodium by following the instructions [here](https://github.com/maidsafe/QA/blob/master/Documentation/Install_libsodium.md).
+
 ## Todo Items
 
 ### [0.2.3] - Unrestricted file sizes.
