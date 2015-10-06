@@ -12,7 +12,7 @@ Self encrypting files (convergent encryption plus obfuscation)
 |:---:|:--------:|:-----:|:------:|:----:|
 |[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)|[![Build status](https://ci.appveyor.com/api/projects/status/htljxqrosx1i237s/branch/master?svg=true)](https://ci.appveyor.com/project/MaidSafe-QA/self-encryption/branch/master)|[![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|[![Stories in Ready](https://badge.waffle.io/maidsafe/self_encryption.png?label=ready&title=Ready)](https://waffle.io/maidsafe/self_encryption)|
 
-|[API Documentation - master branch](http://maidsafe.net/self_encryption/master)|[SAFE Network System Documention](http://systemdocs.maidsafe.net)|[MaidSafe website](http://maidsafe.net)|[Safe Community site](https://forum.safenetwork.io)|
+| [API Documentation - master branch](http://maidsafe.net/self_encryption/master) | [SAFE Network System Documentation](http://systemdocs.maidsafe.net) | [MaidSafe website](http://maidsafe.net) | [SAFE Network Forum](https://forum.safenetwork.io) |
 |:------:|:-------:|:-------:|:-------:|
 
 ## Overview
@@ -24,8 +24,9 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 ![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
 
-##Pre-requisite:
-`libsodium` is a native dependency for [sodiumxoide](https://github.com/dnaq/sodiumoxide). Install sodium by following the instructions [here](https://github.com/maidsafe/QA/blob/master/Documentation/Install_libsodium.md).
+## Prerequisite
+
+[libsodium](https://github.com/jedisct1/libsodium) is a native dependency, and can be installed by following the instructions [for Windows](https://github.com/maidsafe/QA/blob/master/Documentation/Install%20libsodium%20for%20Windows.md) or [for OS X and Linux](https://github.com/maidsafe/QA/blob/master/Documentation/Install%20libsodium%20for%20OS%20X%20or%20Linux.md).
 
 ## Todo Items
 
