@@ -31,7 +31,6 @@
 
 extern crate rand;
 extern crate self_encryption;
-extern crate tempdir;
 
 pub use self_encryption::*;
 use rand::{Rng, thread_rng};
@@ -136,7 +135,7 @@ fn new_read() {
                 read_position += read_size;
             }
         }
-        se.close();
+        let _ = se.close();
     }
 }
 
@@ -223,7 +222,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             let piece_size = rng.gen_range(1, MAX_CHUNK_SIZE as usize + 1);
             let offset = rng.gen_range(0, DATA_SIZE - MAX_CHUNK_SIZE as u64);
             total_size = std::cmp::max(total_size, offset + piece_size as u64);
-            assert!(DATA_SIZE >= total_size as u64);
+            assert!(DATA_SIZE >= total_size);
             println!("{}\tWriting {} bytes.\tOffset {} bytes.\tTotal size now {} bytes.",
                     i,
                     piece_size,
@@ -236,7 +235,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             }
 
             // Write the piece to the encryptor and check it can be read back.
-            self_encryptor.write(&piece, offset as u64);
+            self_encryptor.write(&piece, offset);
             let decrypted = self_encryptor.read(offset, piece_size as u64);
             assert_eq!(decrypted, piece);
             assert_eq!(total_size, self_encryptor.len());
