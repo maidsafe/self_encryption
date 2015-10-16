@@ -38,7 +38,7 @@ use std::sync::{Arc, Mutex};
 
 fn random_bytes(length: usize) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::with_capacity(length);
-    for _ in (0..length) {
+    for _ in 0..length {
         bytes.push(rand::random::<u8>());
     }
     bytes
