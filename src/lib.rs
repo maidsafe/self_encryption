@@ -591,7 +591,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         }
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
-        for i in (first_chunk..last_chunk) {
+        for i in first_chunk..last_chunk {
             let mut found = false;
             for itr in self.chunks.iter() {
                 if itr.number == i {
@@ -799,7 +799,7 @@ mod test {
 
     fn random_bytes(length: usize) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::with_capacity(length);
-        for _ in (0..length) {
+        for _ in 0..length {
             bytes.push(rand::random::<u8>());
         }
         bytes
@@ -857,10 +857,10 @@ mod test {
     fn test_xor() {
         let mut data: Vec<u8> = vec![];
         let mut pad = [0u8; super::PAD_SIZE];
-        for _ in (0..800) {
+        for _ in 0..800 {
             data.push(rand::random::<u8>());
         }
-        for i in (0..super::PAD_SIZE) {
+        for i in 0..super::PAD_SIZE {
             pad[i] = rand::random::<u8>();
         }
         assert_eq!(data, super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
