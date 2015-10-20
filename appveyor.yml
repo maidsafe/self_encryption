@@ -1,6 +1,6 @@
 install:
   - ps: |
-        Start-FileDownload "https://raw.githubusercontent.com/carllerche/travis-rust-matrix/master/install.ps1"; . .\install.ps1
+        Start-FileDownload "https://github.com/maidsafe/QA/raw/master/Powershell%20Scripts/InstallRust.ps1"; . .\InstallRust.ps1
         if($env:platform -eq 'x86') {
           $env:Path = $env:Path + ";C:\MinGW\bin";
         } else {
