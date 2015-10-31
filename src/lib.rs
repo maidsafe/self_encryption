@@ -727,7 +727,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             if chunk_number < 2 {
                 return (self.file_size / 3) as u32
             } else {
-                return (self.file_size - (2 * self.file_size / 3)) as u32
+                return (self.file_size - (2 * (self.file_size / 3))) as u32
             }
         }
         if chunk_number < self.get_num_chunks() - 2 {
@@ -1302,5 +1302,50 @@ mod test {
         let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert_eq!(fetched, bytes);
+    }
+
+    // Definitions for testing serialisation of a vector
+    const VEC_LEN: usize = 10000;
+
+    extern crate cbor;
+    use self::cbor::{Decoder, Encoder, CborError};
+
+    pub fn serialise<T>(data: &T) -> Result<Vec<u8>, CborError>
+                                     where T: ::rustc_serialize::Encodable {
+        let mut encoder = Encoder::from_memory();
+        try!(encoder.encode(&[data]));
+        Ok(encoder.into_bytes())
+    }
+
+    pub fn deserialise<T>(data: &[u8]) -> Result<T, CborError>
+                                          where T: ::rustc_serialize::Decodable {
+        let mut decoder = Decoder::from_bytes(data);
+        decoder.decode().next().unwrap()
+    }
+
+    fn create_vector_data_map(storage: &Arc<MyStorage>) -> DataMap {
+        let data: Vec<usize> = (0..VEC_LEN).collect();
+        let serialised_data: Vec<u8> = serialise(&data).ok().expect("failed to serialise Vec<usize>");
+        let mut self_encryptor = SelfEncryptor::new(storage.clone(), DataMap::None);
+        self_encryptor.write(&serialised_data, 0);
+        self_encryptor.close()
+    }
+
+    fn check_vector_data_map(storage: &Arc<MyStorage>, datamap: &DataMap) {
+        let mut self_encryptor = SelfEncryptor::new(storage.clone(), datamap.clone());
+        let length = self_encryptor.len();
+        let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length);
+        let data: Vec<usize> = deserialise(&data_to_deserialise).ok().expect("failed to deserialise Vec<usize>");
+        assert_eq!(data.len(), VEC_LEN);
+        for i in 0..VEC_LEN {
+            assert_eq!(data[i], i);
+        }
+    }
+
+    #[test]
+    fn check_serialised_vector() {
+        let storage = Arc::new(MyStorage::new());
+        let datamap: DataMap = create_vector_data_map(&storage);
+        check_vector_data_map(&storage, &datamap);
     }
 }
