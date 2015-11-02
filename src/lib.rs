@@ -727,7 +727,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             if chunk_number < 2 {
                 return (self.file_size / 3) as u32
             } else {
-                return (self.file_size - (2 * self.file_size / 3)) as u32
+                return (self.file_size - (2 * (self.file_size / 3))) as u32
             }
         }
         if chunk_number < self.get_num_chunks() - 2 {
@@ -853,6 +853,14 @@ mod test {
         }
     }
 
+    fn check_file_size(se: &SelfEncryptor<MyStorage>, expected_file_size: u64) {
+        assert_eq!(se.file_size, expected_file_size);
+        if let DataMap::Chunks(ref chunk_details) = se.datamap {
+            let chunks_cumulated_size = chunk_details.iter().fold(0u64, |acc, chunk| acc + chunk.source_size);
+            assert_eq!(chunks_cumulated_size, expected_file_size);
+        }
+    }
+
     #[test]
     fn test_xor() {
         let mut data: Vec<u8> = vec![];
@@ -874,7 +882,7 @@ mod test {
         let offset = 5u64;
         let the_bytes = random_bytes(size as usize);
         se.write(&the_bytes, offset);
-        assert_eq!(se.file_size, size + offset);
+        check_file_size(&se, size + offset);
     }
 
     #[test]
@@ -889,6 +897,7 @@ mod test {
             assert_eq!(se.get_num_chunks(), 0);
             assert_eq!(se.chunks.len(), 0);
             assert_eq!(se.sequencer.len(), bytes_len as usize);
+            check_file_size(&se, bytes_len);
             match se.datamap {
                 DataMap::Chunks(_) => panic!("shall not return DataMap::Chunks"),
                 DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -930,6 +939,7 @@ mod test {
             assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1, 3 * MIN_CHUNK_SIZE as u64);
+            check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
             // check close
             data_map = se.close();
         }
@@ -972,6 +982,7 @@ mod test {
             assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MIN_CHUNK_SIZE as u64);
+            check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
         }
@@ -1014,6 +1025,7 @@ mod test {
             assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
+            check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
         }
@@ -1059,6 +1071,7 @@ mod test {
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1,
                        ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+            check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
         }
@@ -1105,6 +1118,7 @@ mod test {
             assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+            check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
         }
@@ -1137,6 +1151,7 @@ mod test {
             se.write(&the_bytes, 0);
             assert_eq!(se.get_num_chunks(), number_of_chunks);
             assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
         match data_map {
@@ -1167,6 +1182,7 @@ mod test {
             se.write(&the_bytes, 0);
             assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
             assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
         match data_map {
@@ -1212,6 +1228,7 @@ mod test {
             number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(number_of_chunks).1,
             ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
+            check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
         }
@@ -1241,8 +1258,10 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
+            check_file_size(&se, bytes_len);
             se.truncate((7*MAX_CHUNK_SIZE + 1) as u64);
             assert_eq!(se.get_num_chunks(), 8);
+            check_file_size(&se, (7*MAX_CHUNK_SIZE + 1) as u64);
             // check close
             data_map = se.close();
         }
@@ -1284,6 +1303,7 @@ mod test {
             number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(number_of_chunks - 1).1,
                 ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
+            check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
         }
@@ -1302,5 +1322,51 @@ mod test {
         let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert_eq!(fetched, bytes);
+    }
+
+    // Definitions for testing serialisation of a vector
+    extern crate cbor;
+    use self::cbor::{Decoder, Encoder, CborError};
+
+    pub fn serialise<T>(data: &T) -> Result<Vec<u8>, CborError>
+                                     where T: ::rustc_serialize::Encodable {
+        let mut encoder = Encoder::from_memory();
+        try!(encoder.encode(&[data]));
+        Ok(encoder.into_bytes())
+    }
+
+    pub fn deserialise<T>(data: &[u8]) -> Result<T, CborError>
+                                          where T: ::rustc_serialize::Decodable {
+        let mut decoder = Decoder::from_bytes(data);
+        decoder.decode().next().unwrap()
+    }
+
+    fn create_vector_data_map(storage: Arc<MyStorage>, vec_len: usize) -> DataMap {
+        let data: Vec<usize> = (0..vec_len).collect();
+        let serialised_data: Vec<u8> = serialise(&data).ok().expect("failed to serialise Vec<usize>");
+        let mut self_encryptor = SelfEncryptor::new(storage, DataMap::None);
+        self_encryptor.write(&serialised_data, 0);
+        check_file_size(&self_encryptor, serialised_data.len() as u64);
+        self_encryptor.close()
+    }
+
+    fn check_vector_data_map(storage: Arc<MyStorage>, vec_len: usize, datamap: &DataMap) {
+        let mut self_encryptor = SelfEncryptor::new(storage, datamap.clone());
+        let length = self_encryptor.len();
+        let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length);
+        let data: Vec<usize> = deserialise(&data_to_deserialise).ok().expect("failed to deserialise Vec<usize>");
+        assert_eq!(data.len(), vec_len);
+        for i in 0..vec_len {
+            assert_eq!(data[i], i);
+        }
+    }
+
+    #[test]
+    fn check_serialised_vectors() {
+        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000, 1_000_000] {
+            let storage = Arc::new(MyStorage::new());
+            let datamap: DataMap = create_vector_data_map(storage.clone(), vec_len);
+            check_vector_data_map(storage.clone(), vec_len, &datamap);
+        }
     }
 }
