@@ -1,8 +1,6 @@
 env:
   global:
     - secure: bGaA6SWxIHFwz3pa3i1W6Gkm3dJ17n5Xscqze5lA8CV9tsmbFwQB4DujRtlwx0g9CgriOgXfET9znm8AQ5TpVDCRHxkVaiMQNQ5d7X85+1iOOjxQ4iWKsbBh5Osyb1WFV8nzK2TfuIhgT5Fn3Q5UWWokXcpnTsLQ84Ut6WVJDpQ=
-    - LibSodiumVersion=1.0.3
-    - ElfUtilsVersion=0.163
 os:
   - linux
   - osx
@@ -19,6 +17,9 @@ cache:
   directories:
     - $HOME/libsodium-$LibSodiumVersion
     - $HOME/elfutils-$ElfUtilsVersion
+before_install:
+    - curl -sSLO https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/dependency_versions.sh
+    - . dependency_versions.sh
 install:
   - curl -sSLO https://github.com/maidsafe/QA/raw/master/Bash%20Scripts/Travis/install_libsodium.sh
   - . install_libsodium.sh
