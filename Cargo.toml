@@ -20,7 +20,7 @@ rustc-serialize = "*"
 sodiumoxide = "0.0.8"
 tempdir = "*"
 flate2 = "*"
-memory_map = "*"
+memory_map = { git="https://github.com/maidsafe/memory_map.git"}
 
 [dev-dependencies]
 rand = "*"
