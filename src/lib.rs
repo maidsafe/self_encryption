@@ -140,7 +140,7 @@ use flate2::read::DeflateDecoder;
 use flate2::Compression;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-const HASH_SIZE: usize = sha512::HASHBYTES;
+const HASH_SIZE: usize = sha512::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 const MAX_IN_MEMORY_SIZE: usize = 50 * (1 << 20);
