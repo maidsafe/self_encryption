@@ -1,6 +1,10 @@
 ## Self-Encryption - Change Log
 
+### [0.2.3]
+- Update in line with sodiumoxide 0.0.9 changes.
+
 ### [0.2.2]
+- Increase file sizes to 1Gb using memory map (previously omitted).
 - Compression pre encrypt and post encrypt in encrypt and decrypt methods
 - Task passing to allow cores to be lit up when handling chunks
 
