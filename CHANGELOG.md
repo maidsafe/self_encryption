@@ -1,5 +1,8 @@
 ## Self-Encryption - Change Log
 
+### [0.2.4]
+- Remove wildcards from dependencies.
+
 ### [0.2.3]
 - Update in line with sodiumoxide 0.0.9 changes.
 
