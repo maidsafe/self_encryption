@@ -114,7 +114,7 @@
 extern crate asynchronous;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
-extern crate memory_map as mmap;
+extern crate memmap as mmap;
 extern crate flate2;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
@@ -212,6 +212,7 @@ impl Sequencer {
         }
     }
 
+    #[allow(unsafe_code)]
     /// Initialise with the Sequencer with 'content'.
     pub fn init(&mut self, content: &Vec<u8>) {
         match self.vector {
@@ -222,9 +223,9 @@ impl Sequencer {
             }
             None => {
                 match self.mmap {
-                    Some(ref mut mmap) => for i in 0..content.len() {
-                        mmap[i] = content[i];
-                    },
+                    Some(ref mut mmap) => {
+                        let _ = unsafe { mmap.as_mut_slice() }.write_all(&content[..]);
+                    }
                     None => {}
                 }
             }
@@ -242,6 +243,7 @@ impl Sequencer {
         }
     }
 
+    #[allow(unsafe_code)]
     /// Create a memory map if we haven't already done so.
     pub fn create_mapping(&mut self) -> Result<()> {
         match self.mmap {
@@ -254,9 +256,7 @@ impl Sequencer {
                     Ok(mmap) => mmap,
                     Err(error) => return Err(error),
                 };
-                for i in 0..vector.len() {
-                    mmap[i] = vector[i];
-                }
+                let _ = unsafe { mmap.as_mut_slice() }.write_all(&vector[..]);
                 vector.clear();
                 self.mmap = Some(mmap);
             }
@@ -278,50 +278,54 @@ impl Sequencer {
     }
 }
 
+#[allow(unsafe_code)]
 impl Index<usize> for Sequencer {
     type Output = u8;
     fn index(&self, index: usize) -> &u8 {
         match self.vector {
             Some(ref vector) => &vector[index],
             None => match self.mmap {
-                Some(ref mmap) => &mmap[index],
+                Some(ref mmap) => unsafe { &mmap.as_slice()[index] },
                 None => panic!("Uninitialised"),
             },
         }
     }
 }
 
+#[allow(unsafe_code)]
 impl IndexMut<usize> for Sequencer {
     fn index_mut(&mut self, index: usize) -> &mut u8 {
         match self.vector {
             Some(ref mut vector) => &mut vector[index],
             None => match self.mmap {
-                Some(ref mut mmap) => &mut mmap[index],
+                Some(ref mut mmap) => unsafe { &mut mmap.as_mut_slice()[index] },
                 None => panic!("Uninitialised"),
             },
         }
     }
 }
 
+#[allow(unsafe_code)]
 impl Deref for Sequencer {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         match self.vector {
             Some(ref vector) => &*vector,
             None => match self.mmap {
-                Some(ref mmap) => &*mmap,
+                Some(ref mmap) => unsafe { &mmap.as_slice() },
                 None => panic!("Uninitialised"),
             },
         }
     }
 }
 
+#[allow(unsafe_code)]
 impl DerefMut for Sequencer {
     fn deref_mut(&mut self) -> &mut [u8] {
         match self.vector {
             Some(ref mut vector) => &mut *vector,
             None => match self.mmap {
-                Some(ref mut mmap) => &mut *mmap,
+                Some(ref mut mmap) => unsafe { &mut *mmap.as_mut_slice() },
                 None => panic!("Uninitialised"),
             },
         }
