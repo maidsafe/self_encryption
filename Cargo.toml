@@ -1,6 +1,6 @@
 [package]
 name = "self_encryption"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "http://maidsafe.net/self_encryption/latest"
