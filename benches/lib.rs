@@ -15,17 +15,26 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+// For explanation of lint checks, run `rustc -W help` or see
+// https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
+#![forbid(bad_style, exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
+          unknown_crate_types, warnings)]
+#![deny(deprecated, drop_with_repr_extern, improper_ctypes, missing_docs,
+        non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
+        private_no_mangle_fns, private_no_mangle_statics, raw_pointer_derive, stable_features,
+        unconditional_recursion, unknown_lints, unsafe_code, unused, unused_allocation,
+        unused_attributes, unused_comparisons, unused_features, unused_parens, while_true)]
+#![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+        unused_qualifications, unused_results, variant_size_differences)]
+#![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
+         missing_debug_implementations)]
+
 // the test names contain MB, KB which should retain capitalisation
 #![feature(test)]
-
-// Investigate further: warning: value assigned to `data_map` is never read, at line 91, etc.,
-// although it's assigned to on line 96 and reused on line 98.
-#![allow(unused_assignments)]
 
 extern crate test;
 extern crate rand;
 extern crate self_encryption;
-extern crate asynchronous;
 
 use test::Bencher;
 use self_encryption::SelfEncryptor;
@@ -36,8 +45,8 @@ use std::sync::{Arc, Mutex};
 //TODO(ben 2015-03-24): replace copy from src/lib.rs mod test to properly import and reuse
 
 fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(length as usize);
-    for _ in (0..length) {
+    let mut bytes: Vec<u8> = Vec::with_capacity(length);
+    for _ in 0..length {
         bytes.push(rand::random::<u8>());
     }
     bytes
@@ -88,9 +97,9 @@ impl Storage for MyStorage {
 #[bench]
 fn bench_write_then_read_a_200_b(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
-    let bytes_len = 200 as u64;
+    let bytes_len = 200;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -107,9 +116,9 @@ fn bench_write_then_read_a_200_b(b: &mut Bencher) {
 #[bench]
 fn bench_write_then_read_b_1_kb(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
-    let bytes_len = 1024 as u64;
+    let bytes_len = 1024;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -126,9 +135,9 @@ fn bench_write_then_read_b_1_kb(b: &mut Bencher) {
 #[bench]
 fn bench_write_then_read_c_1_mb(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
-    let bytes_len = 1024 * 1024 as u64;
+    let bytes_len = 1024 * 1024;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -145,9 +154,9 @@ fn bench_write_then_read_c_1_mb(b: &mut Bencher) {
 #[bench]
 fn bench_write_then_read_d_3_mb(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
-    let bytes_len = 3 * 1024 * 1024 as u64;
+    let bytes_len = 3 * 1024 * 1024;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -164,9 +173,9 @@ fn bench_write_then_read_d_3_mb(b: &mut Bencher) {
 #[bench]
 fn bench_write_then_read_e_10_mb(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
-    let bytes_len = 10 * 1024 * 1024 as u64;
+    let bytes_len = 10 * 1024 * 1024;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -183,9 +192,9 @@ fn bench_write_then_read_e_10_mb(b: &mut Bencher) {
 #[bench]
 fn bench_write_then_read_f_100_mb(b: &mut Bencher) {
     let storage = Arc::new(MyStorage::new());
-    let bytes_len = 100 * 1024 * 1024 as u64;
+    let bytes_len = 100 * 1024 * 1024;
     b.iter(|| {
-        let mut data_map = DataMap::None;
+        let data_map: DataMap;
         let bytes = random_bytes(bytes_len as usize);
         {
             let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
