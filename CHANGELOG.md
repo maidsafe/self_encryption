@@ -1,20 +1,23 @@
-## Self-Encryption - Change Log
+# Self-Encryption - Change Log
 
-### [0.2.4]
+## [0.2.5]
+- Swap forked memory_map for original memmap crate.
+
+## [0.2.4]
 - Remove wildcards from dependencies.
 
-### [0.2.3]
+## [0.2.3]
 - Update in line with sodiumoxide 0.0.9 changes.
 
-### [0.2.2]
+## [0.2.2]
 - Increase file sizes to 1Gb using memory map (previously omitted).
 - Compression pre encrypt and post encrypt in encrypt and decrypt methods
 - Task passing to allow cores to be lit up when handling chunks
 
-### [0.2.1]
+## [0.2.1]
 - Fixed lint warnings caused by latest Rust nightly
 
-### [0.0.0 - 0.2.0]
+## [0.0.0 - 0.2.0]
 - Initial structure
 - Test set-up
 - Travis integration
