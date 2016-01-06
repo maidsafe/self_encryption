@@ -15,12 +15,12 @@ unstable = []
 [dependencies]
 asynchronous = "~0.4.5"
 cbor = "~0.3.16"
-docopt = "~0.6.75"
+docopt = "~0.6.78"
 rustc-serialize = "~0.3.16"
 sodiumoxide = "~0.0.9"
 tempdir = "~0.3.4"
 flate2 = "~0.2.11"
-memmap = "~0.2.2"
+memmap = "~0.2.3"
 
 [dev-dependencies]
 rand = "~0.3.12"
