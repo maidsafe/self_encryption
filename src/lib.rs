@@ -763,17 +763,12 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             return (0, 0)
         }
         let start;
-        let penultimate = (self.get_num_chunks() - 2) == chunk_number;
         let last = (self.get_num_chunks() - 1) == chunk_number;
         if last {
-            start = (self.get_chunk_size(0) * (chunk_number - 2) +
-                self.get_chunk_size(chunk_number - 2) +
-                self.get_chunk_size(chunk_number - 1)) as u64;
-        } else if penultimate {
-            start = (self.get_chunk_size(0) * (chunk_number - 1) +
-                self.get_chunk_size(chunk_number - 1)) as u64;
+            start = self.get_chunk_size(0) as u64 * (chunk_number as u64 - 1) +
+                self.get_chunk_size(chunk_number - 1) as u64;
         } else {
-            start = (self.get_chunk_size(0) * chunk_number) as u64;
+            start = self.get_chunk_size(0) as u64 * chunk_number as u64;
         }
         (start, (start + self.get_chunk_size(chunk_number) as u64))
     }
@@ -1075,6 +1070,8 @@ mod test {
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1,
                        ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+            assert_eq!(se.get_start_end_positions(3).0, se.get_start_end_positions(2).1);
+            assert_eq!(se.get_start_end_positions(3).1, bytes_len);
             check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
