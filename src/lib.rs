@@ -126,19 +126,18 @@ pub mod datamap;
 use std::cmp;
 use std::iter::repeat;
 use std::sync::Arc;
+use std::io::{self, ErrorKind, Read, Result, Write};
+use std::error::Error;
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use asynchronous::{ControlFlow, Deferred};
 use sodiumoxide::crypto::hash::sha512;
 use encryption::{IV_SIZE, Iv, KEY_SIZE, Key, decrypt, encrypt};
 use datamap::DataMap;
 use mmap::{Mmap, Protection};
-use std::io;
-use std::io::{ErrorKind, Read, Result, Write};
-use std::error::Error;
 use flate2::write::DeflateEncoder;
 use flate2::read::DeflateDecoder;
 use flate2::Compression;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 const HASH_SIZE: usize = sha512::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
