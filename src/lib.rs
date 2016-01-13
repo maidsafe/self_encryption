@@ -626,28 +626,29 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     }
 
     fn get_pad_key_and_iv(&self, chunk_number: u32) -> (Pad, Key, Iv) {
-        let mut vec = self.datamap.get_sorted_chunks()[chunk_number as usize].pre_hash.clone();
         let n_1 = self.get_previous_chunk_number(chunk_number);
-        let n_1_vec = self.datamap.get_sorted_chunks()[n_1 as usize].pre_hash.clone();
         let n_2 = self.get_previous_chunk_number(n_1);
-        let n_2_vec = self.datamap.get_sorted_chunks()[n_2 as usize].pre_hash.clone();
-
-        vec.extend(n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE].to_vec());
-        vec.extend(n_2_vec[..].to_vec());
+        let sorted_chunks = self.datamap.get_sorted_chunks();
+        let vec = &sorted_chunks[chunk_number as usize].pre_hash;
+        let n_1_vec = &sorted_chunks[n_1 as usize].pre_hash;
+        let n_2_vec = &sorted_chunks[n_2 as usize].pre_hash;
 
         let mut pad = [0u8; PAD_SIZE];
-        for element in vec.into_iter().enumerate() {
-            pad[element.0] = element.1;
+        for (i, &element) in vec.iter()
+                                .chain(&n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE])
+                                .chain(&n_2_vec[..])
+                                .enumerate() {
+            pad[i] = element;
         }
 
         let mut key = [0u8; KEY_SIZE];
-        for element in n_1_vec[0..KEY_SIZE].to_vec().into_iter().enumerate() {
-            key[element.0] = element.1;
+        for (i, &element) in n_1_vec[0..KEY_SIZE].iter().enumerate() {
+            key[i] = element;
         }
 
         let mut iv = [0u8; IV_SIZE];
-        for element in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].to_vec().into_iter().enumerate() {
-            iv[element.0] = element.1;
+        for (i, &element) in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].iter().enumerate() {
+            iv[i] = element;
         }
 
         (Pad(pad), Key(key), Iv(iv))
