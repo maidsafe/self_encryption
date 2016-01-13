@@ -658,13 +658,13 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>, String> {
         let name = self.datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
+        let (pad, key, iv) = self.get_pad_key_and_iv(chunk_number);
         let content = self.storage.get(name);
 
         Deferred::<Vec<u8>, String>::new(move || {
             if content.len() == 0 { () }
-            let xor_result = xor(&content, &pad_key_and_iv.0);
-            match decrypt(&xor_result, &pad_key_and_iv.1, &pad_key_and_iv.2) {
+            let xor_result = xor(&content, &pad);
+            match decrypt(&xor_result, &key, &iv) {
                 Ok(decrypted) => {
                     let mut chunk = Vec::new();
                     let mut decoder = DeflateDecoder::new(&decrypted[..]);
@@ -686,17 +686,15 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Performs encryption algorithm on chunk of data.
     fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>, String> {
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let pad_key_and_iv = self.get_pad_key_and_iv(chunk_number);
+        let (pad, key, iv) = self.get_pad_key_and_iv(chunk_number);
         Deferred::<Vec<u8>, String>::new(move || {
             let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
             match encoder.write_all(&content[..]) {
                 Ok(()) => {
                     match encoder.finish() {
                         Ok(compressed) => {
-                            let encrypted = encrypt(&compressed,
-                                                    &pad_key_and_iv.1,
-                                                    &pad_key_and_iv.2);
-                            Ok(xor(&encrypted, &pad_key_and_iv.0))
+                            let encrypted = encrypt(&compressed, &key, &iv);
+                            Ok(xor(&encrypted, &pad))
                         },
                         Err(error) => { Err(error.description().to_string()) }
                     }
