@@ -17,7 +17,7 @@
 
 extern crate sodiumoxide;
 
-/* use self::rand::{ Rng, OsRng }; */
+// use self::rand::{ Rng, OsRng };
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
 pub use sodiumoxide::crypto::secretbox::Key;
@@ -46,8 +46,9 @@ mod tests {
         let input = ['a' as u8, 'b' as u8, 'c' as u8];
         let sha512::Digest(name) = sha512::hash(&input);
         let hex = &name.to_vec()[..].to_hex();
-        assert_eq!(hex, "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a\
-                         2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
+        assert_eq!(hex,
+                   "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc\
+                    1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
     }
 
     #[test]

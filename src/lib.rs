@@ -83,9 +83,9 @@
 //! Use of this setup would be to implement a self encryptor e.g  `let mut se =
 //! SelfEncryptor::new(my_storage, datamap::DataMap::None);`
 //!
-//! Then call write (and read after write)…etc… on the encryptor. The `close()` method will return
-//! a `DataMap`. This can be passed to create a new encryptor to access the content `let data_map =
-//! se.close();`
+//! Then call write (and read after write)…etc… on the encryptor. The `close()` method will
+//! return a `DataMap`. This can be passed to create a new encryptor to access the content
+//! `let data_map = se.close();`
 //!
 //! This is then used to open the data content in future sessions; e.g. `let mut self_encryptor =
 //! SelfEncryptor::new(my_storage, data_map);` where the `data_map` is the object returned
@@ -189,7 +189,10 @@ pub struct Sequencer {
 impl Sequencer {
     /// Initialise as a vector.
     pub fn as_vector() -> Sequencer {
-        Sequencer { vector: Some(Vec::with_capacity(MAX_IN_MEMORY_SIZE)), mmap: None }
+        Sequencer {
+            vector: Some(Vec::with_capacity(MAX_IN_MEMORY_SIZE)),
+            mmap: None,
+        }
     }
 
     /// Initialise as a memory map
@@ -204,10 +207,12 @@ impl Sequencer {
     pub fn len(&self) -> usize {
         match self.vector {
             Some(ref vector) => vector.len(),
-            None => match self.mmap {
-                Some(ref mmap) => mmap.len(),
-                None => 0usize,
-            },
+            None => {
+                match self.mmap {
+                    Some(ref mmap) => mmap.len(),
+                    None => 0usize,
+                }
+            }
         }
     }
 
@@ -283,10 +288,12 @@ impl Index<usize> for Sequencer {
     fn index(&self, index: usize) -> &u8 {
         match self.vector {
             Some(ref vector) => &vector[index],
-            None => match self.mmap {
-                Some(ref mmap) => unsafe { &mmap.as_slice()[index] },
-                None => panic!("Uninitialised"),
-            },
+            None => {
+                match self.mmap {
+                    Some(ref mmap) => unsafe { &mmap.as_slice()[index] },
+                    None => panic!("Uninitialised"),
+                }
+            }
         }
     }
 }
@@ -296,10 +303,12 @@ impl IndexMut<usize> for Sequencer {
     fn index_mut(&mut self, index: usize) -> &mut u8 {
         match self.vector {
             Some(ref mut vector) => &mut vector[index],
-            None => match self.mmap {
-                Some(ref mut mmap) => unsafe { &mut mmap.as_mut_slice()[index] },
-                None => panic!("Uninitialised"),
-            },
+            None => {
+                match self.mmap {
+                    Some(ref mut mmap) => unsafe { &mut mmap.as_mut_slice()[index] },
+                    None => panic!("Uninitialised"),
+                }
+            }
         }
     }
 }
@@ -310,10 +319,12 @@ impl Deref for Sequencer {
     fn deref(&self) -> &[u8] {
         match self.vector {
             Some(ref vector) => &*vector,
-            None => match self.mmap {
-                Some(ref mmap) => unsafe { &mmap.as_slice() },
-                None => panic!("Uninitialised"),
-            },
+            None => {
+                match self.mmap {
+                    Some(ref mmap) => unsafe { &mmap.as_slice() },
+                    None => panic!("Uninitialised"),
+                }
+            }
         }
     }
 }
@@ -323,17 +334,20 @@ impl DerefMut for Sequencer {
     fn deref_mut(&mut self) -> &mut [u8] {
         match self.vector {
             Some(ref mut vector) => &mut *vector,
-            None => match self.mmap {
-                Some(ref mut mmap) => unsafe { &mut *mmap.as_mut_slice() },
-                None => panic!("Uninitialised"),
-            },
+            None => {
+                match self.mmap {
+                    Some(ref mut mmap) => unsafe { &mut *mmap.as_mut_slice() },
+                    None => panic!("Uninitialised"),
+                }
+            }
         }
     }
 }
 
 impl Extend<u8> for Sequencer {
     fn extend<I>(&mut self, iterable: I)
-        where I: IntoIterator<Item = u8> {
+        where I: IntoIterator<Item = u8>
+    {
         match self.vector {
             Some(ref mut vector) => vector.extend(iterable),
             None => {}
@@ -361,7 +375,7 @@ pub struct SelfEncryptor<S: Storage> {
     file_size: u64,
 }
 
-impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
+impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// This is the only constructor for an encryptor object. Each SelfEncryptor is used for a
     /// single file. The parameters are a DataMap and Storage. If new file, use DataMap::None as
     /// first parameter. The get and put of Storage need to be implemented to allow the
@@ -381,14 +395,19 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         match datamap {
             DataMap::Content(ref content) => {
                 sequencer.init(content);
-                chunks.push(Chunks{number: 0, status: ChunkStatus::AlreadyEncrypted,
-                                   location: ChunkLocation::Remote})
+                chunks.push(Chunks {
+                    number: 0,
+                    status: ChunkStatus::AlreadyEncrypted,
+                    location: ChunkLocation::Remote,
+                })
             }
             DataMap::Chunks(ref data_map_chunks) => {
                 for chunk in data_map_chunks.iter() {
-                    chunks.push(Chunks{number: chunk.chunk_num,
-                                       status: ChunkStatus::AlreadyEncrypted,
-                                       location: ChunkLocation::Remote});
+                    chunks.push(Chunks {
+                        number: chunk.chunk_num,
+                        status: ChunkStatus::AlreadyEncrypted,
+                        location: ChunkLocation::Remote,
+                    });
                 }
             }
             DataMap::None => {}
@@ -438,7 +457,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             read.push(i.clone());
         }
         read
-        //&self.sequencer[position as usize..(position+length) as usize]
+        // &self.sequencer[position as usize..(position+length) as usize]
     }
 
     /// This function returns a DataMap, which is the info required to recover encrypted content
@@ -485,8 +504,8 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     }));
                 }
             }
-            if let Ok(result) =
-                   Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync() {
+            if let Ok(result) = Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
+                                    .sync() {
                 for (chunk_number, name, this_size) in result {
                     tmp_chunks[chunk_number as usize].pre_hash.clear();
                     tmp_chunks[chunk_number as usize].pre_hash = name.to_vec();
@@ -514,17 +533,18 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
                     let storage = self.storage.clone();
                     let chunk_number = chunk.number.clone();
-                    let def = self.encrypt_chunk(chunk.number, tmp).chain::<_,String,_>(move |res| {
-                        let content = res.unwrap();
-                        let sha512::Digest(name) = sha512::hash(&content);
-                        storage.put(name.to_vec(), content);
-                        Ok((chunk_number, name))
-                    });
+                    let def = self.encrypt_chunk(chunk.number, tmp)
+                                  .chain::<_, String, _>(move |res| {
+                                      let content = res.unwrap();
+                                      let sha512::Digest(name) = sha512::hash(&content);
+                                      storage.put(name.to_vec(), content);
+                                      Ok((chunk_number, name))
+                                  });
                     vec_deferred.push(def);
                 }
             }
-            if let Ok(result) =
-                   Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync() {
+            if let Ok(result) = Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
+                                    .sync() {
                 for (chunk_number, name) in result {
                     tmp_chunks[chunk_number as usize].hash = name.to_vec();
                 }
@@ -578,7 +598,7 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
             self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
         }
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
-            return
+            return;
         }
         let mut first_chunk = self.get_chunk_number(position);
         let mut last_chunk = self.get_chunk_number(position + length);
@@ -601,22 +621,25 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     let pos = self.get_start_end_positions(i).0;
                     if itr.location == ChunkLocation::Remote {
                         vec_deferred.push(self.decrypt_chunk(i)
-                            .chain::<_,String,_>(move |res|{
-                                Ok((pos, res.unwrap()))
-                            })
-                        );
+                                              .chain::<_, String, _>(move |res| {
+                                                  Ok((pos, res.unwrap()))
+                                              }));
                     }
                     found = true;
                     break;
                 }
             }
             if !found {
-                self.chunks.push(Chunks{number: i, status: ChunkStatus::ToBeHashed,
-                                        location: ChunkLocation::InSequencer});
+                self.chunks.push(Chunks {
+                    number: i,
+                    status: ChunkStatus::ToBeHashed,
+                    location: ChunkLocation::InSequencer,
+                });
             }
         }
-        for (pos, vec) in
-            Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS).sync().unwrap() {
+        for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
+                              .sync()
+                              .unwrap() {
             let mut pos_aux = pos;
             for itr2 in vec.iter() {
                 self.sequencer[pos_aux as usize] = *itr2;
@@ -662,7 +685,9 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
         let content = self.storage.get(name);
 
         Deferred::<Vec<u8>, String>::new(move || {
-            if content.len() == 0 { () }
+            if content.len() == 0 {
+                ()
+            }
             let xor_result = xor(&content, &pad);
             match decrypt(&xor_result, &key, &iv) {
                 Ok(decrypted) => {
@@ -671,13 +696,13 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     match decoder.read_to_end(&mut chunk) {
                         Ok(size) => {
                             if size > 0 {
-                                return Ok(chunk)
+                                return Ok(chunk);
                             }
-                            return Err("Decompression failure".to_string())
-                        },
-                        Err(error) => { Err(error.description().to_string()) }
+                            return Err("Decompression failure".to_string());
+                        }
+                        Err(error) => Err(error.description().to_string()),
                     }
-                },
+                }
                 _ => Err(format!("Failed decrypting chunk {}", chunk_number)),
             }
         })
@@ -698,8 +723,8 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
                         },
                         Err(error) => { Err(error.description().to_string()) }
                     }
-                },
-                Err(error) => { Err(error.description().to_string()) }
+                }
+                Err(error) => Err(error.description().to_string()),
             }
         })
     }
@@ -708,10 +733,10 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Returns the number label of a chunk.
     fn get_num_chunks(&self) -> u32 {
         if self.file_size < (3 * MIN_CHUNK_SIZE as u64) {
-            return 0
+            return 0;
         }
         if self.file_size < (3 * MAX_CHUNK_SIZE as u64) {
-            return 3
+            return 3;
         }
         if self.file_size % MAX_CHUNK_SIZE as u64 == 0 {
             (self.file_size / MAX_CHUNK_SIZE as u64) as u32
@@ -723,22 +748,22 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Returns the size of a chunk of data.
     fn get_chunk_size(&self, chunk_number: u32) -> u32 {
         if self.file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            return 0
+            return 0;
         }
         if self.file_size < 3 * MAX_CHUNK_SIZE as u64 {
             if chunk_number < 2 {
-                return (self.file_size / 3) as u32
+                return (self.file_size / 3) as u32;
             } else {
-                return (self.file_size - (2 * (self.file_size / 3))) as u32
+                return (self.file_size - (2 * (self.file_size / 3))) as u32;
             }
         }
         if chunk_number < self.get_num_chunks() - 2 {
-            return MAX_CHUNK_SIZE
+            return MAX_CHUNK_SIZE;
         }
         let remainder = (self.file_size % MAX_CHUNK_SIZE as u64) as u32;
         let penultimate = (SelfEncryptor::get_num_chunks(self) - 2) == chunk_number;
         if remainder == 0 {
-            return MAX_CHUNK_SIZE
+            return MAX_CHUNK_SIZE;
         }
         if remainder < MIN_CHUNK_SIZE {
             if penultimate {
@@ -758,13 +783,13 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Returns ordering of chunks.
     fn get_start_end_positions(&self, chunk_number: u32) -> (u64, u64) {
         if self.get_num_chunks() == 0 {
-            return (0, 0)
+            return (0, 0);
         }
         let start;
         let last = (self.get_num_chunks() - 1) == chunk_number;
         if last {
             start = self.get_chunk_size(0) as u64 * (chunk_number as u64 - 1) +
-                self.get_chunk_size(chunk_number - 1) as u64;
+                    self.get_chunk_size(chunk_number - 1) as u64;
         } else {
             start = self.get_chunk_size(0) as u64 * chunk_number as u64;
         }
@@ -773,14 +798,14 @@ impl<S:Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
     fn get_previous_chunk_number(&self, chunk_number: u32) -> u32 {
         if self.get_num_chunks() == 0 {
-            return 0
+            return 0;
         }
         (self.get_num_chunks() + chunk_number - 1) % self.get_num_chunks()
     }
 
     fn get_chunk_number(&self, position: u64) -> u32 {
         if self.get_num_chunks() == 0 {
-            return 0
+            return 0;
         }
         (position / self.get_chunk_size(0) as u64) as u32
     }
@@ -820,7 +845,7 @@ mod test {
             let lock = self.entries.lock().unwrap();
             for entry in lock.iter() {
                 if entry.name == name {
-                    return true
+                    return true;
                 }
             }
             false
@@ -837,7 +862,7 @@ mod test {
             let lock = self.entries.lock().unwrap();
             for entry in lock.iter() {
                 if entry.name == name {
-                    return entry.data.to_vec()
+                    return entry.data.to_vec();
                 }
             }
 
@@ -846,14 +871,19 @@ mod test {
 
         fn put(&self, name: Vec<u8>, data: Vec<u8>) {
             let mut lock = self.entries.lock().unwrap();
-            lock.push(Entry { name : name, data : data })
+            lock.push(Entry {
+                name: name,
+                data: data,
+            })
         }
     }
 
     fn check_file_size(se: &SelfEncryptor<MyStorage>, expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
         if let DataMap::Chunks(ref chunk_details) = se.datamap {
-            let chunks_cumulated_size = chunk_details.iter().fold(0u64, |acc, chunk| acc + chunk.source_size);
+            let chunks_cumulated_size = chunk_details.iter().fold(0u64, |acc, chunk| {
+                acc + chunk.source_size
+            });
             assert_eq!(chunks_cumulated_size, expected_file_size);
         }
     }
@@ -868,7 +898,8 @@ mod test {
         for i in 0..super::PAD_SIZE {
             pad[i] = rand::random::<u8>();
         }
-        assert_eq!(data, super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
+        assert_eq!(data,
+                   super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
     }
 
     #[test]
@@ -945,7 +976,8 @@ mod test {
                 assert_eq!(chunks.len(), 3);
                 assert_eq!(my_storage.clone().num_entries(), 3);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -978,7 +1010,8 @@ mod test {
             assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1, 1 + 3 * MIN_CHUNK_SIZE as u64);
+            assert_eq!(se.get_start_end_positions(2).1,
+                       1 + 3 * MIN_CHUNK_SIZE as u64);
             check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
@@ -988,7 +1021,8 @@ mod test {
                 assert_eq!(chunks.len(), 3);
                 assert_eq!(my_storage.clone().num_entries(), 3);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1031,7 +1065,8 @@ mod test {
                 assert_eq!(chunks.len(), 3);
                 assert_eq!(my_storage.clone().num_entries(), 3);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1068,7 +1103,8 @@ mod test {
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1,
                        ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
-            assert_eq!(se.get_start_end_positions(3).0, se.get_start_end_positions(2).1);
+            assert_eq!(se.get_start_end_positions(3).0,
+                       se.get_start_end_positions(2).1);
             assert_eq!(se.get_start_end_positions(3).1, bytes_len);
             check_file_size(&se, bytes_len);
             // check close
@@ -1079,7 +1115,8 @@ mod test {
                 assert_eq!(chunks.len(), 4);
                 assert_eq!(my_storage.clone().num_entries(), 4);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1116,7 +1153,8 @@ mod test {
             assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(7).1, ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+            assert_eq!(se.get_start_end_positions(7).1,
+                       ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
             check_file_size(&se, bytes_len);
             // check close
             data_map = se.close();
@@ -1126,7 +1164,8 @@ mod test {
                 assert_eq!(chunks.len(), 8);
                 assert_eq!(my_storage.clone().num_entries(), 8);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1149,7 +1188,8 @@ mod test {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
             assert_eq!(se.get_num_chunks(), number_of_chunks);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
+                       number_of_chunks - 1);
             check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
@@ -1158,7 +1198,8 @@ mod test {
                 assert_eq!(chunks.len(), number_of_chunks as usize);
                 assert_eq!(my_storage.clone().num_entries(), number_of_chunks as usize);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1180,16 +1221,19 @@ mod test {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
             assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
+                       number_of_chunks - 1);
             check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize + 1);
-                assert_eq!(my_storage.clone().num_entries(), number_of_chunks as usize + 1);
+                assert_eq!(my_storage.clone().num_entries(),
+                           number_of_chunks as usize + 1);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1218,15 +1262,18 @@ mod test {
                 let j = (i + 1) % (number_of_chunks + 1);
                 assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
                 assert_eq!(se.get_previous_chunk_number(i), h);
-                assert_eq!(se.get_start_end_positions(i).0, i as u64 * MAX_CHUNK_SIZE as u64);
-                assert_eq!(se.get_start_end_positions(i).1, j as u64 * MAX_CHUNK_SIZE as u64);
+                assert_eq!(se.get_start_end_positions(i).0,
+                           i as u64 * MAX_CHUNK_SIZE as u64);
+                assert_eq!(se.get_start_end_positions(i).1,
+                           j as u64 * MAX_CHUNK_SIZE as u64);
             }
             assert_eq!(se.get_chunk_size(number_of_chunks), MIN_CHUNK_SIZE);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
+                       number_of_chunks - 1);
             assert_eq!(se.get_start_end_positions(number_of_chunks).0,
-            number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
+                       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(number_of_chunks).1,
-            ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
+                       ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
             check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
@@ -1234,9 +1281,11 @@ mod test {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize + 1);
-                assert_eq!(my_storage.clone().num_entries(), number_of_chunks as usize + 1);
+                assert_eq!(my_storage.clone().num_entries(),
+                           number_of_chunks as usize + 1);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1258,9 +1307,9 @@ mod test {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
             check_file_size(&se, bytes_len);
-            se.truncate((7*MAX_CHUNK_SIZE + 1) as u64);
+            se.truncate((7 * MAX_CHUNK_SIZE + 1) as u64);
             assert_eq!(se.get_num_chunks(), 8);
-            check_file_size(&se, (7*MAX_CHUNK_SIZE + 1) as u64);
+            check_file_size(&se, (7 * MAX_CHUNK_SIZE + 1) as u64);
             // check close
             data_map = se.close();
         }
@@ -1269,7 +1318,8 @@ mod test {
                 assert_eq!(chunks.len(), 8);
                 assert_eq!(my_storage.clone().num_entries(), 8);
                 for chunk_detail in chunks.iter() {
-                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()), true);
+                    assert_eq!(my_storage.clone().has_chunk(chunk_detail.hash.to_vec()),
+                               true);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1294,14 +1344,17 @@ mod test {
                 let j = (i + 1) % number_of_chunks;
                 assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
                 assert_eq!(se.get_previous_chunk_number(i), h);
-                assert_eq!(se.get_start_end_positions(i).0, i as u64 * MAX_CHUNK_SIZE as u64);
-                assert_eq!(se.get_start_end_positions(i).1, j as u64 * MAX_CHUNK_SIZE as u64);
+                assert_eq!(se.get_start_end_positions(i).0,
+                           i as u64 * MAX_CHUNK_SIZE as u64);
+                assert_eq!(se.get_start_end_positions(i).1,
+                           j as u64 * MAX_CHUNK_SIZE as u64);
             }
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks), number_of_chunks - 1);
+            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
+                       number_of_chunks - 1);
             assert_eq!(se.get_start_end_positions(number_of_chunks).0,
-            number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
+                       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
             assert_eq!(se.get_start_end_positions(number_of_chunks - 1).1,
-                ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
+                       ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
             check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
@@ -1328,21 +1381,25 @@ mod test {
     use self::cbor::{Decoder, Encoder, CborError};
 
     pub fn serialise<T>(data: &T) -> Result<Vec<u8>, CborError>
-                                     where T: ::rustc_serialize::Encodable {
+        where T: ::rustc_serialize::Encodable
+    {
         let mut encoder = Encoder::from_memory();
         try!(encoder.encode(&[data]));
         Ok(encoder.into_bytes())
     }
 
     pub fn deserialise<T>(data: &[u8]) -> Result<T, CborError>
-                                          where T: ::rustc_serialize::Decodable {
+        where T: ::rustc_serialize::Decodable
+    {
         let mut decoder = Decoder::from_bytes(data);
         decoder.decode().next().unwrap()
     }
 
     fn create_vector_data_map(storage: Arc<MyStorage>, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
-        let serialised_data: Vec<u8> = serialise(&data).ok().expect("failed to serialise Vec<usize>");
+        let serialised_data: Vec<u8> = serialise(&data)
+                                           .ok()
+                                           .expect("failed to serialise Vec<usize>");
         let mut self_encryptor = SelfEncryptor::new(storage, DataMap::None);
         self_encryptor.write(&serialised_data, 0);
         check_file_size(&self_encryptor, serialised_data.len() as u64);
@@ -1353,7 +1410,9 @@ mod test {
         let mut self_encryptor = SelfEncryptor::new(storage, datamap.clone());
         let length = self_encryptor.len();
         let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length);
-        let data: Vec<usize> = deserialise(&data_to_deserialise).ok().expect("failed to deserialise Vec<usize>");
+        let data: Vec<usize> = deserialise(&data_to_deserialise)
+                                   .ok()
+                                   .expect("failed to deserialise Vec<usize>");
         assert_eq!(data.len(), vec_len);
         for i in 0..vec_len {
             assert_eq!(data[i], i);
@@ -1362,7 +1421,8 @@ mod test {
 
     #[test]
     fn check_serialised_vectors() {
-        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000, 1_000_000] {
+        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000,
+                            1_000_000] {
             let storage = Arc::new(MyStorage::new());
             let datamap: DataMap = create_vector_data_map(storage.clone(), vec_len);
             check_vector_data_map(storage.clone(), vec_len, &datamap);
