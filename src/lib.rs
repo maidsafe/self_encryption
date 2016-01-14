@@ -1323,6 +1323,37 @@ mod test {
         assert_eq!(fetched, bytes);
     }
 
+    #[test]
+    fn check_write_starting_with_existing_datamap() {
+        let my_storage = Arc::new(MyStorage::new());
+        let part1_len = MIN_CHUNK_SIZE as u64 * 3;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len);
+            data_map = se.close();
+        }
+        let part2_len = 1024;
+        let part2_bytes = random_bytes(part2_len as usize);
+        let full_len = part1_len + part2_len;
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            se.write(&part2_bytes, part1_len);
+            //check_file_size(&se, full_len);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), full_len);
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, full_len);
+        assert_eq!(&part1_bytes[..], &fetched[.. part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize ..]);
+    }
+
     // Definitions for testing serialisation of a vector
     extern crate cbor;
     use self::cbor::{Decoder, Encoder, CborError};
