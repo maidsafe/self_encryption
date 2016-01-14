@@ -34,7 +34,12 @@ impl ChunkDetails {
     /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
     /// corresponding DataMap.
     pub fn new() -> ChunkDetails {
-        ChunkDetails { chunk_num: 0, hash: vec![], pre_hash: vec![], source_size: 0 }
+        ChunkDetails {
+            chunk_num: 0,
+            hash: vec![],
+            pre_hash: vec![],
+            source_size: 0,
+        }
     }
 }
 
@@ -103,5 +108,4 @@ impl DataMap {
 }
 
 #[test]
-fn dummy() {
-}
+fn dummy() {}
