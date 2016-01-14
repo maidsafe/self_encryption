@@ -914,6 +914,30 @@ mod test {
     }
 
     #[test]
+    fn check_multiple_writes() {
+        let my_storage = Arc::new(MyStorage::new());
+        let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+        let size1 = 3u64;
+        let size2 = 4u64;
+        let part1 = random_bytes(size1 as usize);
+        let part2 = random_bytes(size2 as usize);
+        // Just testing multiple subsequent write calls
+        se.write(&part1, 0);
+        se.write(&part2, size1);
+        // Let's also test an overwrite.. over middle bytes of part2
+        se.write(&[4u8, 2], size1+1);
+        check_file_size(&se, size1 + size2);
+        let data_map = se.close();
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let fetched = se.read(0, size1 + size2);
+        let size1 = size1 as usize;
+        assert_eq!(&fetched[..size1], &part1[..]);
+        assert_eq!(fetched[size1], part2[0]);
+        assert_eq!(&fetched[size1+1 .. size1+3], &[4u8, 2][..]);
+        assert_eq!(&fetched[size1+3 ..], &part2[3..]);
+    }
+
+    #[test]
     fn check_3_min_chunks_minus1() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
