@@ -432,6 +432,10 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// libraries for developers. The input data will be written from the specified position
     /// (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
+        if self.file_size < (data.len() as u64 + position) {
+            let length = self.file_size;
+            self.prepare_window(length, 0);
+        }
         self.file_size = cmp::max(self.file_size, data.len() as u64 + position);
         if self.file_size as usize > MAX_IN_MEMORY_SIZE &&
            self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
@@ -635,6 +639,14 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     status: ChunkStatus::ToBeHashed,
                     location: ChunkLocation::InSequencer,
                 });
+            } else {
+                match self.chunks.get_mut(i as usize) {
+                    Some(found_chunk) => {
+                        found_chunk.status = ChunkStatus::ToBeHashed;
+                        found_chunk.location = ChunkLocation::InSequencer;
+                    }
+                    None => {}
+                }
             }
         }
         for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
