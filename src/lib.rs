@@ -807,7 +807,14 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         if self.get_num_chunks() == 0 {
             return 0;
         }
-        (position / self.get_chunk_size(0) as u64) as u32
+
+        let remainder = self.file_size % self.get_chunk_size(0) as u64;
+        if remainder == 0 || remainder >= MIN_CHUNK_SIZE as u64 ||
+            position < self.file_size - remainder - MIN_CHUNK_SIZE as u64
+        {
+            return (position / self.get_chunk_size(0) as u64) as u32;
+        }
+        self.get_num_chunks() - 1
     }
 }
 
