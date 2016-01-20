@@ -432,6 +432,10 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// libraries for developers. The input data will be written from the specified position
     /// (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) {
+        if self.file_size < (data.len() as u64 + position) {
+            let length = self.file_size;
+            self.prepare_window(length, 0);
+        }
         self.file_size = cmp::max(self.file_size, data.len() as u64 + position);
         if self.file_size as usize > MAX_IN_MEMORY_SIZE &&
            self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
@@ -635,6 +639,14 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     status: ChunkStatus::ToBeHashed,
                     location: ChunkLocation::InSequencer,
                 });
+            } else {
+                match self.chunks.get_mut(i as usize) {
+                    Some(found_chunk) => {
+                        found_chunk.status = ChunkStatus::ToBeHashed;
+                        found_chunk.location = ChunkLocation::InSequencer;
+                    }
+                    None => {}
+                }
             }
         }
         for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
@@ -1398,6 +1410,37 @@ mod test {
         let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert_eq!(fetched, bytes);
+    }
+
+    #[test]
+    fn check_write_starting_with_existing_datamap() {
+        let my_storage = Arc::new(MyStorage::new());
+        let part1_len = MIN_CHUNK_SIZE as u64 * 3;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len);
+            data_map = se.close();
+        }
+        let part2_len = 1024;
+        let part2_bytes = random_bytes(part2_len as usize);
+        let full_len = part1_len + part2_len;
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            se.write(&part2_bytes, part1_len);
+            //check_file_size(&se, full_len);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), full_len);
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, full_len);
+        assert_eq!(&part1_bytes[..], &fetched[.. part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize ..]);
     }
 
     // Definitions for testing serialisation of a vector
