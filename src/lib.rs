@@ -196,11 +196,11 @@ impl Sequencer {
     }
 
     /// Initialise as a memory map
-    pub fn as_mmap() -> Sequencer {
-        Sequencer {
+    pub fn as_mmap() -> Result<Sequencer> {
+        Ok(Sequencer {
             vector: None,
-            mmap: Some(Mmap::anonymous(MAX_MEMORY_MAP_SIZE, Protection::ReadWrite).unwrap()),
-        }
+            mmap: Some(try!(Mmap::anonymous(MAX_MEMORY_MAP_SIZE, Protection::ReadWrite))),
+        })
     }
 
     /// Return the current length of the sequencer.
@@ -389,7 +389,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             sequencer = Sequencer::as_vector();
         } else {
-            sequencer = Sequencer::as_mmap();
+            sequencer = Sequencer::as_mmap().unwrap();
         }
 
         match datamap {
