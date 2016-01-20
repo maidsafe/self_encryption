@@ -837,6 +837,8 @@ mod test {
     use super::*;
     use std::sync::{Arc, Mutex};
     use datamap::DataMap;
+    use self::rand::distributions::{Range, Sample};
+    use self::rand::thread_rng;
 
     fn random_bytes(length: usize) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::with_capacity(length);
@@ -1491,6 +1493,92 @@ mod test {
             let storage = Arc::new(MyStorage::new());
             let datamap: DataMap = create_vector_data_map(storage.clone(), vec_len);
             check_vector_data_map(storage.clone(), vec_len, &datamap);
+        }
+    }
+
+    #[test]
+    fn check_get_chunk_number() {
+        let my_storage = Arc::new(MyStorage::new());
+        let mut se = SelfEncryptor::new(my_storage, DataMap::None);
+        // Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.
+        let mut min_test_size = 0;
+        let mut max_test_size = 3 * MIN_CHUNK_SIZE;
+        for file_size in min_test_size..max_test_size {
+            se.truncate(file_size as u64);
+            for byte_index in 0..file_size {
+                assert_eq!(se.get_chunk_number(byte_index as u64), 0);
+            }
+        }
+
+        // Test chunk_number for files up to 3 * MAX_CHUNK_SIZE.  File should be thirded with any
+        // extra bytes appended to last chunk.
+        min_test_size = max_test_size;
+        max_test_size = (3 * MAX_CHUNK_SIZE) + 1;
+        let mut range = Range::new(90000, 100000);
+        let mut rng = thread_rng();
+        let step = range.sample(&mut rng);
+        for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {
+            se.truncate(file_size as u64);
+            assert_eq!(se.get_num_chunks(), 3);
+            let mut index_start;
+            let mut index_end = 0;
+            for chunk_index in 0..3 {
+                index_start = index_end;
+                index_end += se.get_chunk_size(chunk_index);
+                for byte_index in index_start..index_end {
+                    assert_eq!(se.get_chunk_number(byte_index as u64), chunk_index);
+                }
+            }
+        }
+
+        // Test chunk_number for files up to (3 * MAX_CHUNK_SIZE) + MIN_CHUNK_SIZE - 1.  First two
+        // chunks should each have MAX_CHUNK_SIZE bytes, third chunk should have
+        // (MAX_CHUNK_SIZE - MIN_CHUNK_SIZE) bytes, with final chunk containing remainder.
+        min_test_size = max_test_size;
+        max_test_size = (3 * MAX_CHUNK_SIZE) + MIN_CHUNK_SIZE;
+        const CHUNK_0_START: u32 = 0;
+        const CHUNK_0_END: u32 = MAX_CHUNK_SIZE - 1;
+        const CHUNK_1_START: u32 = MAX_CHUNK_SIZE;
+        const CHUNK_1_END: u32 = (2 * MAX_CHUNK_SIZE) - 1;
+        const CHUNK_2_START: u32 = 2 * MAX_CHUNK_SIZE;
+        for file_size in min_test_size..max_test_size {
+            const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE - 1;
+            se.truncate(file_size as u64);
+            assert_eq!(se.get_num_chunks(), 4);
+            let mut test_indices = vec![CHUNK_0_START, CHUNK_0_END, CHUNK_1_START, CHUNK_1_END,
+                                        CHUNK_2_START, CHUNK_2_END];
+            test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
+            for byte_index in test_indices {
+                let expected_number = match byte_index {
+                    CHUNK_0_START...CHUNK_0_END => 0,
+                    CHUNK_1_START...CHUNK_1_END => 1,
+                    CHUNK_2_START...CHUNK_2_END => 2,
+                    _ => 3,
+                };
+                assert_eq!(se.get_chunk_number(byte_index as u64), expected_number);
+            }
+        }
+
+        // Test chunk_number for files up to 4 * MAX_CHUNK_SIZE.  First three chunks should each
+        // have MAX_CHUNK_SIZE bytes, fourth chunk containing remainder.
+        min_test_size = max_test_size;
+        max_test_size = 4 * MAX_CHUNK_SIZE;
+        for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {
+            const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - 1;
+            se.truncate(file_size as u64);
+            assert_eq!(se.get_num_chunks(), 4);
+            let mut test_indices = vec![CHUNK_0_START, CHUNK_0_END, CHUNK_1_START, CHUNK_1_END,
+                                        CHUNK_2_START, CHUNK_2_END];
+            test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
+            for byte_index in test_indices {
+                let expected_number = match byte_index {
+                    CHUNK_0_START...CHUNK_0_END => 0,
+                    CHUNK_1_START...CHUNK_1_END => 1,
+                    CHUNK_2_START...CHUNK_2_END => 2,
+                    _ => 3,
+                };
+                assert_eq!(se.get_chunk_number(byte_index as u64), expected_number);
+            }
         }
     }
 }
