@@ -124,6 +124,7 @@ mod encryption;
 pub mod datamap;
 
 use std::cmp;
+use std::fmt::{Debug, Formatter, self};
 use std::iter::repeat;
 use std::sync::Arc;
 use std::io::{self, ErrorKind, Read, Result, Write};
@@ -158,14 +159,14 @@ fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
     data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkStatus {
     ToBeHashed,
     ToBeEncrypted,
     AlreadyEncrypted,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum ChunkLocation {
     InSequencer,
     Remote,
@@ -173,7 +174,7 @@ enum ChunkLocation {
 
 // pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Chunk {
     number: u32,
     status: ChunkStatus,
@@ -827,6 +828,16 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             return (position / self.get_chunk_size(0) as u64) as u32;
         }
         self.get_num_chunks() - 1
+    }
+}
+
+impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        try!(write!(formatter, "SelfEncryptor {{\n    datamap: {:?}\n    chunks:\n", self.datamap));
+        for chunk in &self.chunks {
+            try!(write!(formatter, "        {:?}\n", chunk))
+        }
+        write!(formatter, "    file_size: {}\n}}", self.file_size)
     }
 }
 

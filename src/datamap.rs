@@ -15,6 +15,8 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+use std::fmt::{Debug, Error, Formatter};
+
 /// Struct holds pre and post encryption hashes as well as original chunk size.
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
@@ -29,6 +31,28 @@ pub struct ChunkDetails {
     pub source_size: u64,
 }
 
+fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
+    use std::fmt::Write;
+    let input_ref = input.as_ref();
+    if input_ref.is_empty() {
+        return "<empty>".to_owned();
+    }
+    if input_ref.len() <= 6 {
+        let mut ret = String::new();
+        for byte in input_ref.iter() {
+            write!(ret, "{:02x}", byte).unwrap();
+        }
+        return ret;
+    }
+    format!("{:02x}{:02x}{:02x}..{:02x}{:02x}{:02x}",
+            input_ref[0],
+            input_ref[1],
+            input_ref[2],
+            input_ref[input_ref.len() - 3],
+            input_ref[input_ref.len() - 2],
+            input_ref[input_ref.len() - 1])
+}
+
 impl ChunkDetails {
     /// Holds information required for successful recovery of a chunk, as well as for the
     /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
@@ -40,6 +64,17 @@ impl ChunkDetails {
             pre_hash: vec![],
             source_size: 0,
         }
+    }
+}
+
+impl Debug for ChunkDetails {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
+        write!(formatter,
+               "ChunkDetails {{ chunk_num: {}, hash: {}, pre_hash: {}, source_size: {} }}",
+               self.chunk_num,
+               debug_bytes(&self.hash),
+               debug_bytes(&self.pre_hash),
+               self.source_size)
     }
 }
 
@@ -104,6 +139,29 @@ impl DataMap {
     /// Sorts list of chunks using quicksort
     fn chunks_sort(chunks: &mut [ChunkDetails]) {
         chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
+    }
+}
+
+impl Debug for DataMap {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
+        match self {
+            &DataMap::Chunks(ref chunks) => {
+                try!(write!(formatter, "DataMap::Chunks:\n"));
+                let len = chunks.len();
+                for (index, chunk) in chunks.iter().enumerate() {
+                    if index + 1 == len {
+                        try!(write!(formatter, "        {:?}", chunk))
+                    } else {
+                        try!(write!(formatter, "        {:?}\n", chunk))
+                    }
+                }
+                Ok(())
+            }
+            &DataMap::Content(ref content) => {
+                write!(formatter, "DataMap::Content({})", debug_bytes(content))
+            }
+            &DataMap::None => write!(formatter, "DataMap::None"),
+        }
     }
 }
 
