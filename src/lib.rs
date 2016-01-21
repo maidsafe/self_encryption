@@ -124,12 +124,12 @@ mod encryption;
 mod datamap;
 
 use std::cmp;
-use std::fmt::{self, Debug, Formatter};
-use std::iter::repeat;
-use std::sync::Arc;
-use std::io::{self, ErrorKind, Read, Result, Write};
 use std::error::Error;
+use std::fmt::{self, Debug, Formatter};
+use std::io::{self, ErrorKind, Read, Result, Write};
+use std::iter::repeat;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::sync::{Arc, Once, ONCE_INIT};
 
 use asynchronous::{ControlFlow, Deferred};
 use encryption::{IV_SIZE, Iv, KEY_SIZE, Key, decrypt, encrypt};
@@ -382,7 +382,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// first parameter. The get and put of Storage need to be implemented to allow the
     /// SelfEncryptor to store encrypted chunks and retrieve them when necessary.
     pub fn new(storage: Arc<S>, datamap: DataMap) -> SelfEncryptor<S> {
-        sodiumoxide::init();
+        initialise_sodiumoxide();
         let file_size = datamap.len();
         let mut sequencer;
         let mut chunks = vec![];
@@ -837,6 +837,11 @@ impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
         }
         write!(formatter, "    file_size: {}\n}}", self.file_size)
     }
+}
+
+fn initialise_sodiumoxide() {
+    static INITIALISE_SODIUMOXIDE: Once = ONCE_INIT;
+    INITIALISE_SODIUMOXIDE.call_once(|| assert!(sodiumoxide::init()));
 }
 
 #[cfg(test)]
