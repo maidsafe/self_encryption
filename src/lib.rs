@@ -701,9 +701,6 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         let content = self.storage.get(name);
 
         Deferred::<Vec<u8>, String>::new(move || {
-            if content.len() == 0 {
-                ()
-            }
             let xor_result = xor(&content, &pad);
             match decrypt(&xor_result, &key, &iv) {
                 Ok(decrypted) => {
