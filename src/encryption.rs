@@ -41,7 +41,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hash_sha_512() {
+    fn hash_sha512() {
         let input = ['a' as u8, 'b' as u8, 'c' as u8];
         let sha512::Digest(name) = sha512::hash(&input);
         let hex = &name.to_vec()[..].to_hex();
@@ -51,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    fn test_salsa20poly1305() {
+    fn salsa20poly1305() {
         let message = "Hello World!";
 
         let mut key = [0u8; KEY_SIZE];

@@ -164,6 +164,3 @@ impl Debug for DataMap {
         }
     }
 }
-
-#[test]
-fn dummy() {}

@@ -920,7 +920,7 @@ mod test {
     }
 
     #[test]
-    fn test_xor() {
+    fn xor() {
         let mut data: Vec<u8> = vec![];
         let mut pad = [0u8; super::PAD_SIZE];
         for _ in 0..800 {
@@ -934,7 +934,7 @@ mod test {
     }
 
     #[test]
-    fn check_write() {
+    fn write() {
         let my_storage = Arc::new(MyStorage::new());
         let mut se = SelfEncryptor::new(my_storage, DataMap::None);
         let size = 3u64;
@@ -945,7 +945,7 @@ mod test {
     }
 
     #[test]
-    fn check_multiple_writes() {
+    fn multiple_writes() {
         let my_storage = Arc::new(MyStorage::new());
         let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
         let size1 = 3u64;
@@ -969,7 +969,7 @@ mod test {
     }
 
     #[test]
-    fn check_3_min_chunks_minus1() {
+    fn three_min_chunks_minus_one() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
@@ -1001,7 +1001,7 @@ mod test {
     }
 
     #[test]
-    fn check_3_min_chunks() {
+    fn three_min_chunks() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
@@ -1044,7 +1044,7 @@ mod test {
     }
 
     #[test]
-    fn check_3_min_chunks_plus1() {
+    fn three_min_chunks_plus_one() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
@@ -1088,7 +1088,7 @@ mod test {
     }
 
     #[test]
-    fn check_3_max_chunks() {
+    fn three_max_chunks() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
@@ -1131,7 +1131,7 @@ mod test {
     }
 
     #[test]
-    fn check_3_max_chunks_plus1() {
+    fn three_max_chunks_plus_one() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
@@ -1180,7 +1180,7 @@ mod test {
     }
 
     #[test]
-    fn check_7_and_a_bit_max_chunks() {
+    fn seven_and_a_bit_max_chunks() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
@@ -1228,7 +1228,7 @@ mod test {
     }
 
     #[test]
-    fn check_large_file_1_byte_under_11_chunks() {
+    fn large_file_one_byte_under_eleven_chunks() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 11;
@@ -1260,7 +1260,7 @@ mod test {
     }
 
     #[test]
-    fn check_large_file_1_byte_over_11_chunks() {
+    fn large_file_one_byte_over_eleven_chunks() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 11;
@@ -1293,7 +1293,7 @@ mod test {
     }
 
     #[test]
-    fn check_large_file_size_1024_over_11_chunks() {
+    fn large_file_size_1024_over_eleven_chunks() {
         // has been tested for 50 chunks
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
@@ -1345,7 +1345,7 @@ mod test {
     }
 
     #[test]
-    fn check_5_and_extend_to_7_plus_one() {
+    fn five_and_extend_to_seven_plus_one() {
         let my_storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 5;
@@ -1374,7 +1374,7 @@ mod test {
     }
 
     #[test]
-    fn check_large_100mb_file() {
+    fn large_100mb_file() {
         let storage = Arc::new(MyStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 100;
@@ -1423,7 +1423,7 @@ mod test {
     }
 
     #[test]
-    fn check_write_starting_with_existing_datamap() {
+    fn write_starting_with_existing_datamap() {
         let my_storage = Arc::new(MyStorage::new());
         let part1_len = MIN_CHUNK_SIZE as u64 * 3;
         let part1_bytes = random_bytes(part1_len as usize);
@@ -1478,7 +1478,7 @@ mod test {
     }
 
     #[test]
-    fn check_serialised_vectors() {
+    fn serialised_vectors() {
         for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000,
                             1_000_000] {
             let storage = Arc::new(MyStorage::new());
@@ -1488,7 +1488,7 @@ mod test {
     }
 
     #[test]
-    fn check_get_chunk_number() {
+    fn get_chunk_number() {
         let my_storage = Arc::new(MyStorage::new());
         let mut se = SelfEncryptor::new(my_storage, DataMap::None);
         // Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.
