@@ -17,7 +17,7 @@
 
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-use sodiumoxide::crypto::secretbox::{KEYBYTES, NONCEBYTES, self};
+use sodiumoxide::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
 
 pub use sodiumoxide::crypto::secretbox::Key;
 pub use sodiumoxide::crypto::secretbox::Nonce as Iv;

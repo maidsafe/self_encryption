@@ -130,7 +130,7 @@ mod encryption;
 mod datamap;
 
 use std::cmp;
-use std::fmt::{Debug, Formatter, self};
+use std::fmt::{self, Debug, Formatter};
 use std::iter::repeat;
 use std::sync::Arc;
 use std::io::{self, ErrorKind, Read, Result, Write};
@@ -655,8 +655,9 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         }
-        for (pos, vec) in unwrap_result!(Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
-                              .sync()) {
+        for (pos, vec) in unwrap_result!(Deferred::vec_to_promise(vec_deferred,
+                                                                  ControlFlow::ParallelCPUS)
+                                             .sync()) {
             let mut pos_aux = pos;
             for &byte in &vec {
                 self.sequencer[pos_aux as usize] = byte;
@@ -734,8 +735,8 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                         Ok(compressed) => {
                             let encrypted = encrypt(&compressed, &key, &iv);
                             Ok(xor(&encrypted, &pad))
-                        },
-                        Err(error) => { Err(error.description().to_string()) }
+                        }
+                        Err(error) => Err(error.description().to_string()),
                     }
                 }
                 Err(error) => Err(error.description().to_string()),
@@ -825,8 +826,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
         let remainder = self.file_size % self.get_chunk_size(0) as u64;
         if remainder == 0 || remainder >= MIN_CHUNK_SIZE as u64 ||
-            position < self.file_size - remainder - MIN_CHUNK_SIZE as u64
-        {
+           position < self.file_size - remainder - MIN_CHUNK_SIZE as u64 {
             return (position / self.get_chunk_size(0) as u64) as u32;
         }
         self.get_num_chunks() - 1
@@ -835,7 +835,9 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
 impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        try!(write!(formatter, "SelfEncryptor {{\n    datamap: {:?}\n    chunks:\n", self.datamap));
+        try!(write!(formatter,
+                    "SelfEncryptor {{\n    datamap: {:?}\n    chunks:\n",
+                    self.datamap));
         for chunk in &self.chunks {
             try!(write!(formatter, "        {:?}\n", chunk))
         }
@@ -957,7 +959,7 @@ mod test {
         se.write(&part1, 0);
         se.write(&part2, size1);
         // Let's also test an overwrite.. over middle bytes of part2
-        se.write(&[4u8, 2], size1+1);
+        se.write(&[4u8, 2], size1 + 1);
         check_file_size(&se, size1 + size2);
         let data_map = se.close();
         let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
@@ -965,8 +967,8 @@ mod test {
         let size1 = size1 as usize;
         assert!(&fetched[..size1] == &part1[..]);
         assert_eq!(fetched[size1], part2[0]);
-        assert!(&fetched[size1+1 .. size1+3] == &[4u8, 2][..]);
-        assert!(&fetched[size1+3 ..] == &part2[3..]);
+        assert!(&fetched[size1 + 1..size1 + 3] == &[4u8, 2][..]);
+        assert!(&fetched[size1 + 3..] == &part2[3..]);
     }
 
     #[test]
@@ -1443,15 +1445,15 @@ mod test {
             // Start with an existing datamap.
             let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
             se.write(&part2_bytes, part1_len);
-            //check_file_size(&se, full_len);
+            // check_file_size(&se, full_len);
             data_map2 = se.close();
         }
         assert_eq!(data_map2.len(), full_len);
 
         let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
         let fetched = se.read(0, full_len);
-        assert!(&part1_bytes[..] == &fetched[.. part1_len as usize]);
-        assert!(&part2_bytes[..] == &fetched[part1_len as usize ..]);
+        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
+        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
     fn create_vector_data_map(storage: Arc<MyStorage>, vec_len: usize) -> DataMap {
@@ -1537,8 +1539,12 @@ mod test {
             const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE - 1;
             se.truncate(file_size as u64);
             assert_eq!(se.get_num_chunks(), 4);
-            let mut test_indices = vec![CHUNK_0_START, CHUNK_0_END, CHUNK_1_START, CHUNK_1_END,
-                                        CHUNK_2_START, CHUNK_2_END];
+            let mut test_indices = vec![CHUNK_0_START,
+                                        CHUNK_0_END,
+                                        CHUNK_1_START,
+                                        CHUNK_1_END,
+                                        CHUNK_2_START,
+                                        CHUNK_2_END];
             test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
             for byte_index in test_indices {
                 let expected_number = match byte_index {
@@ -1559,8 +1565,12 @@ mod test {
             const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - 1;
             se.truncate(file_size as u64);
             assert_eq!(se.get_num_chunks(), 4);
-            let mut test_indices = vec![CHUNK_0_START, CHUNK_0_END, CHUNK_1_START, CHUNK_1_END,
-                                        CHUNK_2_START, CHUNK_2_END];
+            let mut test_indices = vec![CHUNK_0_START,
+                                        CHUNK_0_END,
+                                        CHUNK_1_START,
+                                        CHUNK_1_END,
+                                        CHUNK_2_START,
+                                        CHUNK_2_END];
             test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
             for byte_index in test_indices {
                 let expected_number = match byte_index {
