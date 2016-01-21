@@ -32,14 +32,15 @@
 // the test names contain MB, KB which should retain capitalisation
 #![feature(test)]
 
-extern crate test;
+#[macro_use]
+#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
+extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
+extern crate test;
 
 use test::Bencher;
-use self_encryption::SelfEncryptor;
-use self_encryption::Storage;
-use self_encryption::datamap::DataMap;
+use self_encryption::{DataMap, SelfEncryptor, Storage};
 use std::sync::{Arc, Mutex};
 
 // TODO: replace copy from src/lib.rs mod test to properly import and reuse
@@ -65,14 +66,6 @@ impl MyStorage {
     pub fn new() -> MyStorage {
         MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
     }
-
-    // pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-    //     let lock = unwrap_result!(self.entries.lock());
-    //     for entry in lock.iter() {
-    //         if entry.name == name { return true }
-    //     }
-    //     false
-    // }
 }
 
 impl Storage for MyStorage {
@@ -98,7 +91,7 @@ impl Storage for MyStorage {
 // end of copy from src/lib.rs
 
 #[bench]
-fn bench_write_then_read_a_200_b(b: &mut Bencher) {
+fn write_then_read_200_bytes(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
     let bytes_len = 200;
     b.iter(|| {
@@ -117,7 +110,7 @@ fn bench_write_then_read_a_200_b(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_write_then_read_b_1_kb(b: &mut Bencher) {
+fn write_then_read_1_kilobyte(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
     let bytes_len = 1024;
     b.iter(|| {
@@ -136,7 +129,7 @@ fn bench_write_then_read_b_1_kb(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_write_then_read_c_1_mb(b: &mut Bencher) {
+fn write_then_read_1_megabyte(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
     let bytes_len = 1024 * 1024;
     b.iter(|| {
@@ -155,7 +148,7 @@ fn bench_write_then_read_c_1_mb(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_write_then_read_d_3_mb(b: &mut Bencher) {
+fn write_then_read_3_megabytes(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
     let bytes_len = 3 * 1024 * 1024;
     b.iter(|| {
@@ -174,7 +167,7 @@ fn bench_write_then_read_d_3_mb(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_write_then_read_e_10_mb(b: &mut Bencher) {
+fn write_then_read_10_megabytes(b: &mut Bencher) {
     let my_storage = Arc::new(MyStorage::new());
     let bytes_len = 10 * 1024 * 1024;
     b.iter(|| {
@@ -193,7 +186,7 @@ fn bench_write_then_read_e_10_mb(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_write_then_read_f_100_mb(b: &mut Bencher) {
+fn write_then_read_100_megabytes(b: &mut Bencher) {
     let storage = Arc::new(MyStorage::new());
     let bytes_len = 100 * 1024 * 1024;
     b.iter(|| {
@@ -211,32 +204,30 @@ fn bench_write_then_read_f_100_mb(b: &mut Bencher) {
     b.bytes = 2 * bytes_len;
 }
 
-//  The assert fails !!
-// #[bench]
-// fn bench_write_then_read_range(b: &mut Bencher) {
-// let mut my_storage = MyStorage::new();
-// let string_range = vec![     512 * 1024,
-// 1 * 1024 * 1024,
-// 2 * 1024 * 1024,
-// 3 * 1024 * 1024,
-// 4 * 1024 * 1024,
-// 5 * 1024 * 1024,
-// 6 * 1024 * 1024];
-// for bytes_len in string_range {
-// b.iter(|| {
-// let mut data_map = DataMap::None;
-// let the_bytes = random_bytes(bytes_len as usize);
-// {
-// let mut se = SelfEncryptor::new(&mut my_storage as &mut Storage, DataMap::None);
-// se.write(&the_bytes, 0);
-// data_map = se.close();
-// }
-// let mut new_se = SelfEncryptor::new(&mut my_storage as &mut Storage, data_map);
-// let fetched = new_se.read(0, bytes_len);
-// assert_eq!(fetched, the_bytes);
-// });
-// write and read the data
-// b.bytes = 2*bytes_len;
-// }
-// }
-//
+#[bench]
+fn write_then_read_range(b: &mut Bencher) {
+    let storage = Arc::new(MyStorage::new());
+    let string_range = vec![512 * 1024,
+                            1 * 1024 * 1024,
+                            2 * 1024 * 1024,
+                            3 * 1024 * 1024,
+                            4 * 1024 * 1024,
+                            5 * 1024 * 1024,
+                            6 * 1024 * 1024];
+    for bytes_len in string_range {
+        b.iter(|| {
+            let data_map: DataMap;
+            let the_bytes = random_bytes(bytes_len as usize);
+            {
+                let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+                se.write(&the_bytes, 0);
+                data_map = se.close();
+            }
+            let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
+            let fetched = new_se.read(0, bytes_len);
+            assert_eq!(fetched, the_bytes);
+        });
+        // write and read the data
+        b.bytes = 2 * bytes_len;
+    }
+}
