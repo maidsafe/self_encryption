@@ -15,23 +15,22 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-extern crate sodiumoxide;
-
-// use self::rand::{ Rng, OsRng };
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
+
+use sodiumoxide::crypto::secretbox::{KEYBYTES, NONCEBYTES, self};
 
 pub use sodiumoxide::crypto::secretbox::Key;
 pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
 
-pub const KEY_SIZE: usize = sodiumoxide::crypto::secretbox::KEYBYTES;
-pub const IV_SIZE: usize = sodiumoxide::crypto::secretbox::NONCEBYTES;
+pub const KEY_SIZE: usize = KEYBYTES;
+pub const IV_SIZE: usize = NONCEBYTES;
 
 pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
-    sodiumoxide::crypto::secretbox::seal(data, iv, key)
+    secretbox::seal(data, iv, key)
 }
 
 pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, ()> {
-    sodiumoxide::crypto::secretbox::open(encrypted_data, iv, key)
+    secretbox::open(encrypted_data, iv, key)
 }
 
 #[cfg(test)]
@@ -62,7 +61,7 @@ mod tests {
         randombytes_into(&mut iv);
 
         let encrypted_data = encrypt(message.as_bytes(), &Key(key), &Iv(iv));
-        let decrypted_data = decrypt(&encrypted_data[..], &Key(key), &Iv(iv)).unwrap();
+        let decrypted_data = unwrap_result!(decrypt(&encrypted_data[..], &Key(key), &Iv(iv)));
 
         assert!(message.as_bytes() == &decrypted_data[..]);
     }

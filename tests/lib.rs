@@ -25,14 +25,17 @@
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
         unused_comparisons, unused_features, unused_parens, while_true)]
 #![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-        unused_qualifications, unused_results, variant_size_differences)]
+        unused_qualifications, unused_results)]
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
-         missing_debug_implementations)]
+         missing_debug_implementations, variant_size_differences)]
 
+#[macro_use]
+#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
+extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
 
-pub use self_encryption::*;
+use self_encryption::{DataMap, SelfEncryptor, Storage, MAX_CHUNK_SIZE};
 use rand::{Rng, thread_rng};
 use std::sync::{Arc, Mutex};
 
@@ -61,7 +64,7 @@ impl MyStorage {
     }
 
     pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-        let lock = self.entries.lock().unwrap();
+        let lock = unwrap_result!(self.entries.lock());
         for entry in lock.iter() {
             if entry.name == name {
                 return true
@@ -73,7 +76,7 @@ impl MyStorage {
 
 impl Storage for MyStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        let lock = self.entries.lock().unwrap();
+        let lock = unwrap_result!(self.entries.lock());
         for entry in lock.iter() {
             if entry.name == name {
                 return entry.data.to_vec()
@@ -83,7 +86,7 @@ impl Storage for MyStorage {
     }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let mut lock = self.entries.lock().unwrap();
+        let mut lock = unwrap_result!(self.entries.lock());
         lock.push(Entry { name : name, data : data })
     }
 }
@@ -97,7 +100,7 @@ fn new_read() {
     let my_storage = Arc::new(MyStorage::new());
     let original = random_bytes(content_len);
     {
-        let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
+        let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
         se.write(&original, 0);
         {
             let decrypted = se.read(read_position as u64, read_size as u64);
@@ -180,7 +183,7 @@ fn write_random_sizes_at_random_positions() {
             let post_position: u64 = overlap.0 + overlap.1.len() as u64;
             let mut wtotal: u64 = 0;
 
-            let mut se = SelfEncryptor::new(my_storage.clone(), datamap::DataMap::None);
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             for element in broken_data.iter() {
                 se.write(element.1, element.0);
                 wtotal += element.1.len() as u64;
@@ -210,7 +213,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
     let mut rng = thread_rng();
     let mut total_size = 0u64;
-    let mut data_map = datamap::DataMap::None;
+    let mut data_map = DataMap::None;
     let mut original = vec![0u8; DATA_SIZE as usize];
 
     {
@@ -281,7 +284,7 @@ fn cross_platform_check() {
     chars2[0] = 2;
 
     let storage = Arc::new(MyStorage::new());
-    let mut data_map = datamap::DataMap::None;
+    let mut data_map = DataMap::None;
 
     {
         let mut self_encryptor = SelfEncryptor::new(storage.clone(), data_map);

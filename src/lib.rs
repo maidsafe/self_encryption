@@ -107,21 +107,26 @@
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
         unused_comparisons, unused_features, unused_parens, while_true)]
 #![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-        unused_qualifications, unused_results, variant_size_differences)]
+        unused_qualifications, unused_results)]
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
-         missing_debug_implementations)]
+         missing_debug_implementations, variant_size_differences)]
 
 extern crate asynchronous;
+extern crate flate2;
+#[macro_use]
+#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
+extern crate maidsafe_utilities;
+extern crate memmap;
+#[cfg(test)]
+extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
-extern crate memmap as mmap;
-extern crate flate2;
 
 // This is pub to test the tests directory integration tests; these are temporary and need to be
 // replaced with actual integration tests. This should be private
 mod encryption;
 /// Information required to recover file content from chunks.
-pub mod datamap;
+mod datamap;
 
 use std::cmp;
 use std::fmt::{Debug, Formatter, self};
@@ -132,29 +137,29 @@ use std::error::Error;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use asynchronous::{ControlFlow, Deferred};
-use sodiumoxide::crypto::hash::sha512;
 use encryption::{IV_SIZE, Iv, KEY_SIZE, Key, decrypt, encrypt};
-use datamap::DataMap;
-use mmap::{Mmap, Protection};
-use flate2::write::DeflateEncoder;
-use flate2::read::DeflateDecoder;
 use flate2::Compression;
+use flate2::read::DeflateDecoder;
+use flate2::write::DeflateEncoder;
+use memmap::{Mmap, Protection};
+use sodiumoxide::crypto::hash::sha512;
+
+pub use datamap::{DataMap, ChunkDetails};
 
 const HASH_SIZE: usize = sha512::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
-
 const MAX_IN_MEMORY_SIZE: usize = 50 * (1 << 20);
+
 /// MAX_MEMORY_MAP_SIZE defined as 1GB.
 pub const MAX_MEMORY_MAP_SIZE: usize = 1 << 30;
-
-struct Pad(pub [u8; PAD_SIZE]);
-
 /// MAX_CHUNK_SIZE defined as 1MB.
 pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
 /// MIN_CHUNK_SIZE defined as 1KB.
 pub const MIN_CHUNK_SIZE: u32 = 1024;
 
-/// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
+struct Pad(pub [u8; PAD_SIZE]);
+
+// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
 fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
     data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
@@ -390,7 +395,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             sequencer = Sequencer::as_vector();
         } else {
-            sequencer = Sequencer::as_mmap().unwrap();
+            sequencer = unwrap_result!(Sequencer::as_mmap());
         }
 
         match datamap {
@@ -481,7 +486,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         } else {
             // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
             let real_chunk_count = self.get_num_chunks();
-            let mut tmp_chunks = vec![datamap::ChunkDetails::new(); real_chunk_count as usize];
+            let mut tmp_chunks = vec![ChunkDetails::new(); real_chunk_count as usize];
 
             let mut vec_deferred = Vec::new();
             for chunk in self.chunks.iter() {
@@ -539,7 +544,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     let chunk_number = chunk.number;
                     let def = self.encrypt_chunk(chunk.number, tmp)
                                   .chain::<_, String, _>(move |res| {
-                                      let content = res.unwrap();
+                                      let content = unwrap_result!(res);
                                       let sha512::Digest(name) = sha512::hash(&content);
                                       storage.put(name.to_vec(), content);
                                       Ok((chunk_number, name))
@@ -626,7 +631,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     if itr.location == ChunkLocation::Remote {
                         vec_deferred.push(self.decrypt_chunk(i)
                                               .chain::<_, String, _>(move |res| {
-                                                  Ok((pos, res.unwrap()))
+                                                  Ok((pos, unwrap_result!(res)))
                                               }));
                     }
                     found = true;
@@ -649,9 +654,8 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         }
-        for (pos, vec) in Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
-                              .sync()
-                              .unwrap() {
+        for (pos, vec) in unwrap_result!(Deferred::vec_to_promise(vec_deferred, ControlFlow::ParallelCPUS)
+                              .sync()) {
             let mut pos_aux = pos;
             for &byte in &vec {
                 self.sequencer[pos_aux as usize] = byte;
@@ -843,18 +847,16 @@ impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
 
 #[cfg(test)]
 mod test {
-    extern crate rand;
-
     use super::*;
     use std::sync::{Arc, Mutex};
-    use datamap::DataMap;
-    use self::rand::distributions::{Range, Sample};
-    use self::rand::thread_rng;
+    use rand::distributions::{Range, Sample};
+    use rand::{random, thread_rng};
+    use maidsafe_utilities::serialisation;
 
     fn random_bytes(length: usize) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::with_capacity(length);
         for _ in 0..length {
-            bytes.push(rand::random::<u8>());
+            bytes.push(random::<u8>());
         }
         bytes
     }
@@ -874,7 +876,7 @@ mod test {
         }
 
         pub fn has_chunk(&self, name: &[u8]) -> bool {
-            let lock = self.entries.lock().unwrap();
+            let lock = unwrap_result!(self.entries.lock());
             for entry in lock.iter() {
                 if entry.name == name {
                     return true;
@@ -884,14 +886,14 @@ mod test {
         }
 
         pub fn num_entries(&self) -> usize {
-            let lock = self.entries.lock().unwrap();
+            let lock = unwrap_result!(self.entries.lock());
             lock.len()
         }
     }
 
     impl Storage for MyStorage {
         fn get(&self, name: Vec<u8>) -> Vec<u8> {
-            let lock = self.entries.lock().unwrap();
+            let lock = unwrap_result!(self.entries.lock());
             for entry in lock.iter() {
                 if entry.name == name {
                     return entry.data.to_vec();
@@ -902,7 +904,7 @@ mod test {
         }
 
         fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-            let mut lock = self.entries.lock().unwrap();
+            let mut lock = unwrap_result!(self.entries.lock());
             lock.push(Entry {
                 name: name,
                 data: data,
@@ -925,10 +927,10 @@ mod test {
         let mut data: Vec<u8> = vec![];
         let mut pad = [0u8; super::PAD_SIZE];
         for _ in 0..800 {
-            data.push(rand::random::<u8>());
+            data.push(random::<u8>());
         }
         for i in 0..super::PAD_SIZE {
-            pad[i] = rand::random::<u8>();
+            pad[i] = random::<u8>();
         }
         assert_eq!(data,
                    super::xor(&super::xor(&data, &super::Pad(pad)), &super::Pad(pad)));
@@ -1454,28 +1456,9 @@ mod test {
         assert!(&part2_bytes[..] == &fetched[part1_len as usize ..]);
     }
 
-    // Definitions for testing serialisation of a vector
-    extern crate cbor;
-    use self::cbor::{Decoder, Encoder, CborError};
-
-    pub fn serialise<T>(data: &T) -> Result<Vec<u8>, CborError>
-        where T: ::rustc_serialize::Encodable
-    {
-        let mut encoder = Encoder::from_memory();
-        try!(encoder.encode(&[data]));
-        Ok(encoder.into_bytes())
-    }
-
-    pub fn deserialise<T>(data: &[u8]) -> Result<T, CborError>
-        where T: ::rustc_serialize::Decodable
-    {
-        let mut decoder = Decoder::from_bytes(data);
-        decoder.decode().next().unwrap()
-    }
-
     fn create_vector_data_map(storage: Arc<MyStorage>, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
-        let serialised_data: Vec<u8> = serialise(&data)
+        let serialised_data: Vec<u8> = serialisation::serialise(&data)
                                            .ok()
                                            .expect("failed to serialise Vec<usize>");
         let mut self_encryptor = SelfEncryptor::new(storage, DataMap::None);
@@ -1488,7 +1471,7 @@ mod test {
         let mut self_encryptor = SelfEncryptor::new(storage, datamap.clone());
         let length = self_encryptor.len();
         let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length);
-        let data: Vec<usize> = deserialise(&data_to_deserialise)
+        let data: Vec<usize> = serialisation::deserialise(&data_to_deserialise)
                                    .ok()
                                    .expect("failed to deserialise Vec<usize>");
         assert_eq!(data.len(), vec_len);

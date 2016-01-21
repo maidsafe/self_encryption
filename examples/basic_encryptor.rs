@@ -52,7 +52,7 @@ use self_encryption::{DataMap, SelfEncryptor, Storage};
 // basic_encryptor -e filename
 // basic_encryptor -d datamap destination
 // basic_encryptor -h | --help
-#[rustfmt_skip]
+#[cfg_attr(rustfmt, rustfmt_skip)]
 static USAGE: &'static str = "
 Usage: basic_encryptor -h
        basic_encryptor -e <target>

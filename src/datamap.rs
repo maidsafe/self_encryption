@@ -40,7 +40,7 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     if input_ref.len() <= 6 {
         let mut ret = String::new();
         for byte in input_ref.iter() {
-            write!(ret, "{:02x}", byte).unwrap();
+            unwrap_result!(write!(ret, "{:02x}", byte));
         }
         return ret;
     }

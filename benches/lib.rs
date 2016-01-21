@@ -67,7 +67,7 @@ impl MyStorage {
     }
 
     // pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-    //     let lock = self.entries.lock().unwrap();
+    //     let lock = unwrap_result!(self.entries.lock());
     //     for entry in lock.iter() {
     //         if entry.name == name { return true }
     //     }
@@ -77,7 +77,7 @@ impl MyStorage {
 
 impl Storage for MyStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        let lock = self.entries.lock().unwrap();
+        let lock = unwrap_result!(self.entries.lock());
         for entry in lock.iter() {
             if entry.name == name {
                 return entry.data.to_vec()
@@ -88,7 +88,7 @@ impl Storage for MyStorage {
     }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let mut lock = self.entries.lock().unwrap();
+        let mut lock = unwrap_result!(self.entries.lock());
         lock.push(Entry { name : name, data : data })
     }
 }
