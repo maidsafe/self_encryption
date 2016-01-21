@@ -35,72 +35,19 @@ extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
 
-use self_encryption::{DataMap, SelfEncryptor, Storage, MAX_CHUNK_SIZE};
 use rand::{Rng, thread_rng};
-use std::sync::{Arc, Mutex};
-
-fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(length);
-    for _ in 0..length {
-        bytes.push(rand::random::<u8>());
-    }
-    bytes
-}
+use std::sync::Arc;
+use self_encryption::{DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
+use self_encryption::test_helpers::{random_bytes, SimpleStorage};
 
 const DATA_SIZE: u64 = 20 * 1024 * 1024;
-
-pub struct Entry {
-    name: Vec<u8>,
-    data: Vec<u8>,
-}
-
-pub struct MyStorage {
-    entries: Arc<Mutex<Vec<Entry>>>,
-}
-
-impl MyStorage {
-    pub fn new() -> MyStorage {
-        MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
-    }
-
-    pub fn has_chunk(&self, name: Vec<u8>) -> bool {
-        let lock = unwrap_result!(self.entries.lock());
-        for entry in lock.iter() {
-            if entry.name == name {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-impl Storage for MyStorage {
-    fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        let lock = unwrap_result!(self.entries.lock());
-        for entry in lock.iter() {
-            if entry.name == name {
-                return entry.data.to_vec();
-            }
-        }
-        vec![]
-    }
-
-    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let mut lock = unwrap_result!(self.entries.lock());
-        lock.push(Entry {
-            name: name,
-            data: data,
-        })
-    }
-}
-
 
 #[test]
 fn new_read() {
     let read_size: usize = 4096;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let original = random_bytes(content_len);
     {
         let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
@@ -149,7 +96,7 @@ fn new_read() {
 #[test]
 fn write_random_sizes_at_random_positions() {
     let mut rng = thread_rng();
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let max_broken_size: u64 = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
@@ -213,7 +160,7 @@ fn write_random_sizes_at_random_positions() {
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
 fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let parts = 20usize;
     assert!(DATA_SIZE / MAX_CHUNK_SIZE as u64 >= parts as u64);
     let mut rng = thread_rng();
@@ -280,7 +227,7 @@ fn cross_platform_check() {
     chars1[0] = 1;
     chars2[0] = 2;
 
-    let storage = Arc::new(MyStorage::new());
+    let storage = Arc::new(SimpleStorage::new());
     let mut data_map = DataMap::None;
 
     {
@@ -291,6 +238,7 @@ fn cross_platform_check() {
         data_map = self_encryptor.close();
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     static EXPECTED_HASHES: [[u8; 64]; 3] = [
         [198, 17, 142, 162, 198, 236, 240, 105, 107, 167, 1, 220, 23, 171, 79, 235, 201, 135, 157,
          35, 171, 206, 46, 136, 247, 99, 36, 151, 71, 164, 96, 65, 212, 35, 142, 81, 75, 13, 190,

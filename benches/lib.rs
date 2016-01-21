@@ -35,64 +35,17 @@
 #[macro_use]
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
 extern crate maidsafe_utilities;
-extern crate rand;
 extern crate self_encryption;
 extern crate test;
 
 use test::Bencher;
-use self_encryption::{DataMap, SelfEncryptor, Storage};
-use std::sync::{Arc, Mutex};
-
-// TODO: replace copy from src/lib.rs mod test to properly import and reuse
-
-fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(length);
-    for _ in 0..length {
-        bytes.push(rand::random::<u8>());
-    }
-    bytes
-}
-
-struct Entry {
-    name: Vec<u8>,
-    data: Vec<u8>,
-}
-
-struct MyStorage {
-    entries: Arc<Mutex<Vec<Entry>>>,
-}
-
-impl MyStorage {
-    pub fn new() -> MyStorage {
-        MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
-    }
-}
-
-impl Storage for MyStorage {
-    fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        let lock = unwrap_result!(self.entries.lock());
-        for entry in lock.iter() {
-            if entry.name == name {
-                return entry.data.to_vec();
-            }
-        }
-
-        vec![]
-    }
-
-    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let mut lock = unwrap_result!(self.entries.lock());
-        lock.push(Entry {
-            name: name,
-            data: data,
-        })
-    }
-}
-// end of copy from src/lib.rs
+use self_encryption::{DataMap, SelfEncryptor};
+use self_encryption::test_helpers::{random_bytes, SimpleStorage};
+use std::sync::Arc;
 
 #[bench]
 fn write_then_read_200_bytes(b: &mut Bencher) {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let bytes_len = 200;
     b.iter(|| {
         let data_map: DataMap;
@@ -111,7 +64,7 @@ fn write_then_read_200_bytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_1_kilobyte(b: &mut Bencher) {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let bytes_len = 1024;
     b.iter(|| {
         let data_map: DataMap;
@@ -130,7 +83,7 @@ fn write_then_read_1_kilobyte(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_1_megabyte(b: &mut Bencher) {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let bytes_len = 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
@@ -149,7 +102,7 @@ fn write_then_read_1_megabyte(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_3_megabytes(b: &mut Bencher) {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let bytes_len = 3 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
@@ -168,7 +121,7 @@ fn write_then_read_3_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_10_megabytes(b: &mut Bencher) {
-    let my_storage = Arc::new(MyStorage::new());
+    let my_storage = Arc::new(SimpleStorage::new());
     let bytes_len = 10 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
@@ -187,7 +140,7 @@ fn write_then_read_10_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_100_megabytes(b: &mut Bencher) {
-    let storage = Arc::new(MyStorage::new());
+    let storage = Arc::new(SimpleStorage::new());
     let bytes_len = 100 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
@@ -206,7 +159,7 @@ fn write_then_read_100_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_range(b: &mut Bencher) {
-    let storage = Arc::new(MyStorage::new());
+    let storage = Arc::new(SimpleStorage::new());
     let string_range = vec![512 * 1024,
                             1 * 1024 * 1024,
                             2 * 1024 * 1024,

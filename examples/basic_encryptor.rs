@@ -92,11 +92,11 @@ fn file_name(name: &Vec<u8>) -> String {
     string
 }
 
-struct MyStorage {
+struct DiskBasedStorage {
     pub storage_path: String,
 }
 
-impl Storage for MyStorage {
+impl Storage for DiskBasedStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
         let pathstr = file_name(&name);
         let tmpname = self.storage_path.clone() + &pathstr;
@@ -138,7 +138,7 @@ fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let my_storage = Arc::new(MyStorage {
+    let my_storage = Arc::new(DiskBasedStorage {
         storage_path: unwrap_option!(chunk_store_dir.to_str(), "").to_owned(),
     });
     let mut data_map_file = chunk_store_dir;

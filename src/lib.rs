@@ -40,43 +40,40 @@
 //! ```
 //! # #![allow(dead_code)]
 //! extern crate self_encryption;
-//! use std::sync::{Arc,Mutex};
+//! use std::sync::{Arc, Mutex};
 //!
 //! struct Entry {
 //!     name: Vec<u8>,
 //!     data: Vec<u8>
 //! }
 //!
-//! struct MyStorage {
+//! struct SimpleStorage {
 //!     entries: Arc<Mutex<Vec<Entry>>>
 //! }
 //!
-//! impl MyStorage {
-//!     fn new() -> MyStorage {
-//!         MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
+//! impl SimpleStorage {
+//!     fn new() -> SimpleStorage {
+//!         SimpleStorage { entries: Arc::new(Mutex::new(Vec::new())) }
 //!     }
+//! }
 //!
-//!     fn has_chunk(&self, name: &[u8]) -> bool {
-//!         let lock = self.entries.lock().unwrap();
-//!         for entry in lock.iter() {
-//!             if entry.name == name { return true }
-//!         }
-//!         false
-//!     }
-//!  }
-//!
-//!  impl self_encryption::Storage for MyStorage {
+//! impl self_encryption::Storage for SimpleStorage {
 //!     fn get(&self, name: Vec<u8>) -> Vec<u8> {
 //!         let lock = self.entries.lock().unwrap();
 //!         for entry in lock.iter() {
-//!             if entry.name == name { return entry.data.to_vec() }
+//!             if entry.name == name {
+//!                 return entry.data.to_vec();
+//!             }
 //!         }
 //!         vec![]
 //!     }
 //!
 //!     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
 //!         let mut lock = self.entries.lock().unwrap();
-//!         lock.push(Entry { name : name, data : data })
+//!         lock.push(Entry {
+//!             name: name,
+//!             data: data,
+//!         })
 //!     }
 //! }
 //! ```
@@ -118,15 +115,12 @@ extern crate flate2;
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
 extern crate maidsafe_utilities;
 extern crate memmap;
-#[cfg(test)]
 extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
 
-// This is pub to test the tests directory integration tests; these are temporary and need to be
-// replaced with actual integration tests. This should be private
+pub mod test_helpers;
 mod encryption;
-/// Information required to recover file content from chunks.
 mod datamap;
 
 use std::cmp;
@@ -847,72 +841,14 @@ impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use std::sync::{Arc, Mutex};
+    use maidsafe_utilities::serialisation;
     use rand::distributions::{Range, Sample};
     use rand::{random, thread_rng};
-    use maidsafe_utilities::serialisation;
+    use std::sync::Arc;
+    use super::*;
+    use test_helpers::{random_bytes, SimpleStorage};
 
-    fn random_bytes(length: usize) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::with_capacity(length);
-        for _ in 0..length {
-            bytes.push(random::<u8>());
-        }
-        bytes
-    }
-
-    pub struct Entry {
-        name: Vec<u8>,
-        data: Vec<u8>,
-    }
-
-    pub struct MyStorage {
-        entries: Arc<Mutex<Vec<Entry>>>,
-    }
-
-    impl MyStorage {
-        pub fn new() -> MyStorage {
-            MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }
-        }
-
-        pub fn has_chunk(&self, name: &[u8]) -> bool {
-            let lock = unwrap_result!(self.entries.lock());
-            for entry in lock.iter() {
-                if entry.name == name {
-                    return true;
-                }
-            }
-            false
-        }
-
-        pub fn num_entries(&self) -> usize {
-            let lock = unwrap_result!(self.entries.lock());
-            lock.len()
-        }
-    }
-
-    impl Storage for MyStorage {
-        fn get(&self, name: Vec<u8>) -> Vec<u8> {
-            let lock = unwrap_result!(self.entries.lock());
-            for entry in lock.iter() {
-                if entry.name == name {
-                    return entry.data.to_vec();
-                }
-            }
-
-            vec![]
-        }
-
-        fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-            let mut lock = unwrap_result!(self.entries.lock());
-            lock.push(Entry {
-                name: name,
-                data: data,
-            })
-        }
-    }
-
-    fn check_file_size(se: &SelfEncryptor<MyStorage>, expected_file_size: u64) {
+    fn check_file_size(se: &SelfEncryptor<SimpleStorage>, expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
         if let DataMap::Chunks(ref chunk_details) = se.datamap {
             let chunks_cumulated_size = chunk_details.iter().fold(0u64, |acc, chunk| {
@@ -938,7 +874,7 @@ mod test {
 
     #[test]
     fn write() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let mut se = SelfEncryptor::new(my_storage, DataMap::None);
         let size = 3u64;
         let offset = 5u64;
@@ -949,7 +885,7 @@ mod test {
 
     #[test]
     fn multiple_writes() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
         let size1 = 3u64;
         let size2 = 4u64;
@@ -973,7 +909,7 @@ mod test {
 
     #[test]
     fn three_min_chunks_minus_one() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) - 1;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1005,7 +941,7 @@ mod test {
 
     #[test]
     fn three_min_chunks() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
         {
@@ -1048,7 +984,7 @@ mod test {
 
     #[test]
     fn three_min_chunks_plus_one() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1092,7 +1028,7 @@ mod test {
 
     #[test]
     fn three_max_chunks() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1135,7 +1071,7 @@ mod test {
 
     #[test]
     fn three_max_chunks_plus_one() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1184,7 +1120,7 @@ mod test {
 
     #[test]
     fn seven_and_a_bit_max_chunks() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE as u64 * 7) + 1024;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1232,7 +1168,7 @@ mod test {
 
     #[test]
     fn large_file_one_byte_under_eleven_chunks() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) - 1;
@@ -1264,7 +1200,7 @@ mod test {
 
     #[test]
     fn large_file_one_byte_over_eleven_chunks() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1;
@@ -1298,7 +1234,7 @@ mod test {
     #[test]
     fn large_file_size_1024_over_eleven_chunks() {
         // has been tested for 50 chunks
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
@@ -1349,7 +1285,7 @@ mod test {
 
     #[test]
     fn five_and_extend_to_seven_plus_one() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE as u64 * 5;
         let the_bytes = random_bytes(bytes_len as usize);
@@ -1378,7 +1314,7 @@ mod test {
 
     #[test]
     fn large_100mb_file() {
-        let storage = Arc::new(MyStorage::new());
+        let storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
         let number_of_chunks: u32 = 100;
         let bytes_len = MAX_CHUNK_SIZE as usize * number_of_chunks as usize;
@@ -1427,7 +1363,7 @@ mod test {
 
     #[test]
     fn write_starting_with_existing_datamap() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let part1_len = MIN_CHUNK_SIZE as u64 * 3;
         let part1_bytes = random_bytes(part1_len as usize);
         let data_map: DataMap;
@@ -1456,7 +1392,7 @@ mod test {
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
-    fn create_vector_data_map(storage: Arc<MyStorage>, vec_len: usize) -> DataMap {
+    fn create_vector_data_map(storage: Arc<SimpleStorage>, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
         let serialised_data: Vec<u8> = serialisation::serialise(&data)
                                            .ok()
@@ -1467,7 +1403,7 @@ mod test {
         self_encryptor.close()
     }
 
-    fn check_vector_data_map(storage: Arc<MyStorage>, vec_len: usize, datamap: &DataMap) {
+    fn check_vector_data_map(storage: Arc<SimpleStorage>, vec_len: usize, datamap: &DataMap) {
         let mut self_encryptor = SelfEncryptor::new(storage, datamap.clone());
         let length = self_encryptor.len();
         let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length);
@@ -1484,7 +1420,7 @@ mod test {
     fn serialised_vectors() {
         for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000,
                             1_000_000] {
-            let storage = Arc::new(MyStorage::new());
+            let storage = Arc::new(SimpleStorage::new());
             let datamap: DataMap = create_vector_data_map(storage.clone(), vec_len);
             check_vector_data_map(storage.clone(), vec_len, &datamap);
         }
@@ -1492,7 +1428,7 @@ mod test {
 
     #[test]
     fn get_chunk_number() {
-        let my_storage = Arc::new(MyStorage::new());
+        let my_storage = Arc::new(SimpleStorage::new());
         let mut se = SelfEncryptor::new(my_storage, DataMap::None);
         // Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.
         let mut min_test_size = 0;
