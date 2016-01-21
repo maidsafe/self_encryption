@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `self_encryption` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, self_encryption">
+
+    <title>self_encryption - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    <link rel="shortcut icon" href="http://maidsafe.net/img/favicon.ico">
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        <a href='../self_encryption/index.html'><img src='https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png' alt='' width='100'></a>
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'self_encryption', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>self_encryption</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/self_encryption/lib.rs.html#18-1372' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A file <strong>content</strong> self encryptor</p>
+
+<p>This library will provide convergent encryption on file based data and produce a <code>DataMap</code> type
+and several chunks of data. Each chunk is max 1Mb in size and has a name. This name is the
+<code>Sha512</code> of the content, this allows the chunks to be confirmed. If size and hash
+checks are utilised, a high degree of certainty in the validity of the data can be expected.</p>
+
+<p><a href="https://github.com/dirvine/self_encryption">Project github page</a></p>
+
+<h1 id='use' class='section-header'><a href='#use'>Use</a></h1>
+<p>To use this lib you must implement a trait with two functions, these are to allow <code>get_chunk</code>
+and <code>put_chunk</code> from storage. This must be set up by implementing the Storage trait (see below);</p>
+
+<p>The trait can allow chunks to be stored in a key value store, disk, vector (as per example
+below), or a network based DHT.</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<p>This is a simple setup for a memory based chunk store. A working implementation can be found
+in the test crate of this project.</p>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>self_encryption</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::{<span class='ident'>Arc</span>,<span class='ident'>Mutex</span>};
+
+<span class='kw'>struct</span> <span class='ident'>Entry</span> {
+    <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>,
+    <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>
+}
+
+<span class='kw'>struct</span> <span class='ident'>MyStorage</span> {
+    <span class='ident'>entries</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Mutex</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Entry</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>
+}
+
+<span class='kw'>impl</span> <span class='ident'>MyStorage</span> {
+    <span class='kw'>fn</span> <span class='ident'>new</span>() <span class='op'>-&gt;</span> <span class='ident'>MyStorage</span> {
+        <span class='ident'>MyStorage</span> { <span class='ident'>entries</span>: <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>Mutex</span>::<span class='ident'>new</span>(<span class='ident'>Vec</span>::<span class='ident'>new</span>())) }
+    }
+
+    <span class='kw'>fn</span> <span class='ident'>has_chunk</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>let</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
+        <span class='kw'>for</span> <span class='ident'>entry</span> <span class='kw'>in</span> <span class='ident'>lock</span>.<span class='ident'>iter</span>() {
+            <span class='kw'>if</span> <span class='ident'>entry</span>.<span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>name</span> { <span class='kw'>return</span> <span class='boolval'>true</span> }
+        }
+        <span class='boolval'>false</span>
+    }
+ }
+
+ <span class='kw'>impl</span> <span class='ident'>self_encryption</span>::<span class='ident'>Storage</span> <span class='kw'>for</span> <span class='ident'>MyStorage</span> {
+    <span class='kw'>fn</span> <span class='ident'>get</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+        <span class='kw'>let</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
+        <span class='kw'>for</span> <span class='ident'>entry</span> <span class='kw'>in</span> <span class='ident'>lock</span>.<span class='ident'>iter</span>() {
+            <span class='kw'>if</span> <span class='ident'>entry</span>.<span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>name</span> { <span class='kw'>return</span> <span class='ident'>entry</span>.<span class='ident'>data</span>.<span class='ident'>to_vec</span>() }
+        }
+        <span class='macro'>vec</span><span class='macro'>!</span>[]
+    }
+
+    <span class='kw'>fn</span> <span class='ident'>put</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) {
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
+        <span class='ident'>lock</span>.<span class='ident'>push</span>(<span class='ident'>Entry</span> { <span class='ident'>name</span> : <span class='ident'>name</span>, <span class='ident'>data</span> : <span class='ident'>data</span> })
+    }
+}</pre>
+
+<p>Use of this setup would be to implement a self encryptor e.g  <code>let mut se = SelfEncryptor::new(my_storage, datamap::DataMap::None);</code></p>
+
+<p>Then call write (and read after write)…etc… on the encryptor. The <code>close()</code> method will return
+a <code>DataMap</code>. This can be passed to create a new encryptor to access the content <code>let data_map = se.close();</code></p>
+
+<p>This is then used to open the data content in future sessions; e.g. <code>let mut self_encryptor = SelfEncryptor::new(my_storage, data_map);</code> where the <code>data_map</code> is the object returned
+from the <code>close()</code> call of previous use of this file content via the self_encryptor. Storage of
+the <code>DataMap</code> is out with the scope of this library and must be implemented by the user.</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='datamap/index.html'
+                               title='self_encryption::datamap'>datamap</a></td>
+                        <td class='docblock short'>
+                             <p>Information required to recover file content from chunks.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.SelfEncryptor.html'
+                               title='self_encryption::SelfEncryptor'>SelfEncryptor</a></td>
+                        <td class='docblock short'>
+                             <p>This is the encryption object and all file handling should be done using this object as the low
+level mechanism to read and write <em>content</em>. This library has no knowledge of file metadata.
+This is a library to ensure content is secured.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Sequencer.html'
+                               title='self_encryption::Sequencer'>Sequencer</a></td>
+                        <td class='docblock short'>
+                             <p>Optionally create a sequence of bytes via a vector or memory map.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.MAX_CHUNK_SIZE.html'
+                               title='self_encryption::MAX_CHUNK_SIZE'>MAX_CHUNK_SIZE</a></td>
+                        <td class='docblock short'>
+                             <p>MAX_CHUNK_SIZE defined as 1MB.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.MAX_MEMORY_MAP_SIZE.html'
+                               title='self_encryption::MAX_MEMORY_MAP_SIZE'>MAX_MEMORY_MAP_SIZE</a></td>
+                        <td class='docblock short'>
+                             <p>MAX_MEMORY_MAP_SIZE defined as 1GB.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.MIN_CHUNK_SIZE.html'
+                               title='self_encryption::MIN_CHUNK_SIZE'>MIN_CHUNK_SIZE</a></td>
+                        <td class='docblock short'>
+                             <p>MIN_CHUNK_SIZE defined as 1KB.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.Storage.html'
+                               title='self_encryption::Storage'>Storage</a></td>
+                        <td class='docblock short'>
+                             <p>Storage traits of SelfEncryptor. Data stored in Storage is encrypted, name is the SHA512 hash
+of content. Storage can be in-memory HashMap or disk based</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "self_encryption";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

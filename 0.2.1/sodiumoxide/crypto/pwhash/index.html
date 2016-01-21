@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `pwhash` mod in crate `sodiumoxide`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, pwhash">
+
+    <title>sodiumoxide::crypto::pwhash - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>sodiumoxide</a>::<wbr><a href='../index.html'>crypto</a></p><script>window.sidebarCurrent = {name: 'pwhash', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press 'S' to search, '?' for more options..."
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../../index.html'>sodiumoxide</a>::<wbr><a href='../index.html'>crypto</a>::<wbr><a class='mod' href=''>pwhash</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-7271' class='srclink' href='../../../src/sodiumoxide/crypto/pwhash/mod.rs.html#1-27' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Password Hashing</p>
+
+<p>Secret keys used to encrypt or sign confidential data have to be chosen from
+a very large keyspace. However, passwords are usually short, human-generated
+strings, making dictionary attacks practical.</p>
+
+<p>The pwhash operation derives a secret key of any size from a password and a
+salt.</p>
+
+<ul>
+<li>The generated key has the size defined by the application, no matter what
+the password length is.</li>
+<li>The same password hashed with same parameters will
+always produce the same key.</li>
+<li>The same password hashed with different salts
+will produce different keys.</li>
+<li>The function deriving a key from a password
+and a salt is CPU intensive and intentionally requires a fair amount of
+memory. Therefore, it mitigates brute-force attacks by requiring a
+significant effort to verify each password.</li>
+</ul>
+
+<p>Common use cases:</p>
+
+<ul>
+<li>Protecting an on-disk secret key with a password,</li>
+<li>Password storage, or rather: storing what it takes to verify a password
+without having to store the actual password.</li>
+</ul>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use self::<a class='mod' href='../../../sodiumoxide/crypto/pwhash/scryptsalsa208sha256/index.html' title='sodiumoxide::crypto::pwhash::scryptsalsa208sha256'>scryptsalsa208sha256</a>::*;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='scryptsalsa208sha256/index.html'
+                               title='sodiumoxide::crypto::pwhash::scryptsalsa208sha256'>scryptsalsa208sha256</a></td>
+                        <td class='docblock short'>
+                             <p><code>crypto_pwhash_scryptsalsa208sha256</code>, a particular combination of Scrypt, Salsa20/8
+and SHA-256</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div class="shortcuts">
+            <h1>Keyboard shortcuts</h1>
+            <dl>
+                <dt>?</dt>
+                <dd>Show this help dialog</dd>
+                <dt>S</dt>
+                <dd>Focus the search field</dd>
+                <dt>&larrb;</dt>
+                <dd>Move up in search results</dd>
+                <dt>&rarrb;</dt>
+                <dd>Move down in search results</dd>
+                <dt>&#9166;</dt>
+                <dd>Go to active search result</dd>
+            </dl>
+        </div>
+        <div class="infos">
+            <h1>Search tricks</h1>
+            <p>
+                Prefix searches with a type followed by a colon (e.g.
+                <code>fn:</code>) to restrict the search to a given type.
+            </p>
+            <p>
+                Accepted types are: <code>fn</code>, <code>mod</code>,
+                <code>struct</code>, <code>enum</code>,
+                <code>trait</code>, <code>typedef</code> (or
+                <code>tdef</code>).
+            </p>
+            <p>
+                Search functions by type signature (e.g.
+                <code>vec -> usize</code>)
+            </p>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "sodiumoxide";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>
