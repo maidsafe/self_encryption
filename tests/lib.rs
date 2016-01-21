@@ -218,18 +218,12 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
 
     {
         let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
-        println!("");
-
-        for i in 0..parts {
+        for _ in 0..parts {
             // Get random values for the piece size and intended offset
             let piece_size = rng.gen_range(1, MAX_CHUNK_SIZE as usize + 1);
             let offset = rng.gen_range(0, DATA_SIZE - MAX_CHUNK_SIZE as u64);
             total_size = std::cmp::max(total_size, offset + piece_size as u64);
             assert!(DATA_SIZE >= total_size);
-            println!("{}\tWriting {} bytes.\tOffset {} bytes.\tTotal size now {} bytes.",
-                    i,
-                    piece_size,
-                    offset, total_size);
 
             // Create the random piece and copy to the comparison vector.
             let piece = random_bytes(piece_size);
@@ -255,8 +249,6 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         // again.
         data_map = self_encryptor.close();
     }
-
-    println!("Reloading data map...");
 
     let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE);

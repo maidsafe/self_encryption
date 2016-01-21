@@ -38,6 +38,7 @@
 //! in the test crate of this project.
 //!
 //! ```
+//! # #![allow(dead_code)]
 //! extern crate self_encryption;
 //! use std::sync::{Arc,Mutex};
 //!
