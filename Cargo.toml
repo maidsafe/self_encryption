@@ -14,16 +14,16 @@ unstable = []
 
 [dependencies]
 asynchronous = "~0.4.5"
+flate2 = "~0.2.12"
+maidsafe_utilities = "~0.1.5"
+memmap = "~0.2.3"
+rand = "~0.3.13"
 rustc-serialize = "~0.3.16"
 sodiumoxide = "~0.0.9"
-flate2 = "~0.2.11"
-memmap = "~0.2.3"
 
 [dev-dependencies]
-tempdir = "~0.3.4"
-docopt = "~0.6.78"
-rand = "~0.3.12"
 cbor = "~0.3.16"
+docopt = "~0.6.78"
 
 [[example]]
 name = "basic_encryptor"
