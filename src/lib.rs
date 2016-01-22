@@ -1318,6 +1318,108 @@ mod test {
     }
 
     #[test]
+    fn truncate_three_max_chunks() {
+        let storage = Arc::new(SimpleStorage::new());
+        let data_map: DataMap;
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
+        let bytes = random_bytes(bytes_len as usize);
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            se.truncate(bytes_len - 24);
+            assert_eq!(se.get_num_chunks(), 3);
+            check_file_size(&se, bytes_len - 24);
+            data_map = se.close();
+        }
+        assert_eq!(data_map.len(), bytes_len - 24);
+        match data_map {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 3);
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map);
+        let fetched = se.read(0, bytes_len - 24);
+        assert!(&fetched[..] == &bytes[.. (bytes_len - 24) as usize]);
+    }
+
+    #[test]
+    fn truncate_from_datamap() {
+        let storage = Arc::new(SimpleStorage::new());
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
+        let bytes = random_bytes(bytes_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            data_map = se.close();
+        }
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(storage.clone(), data_map);
+            se.truncate(bytes_len - 24);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), bytes_len - 24);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 6);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map2);
+        let fetched = se.read(0, bytes_len - 24);
+        assert!(&fetched[..] == &bytes[.. (bytes_len - 24) as usize]);
+    }
+
+    #[test]
+    fn truncate_to_extend_from_datamap() {
+        let storage = Arc::new(SimpleStorage::new());
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3 - 24;
+        let bytes = random_bytes(bytes_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            data_map = se.close();
+        }
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(storage.clone(), data_map);
+            se.truncate(bytes_len + 24);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), bytes_len + 24);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 6);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map2);
+        let fetched = se.read(0, bytes_len + 24);
+        assert!(&fetched[.. bytes_len as usize] == &bytes[..]);
+        assert!(&fetched[bytes_len as usize ..] == &[0u8; 24]);
+    }
+
+    #[test]
     fn large_100mb_file() {
         let storage = Arc::new(SimpleStorage::new());
         let data_map: DataMap;
