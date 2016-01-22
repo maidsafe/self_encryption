@@ -31,6 +31,11 @@
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
 
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature="clippy", deny(clippy))]
+#![cfg_attr(feature="clippy", deny(clippy_pedantic))]
+
 extern crate docopt;
 #[macro_use]
 extern crate maidsafe_utilities;
@@ -41,7 +46,7 @@ use std::{env, fmt};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::PathBuf;
 use std::string::String;
 use std::sync::Arc;
 
@@ -75,19 +80,13 @@ struct Args {
 
 
 fn to_hex(ch: u8) -> String {
-    let hex = fmt::format(format_args!("{:x}", ch));
-    if hex.len() == 1 {
-        let s = "0".to_string();
-        s + &hex
-    } else {
-        hex
-    }
+    fmt::format(format_args!("{:02x}", ch))
 }
 
-fn file_name(name: &Vec<u8>) -> String {
+fn file_name(name: &[u8]) -> String {
     let mut string = String::new();
-    for i in 0..name.len() {
-        string.push_str(&to_hex(name[i]));
+    for ch in name {
+        string.push_str(&to_hex(*ch));
     }
     string
 }
@@ -96,11 +95,17 @@ struct DiskBasedStorage {
     pub storage_path: String,
 }
 
+impl DiskBasedStorage {
+    fn calculate_path(&self, name: Vec<u8>) -> PathBuf {
+        let mut path = PathBuf::from(self.storage_path.clone());
+        path.push(file_name(&name));
+        path
+    }
+}
+
 impl Storage for DiskBasedStorage {
     fn get(&self, name: Vec<u8>) -> Vec<u8> {
-        let pathstr = file_name(&name);
-        let tmpname = self.storage_path.clone() + &pathstr;
-        let path = Path::new(&tmpname);
+        let path = self.calculate_path(name);
         let display = path.display();
         let mut file = match File::open(&path) {
             Err(error) => panic!("Failed to open chunk at {} - {:?}", display, error),
@@ -112,9 +117,7 @@ impl Storage for DiskBasedStorage {
     }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let pathstr = file_name(&name);
-        let tmpname = self.storage_path.clone() + &pathstr;
-        let path = Path::new(&tmpname);
+        let path = self.calculate_path(name);
         let mut file = match File::create(&path) {
             Err(error) => panic!("Failed to create {:?} - {:?}", path, error),
             Ok(f) => f,
