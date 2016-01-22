@@ -564,26 +564,33 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         }
     }
 
-    /// Truncate the self_encryptor to the specified size (if extend, filled with 0u8).
-    pub fn truncate(&mut self, position: u64) -> bool {
+    /// Truncate the self_encryptor to the specified size (if extended, filled with 0u8).
+    //
+    // NOTE: Right now calls prepare_window with the full length of the truncated file
+    // because chunk sizes may change. Chunks that don't change don't actually need any
+    // treatment here so there's room for performance improvement, especially for large
+    // files.
+    pub fn truncate(&mut self, new_size: u64) -> bool {
+        if self.file_size == new_size {
+            return true;
+        }
         let old_size = self.file_size;
-        self.file_size = position;  //  All helper methods calculate from file size
-        if position < old_size {
-            self.sequencer.truncate(position as usize);
-            let last_chunk = self.get_chunk_number(position) + 1;
-            self.chunks.truncate(last_chunk as usize);
+        if new_size < old_size {
+            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.file_size = new_size;
+            self.sequencer.truncate(new_size as usize);
+            let num_chunks = self.get_num_chunks(); // call with updated self.file_size
+            self.chunks.truncate(num_chunks as usize);
         } else {
-            if self.file_size > old_size {
-                if self.file_size as usize > MAX_IN_MEMORY_SIZE &&
-                   self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
-                    match self.sequencer.create_mapping() {
-                        Ok(()) => (),
-                        Err(_) => return false,
-                    }
+            if new_size > MAX_IN_MEMORY_SIZE as u64 &&
+               self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
+                match self.sequencer.create_mapping() {
+                    Ok(()) => (),
+                    Err(_) => return false,
                 }
             }
-            // assert(position - old_size < std::numeric_limits<size_t>::max());
-            self.prepare_window((position - old_size), old_size);
+            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.file_size = new_size;
         }
 
         true
@@ -597,11 +604,11 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in
     /// any absent chunks from external storage.
     fn prepare_window(&mut self, length: u64, position: u64) {
-        if (length + position) as usize > self.sequencer.len() {
-            let tmp_size = self.sequencer.len();
-            self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
-        }
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+            if length + position > self.sequencer.len() as u64 {
+                let tmp_size = self.sequencer.len() as u64;
+                self.sequencer.extend(repeat(0).take((length + position - tmp_size) as usize));
+            }
             return;
         }
         let mut first_chunk = self.get_chunk_number(position);
@@ -616,6 +623,13 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         }
+        let last_chunks_end_pos = self.get_start_end_positions(last_chunk - 1).1;
+        let required_len = cmp::max(length + position, last_chunks_end_pos);
+        if required_len > self.sequencer.len() as u64 {
+            let current_len = self.sequencer.len() as u64;
+            self.sequencer.extend(repeat(0).take((required_len - current_len) as usize));
+        }
+
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
         for i in first_chunk..last_chunk {
