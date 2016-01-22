@@ -9,6 +9,7 @@
 
     <title>miniz_sys::mz_stream - Rust</title>
 
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../main.css">
 
     
@@ -47,17 +48,17 @@
             </a>
         </span><a id='src-25' class='srclink' href='../src/miniz_sys/lib.rs.html#30-49' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct mz_stream {
-    pub next_in: <a href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>,
+    pub next_in: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>,
     pub avail_in: <a class='type' href='../libc/type.c_uint.html' title='libc::c_uint'>c_uint</a>,
     pub total_in: <a class='type' href='../libc/unix/notbsd/linux/other/b64/type.c_ulong.html' title='libc::unix::notbsd::linux::other::b64::c_ulong'>c_ulong</a>,
-    pub next_out: <a href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>,
+    pub next_out: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>,
     pub avail_out: <a class='type' href='../libc/type.c_uint.html' title='libc::c_uint'>c_uint</a>,
     pub total_out: <a class='type' href='../libc/unix/notbsd/linux/other/b64/type.c_ulong.html' title='libc::unix::notbsd::linux::other::b64::c_ulong'>c_ulong</a>,
-    pub msg: <a href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a class='type' href='../libc/unix/notbsd/linux/other/b64/x86_64/type.c_char.html' title='libc::unix::notbsd::linux::other::b64::x86_64::c_char'>c_char</a></a>,
-    pub state: <a href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='enum' href='../miniz_sys/enum.mz_internal_state.html' title='miniz_sys::mz_internal_state'>mz_internal_state</a></a>,
+    pub msg: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a class='type' href='../libc/unix/notbsd/linux/other/b64/x86_64/type.c_char.html' title='libc::unix::notbsd::linux::other::b64::x86_64::c_char'>c_char</a></a>,
+    pub state: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='enum' href='../miniz_sys/enum.mz_internal_state.html' title='miniz_sys::mz_internal_state'>mz_internal_state</a></a>,
     pub zalloc: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='type' href='../miniz_sys/type.mz_alloc_func.html' title='miniz_sys::mz_alloc_func'>mz_alloc_func</a>&gt;,
     pub zfree: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='type' href='../miniz_sys/type.mz_free_func.html' title='miniz_sys::mz_free_func'>mz_free_func</a>&gt;,
-    pub opaque: <a href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='enum' href='../libc/enum.c_void.html' title='libc::c_void'>c_void</a></a>,
+    pub opaque: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='enum' href='../libc/enum.c_void.html' title='libc::c_void'>c_void</a></a>,
     pub data_type: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
     pub adler: <a class='type' href='../libc/unix/notbsd/linux/other/b64/type.c_ulong.html' title='libc::unix::notbsd::linux::other::b64::c_ulong'>c_ulong</a>,
     pub reserved: <a class='type' href='../libc/unix/notbsd/linux/other/b64/type.c_ulong.html' title='libc::unix::notbsd::linux::other::b64::c_ulong'>c_ulong</a>,
@@ -135,6 +136,6 @@
     <script src="../jquery.js"></script>
     <script src="../main.js"></script>
     
-    <script async src="../search-index.js"></script>
+    <script defer src="../search-index.js"></script>
 </body>
 </html>

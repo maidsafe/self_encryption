@@ -4,11 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-0a35038f75765ae4/regex-0.1.46/src/lib.rs`.">
+    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-88ac128001ac3a9a/regex-0.1.47/src/lib.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>lib.rs.html -- source</title>
 
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
 
     <link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico">
@@ -478,6 +479,8 @@
 <span id="436">436</span>
 <span id="437">437</span>
 <span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2014-2015 The Rust Project Developers. See the COPYRIGHT</span>
 <span class='comment'>// file at the top-level directory of this distribution and at</span>
@@ -901,6 +904,7 @@
 <span class='kw'>mod</span> <span class='ident'>char</span>;
 <span class='kw'>mod</span> <span class='ident'>compile</span>;
 <span class='kw'>mod</span> <span class='ident'>input</span>;
+<span class='kw'>mod</span> <span class='ident'>inst</span>;
 <span class='kw'>mod</span> <span class='ident'>pool</span>;
 <span class='kw'>mod</span> <span class='ident'>prefix</span>;
 <span class='kw'>mod</span> <span class='ident'>program</span>;
@@ -913,7 +917,8 @@
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>internal</span> {
     <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>char</span>::<span class='ident'>Char</span>;
     <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>input</span>::{<span class='ident'>Input</span>, <span class='ident'>CharInput</span>, <span class='ident'>InputAt</span>};
-    <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>program</span>::{<span class='ident'>Program</span>, <span class='ident'>MatchEngine</span>, <span class='ident'>CharRanges</span>, <span class='ident'>Inst</span>, <span class='ident'>LookInst</span>};
+    <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>inst</span>::{<span class='ident'>Inst</span>, <span class='ident'>EmptyLook</span>, <span class='ident'>InstRanges</span>};
+    <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>program</span>::{<span class='ident'>Program</span>, <span class='ident'>MatchEngine</span>};
     <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>re</span>::<span class='ident'>ExNative</span>;
     <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>re</span>::<span class='ident'>Regex</span>::{<span class='ident'>Dynamic</span>, <span class='ident'>Native</span>};
 }
@@ -977,6 +982,6 @@
     <script src="../../jquery.js"></script>
     <script src="../../main.js"></script>
     
-    <script async src="../../search-index.js"></script>
+    <script defer src="../../search-index.js"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@
 
     <title>lib.rs.html -- source</title>
 
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
 
     <link rel="shortcut icon" href="http://maidsafe.net/img/favicon.ico">
@@ -1567,63 +1568,6 @@
 <span id="1525">1525</span>
 <span id="1526">1526</span>
 <span id="1527">1527</span>
-<span id="1528">1528</span>
-<span id="1529">1529</span>
-<span id="1530">1530</span>
-<span id="1531">1531</span>
-<span id="1532">1532</span>
-<span id="1533">1533</span>
-<span id="1534">1534</span>
-<span id="1535">1535</span>
-<span id="1536">1536</span>
-<span id="1537">1537</span>
-<span id="1538">1538</span>
-<span id="1539">1539</span>
-<span id="1540">1540</span>
-<span id="1541">1541</span>
-<span id="1542">1542</span>
-<span id="1543">1543</span>
-<span id="1544">1544</span>
-<span id="1545">1545</span>
-<span id="1546">1546</span>
-<span id="1547">1547</span>
-<span id="1548">1548</span>
-<span id="1549">1549</span>
-<span id="1550">1550</span>
-<span id="1551">1551</span>
-<span id="1552">1552</span>
-<span id="1553">1553</span>
-<span id="1554">1554</span>
-<span id="1555">1555</span>
-<span id="1556">1556</span>
-<span id="1557">1557</span>
-<span id="1558">1558</span>
-<span id="1559">1559</span>
-<span id="1560">1560</span>
-<span id="1561">1561</span>
-<span id="1562">1562</span>
-<span id="1563">1563</span>
-<span id="1564">1564</span>
-<span id="1565">1565</span>
-<span id="1566">1566</span>
-<span id="1567">1567</span>
-<span id="1568">1568</span>
-<span id="1569">1569</span>
-<span id="1570">1570</span>
-<span id="1571">1571</span>
-<span id="1572">1572</span>
-<span id="1573">1573</span>
-<span id="1574">1574</span>
-<span id="1575">1575</span>
-<span id="1576">1576</span>
-<span id="1577">1577</span>
-<span id="1578">1578</span>
-<span id="1579">1579</span>
-<span id="1580">1580</span>
-<span id="1581">1581</span>
-<span id="1582">1582</span>
-<span id="1583">1583</span>
-<span id="1584">1584</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -1665,44 +1609,42 @@
 <span class='doccomment'>//! in the test crate of this project.</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! ```</span>
+<span class='doccomment'>//! # #![allow(dead_code)]</span>
 <span class='doccomment'>//! extern crate self_encryption;</span>
-<span class='doccomment'>//! use std::sync::{Arc,Mutex};</span>
+<span class='doccomment'>//! use std::sync::{Arc, Mutex};</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! struct Entry {</span>
 <span class='doccomment'>//!     name: Vec&lt;u8&gt;,</span>
 <span class='doccomment'>//!     data: Vec&lt;u8&gt;</span>
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
-<span class='doccomment'>//! struct MyStorage {</span>
+<span class='doccomment'>//! struct SimpleStorage {</span>
 <span class='doccomment'>//!     entries: Arc&lt;Mutex&lt;Vec&lt;Entry&gt;&gt;&gt;</span>
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
-<span class='doccomment'>//! impl MyStorage {</span>
-<span class='doccomment'>//!     fn new() -&gt; MyStorage {</span>
-<span class='doccomment'>//!         MyStorage { entries: Arc::new(Mutex::new(Vec::new())) }</span>
+<span class='doccomment'>//! impl SimpleStorage {</span>
+<span class='doccomment'>//!     fn new() -&gt; SimpleStorage {</span>
+<span class='doccomment'>//!         SimpleStorage { entries: Arc::new(Mutex::new(Vec::new())) }</span>
 <span class='doccomment'>//!     }</span>
+<span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
-<span class='doccomment'>//!     fn has_chunk(&amp;self, name: &amp;[u8]) -&gt; bool {</span>
-<span class='doccomment'>//!         let lock = self.entries.lock().unwrap();</span>
-<span class='doccomment'>//!         for entry in lock.iter() {</span>
-<span class='doccomment'>//!             if entry.name == name { return true }</span>
-<span class='doccomment'>//!         }</span>
-<span class='doccomment'>//!         false</span>
-<span class='doccomment'>//!     }</span>
-<span class='doccomment'>//!  }</span>
-<span class='doccomment'>//!</span>
-<span class='doccomment'>//!  impl self_encryption::Storage for MyStorage {</span>
+<span class='doccomment'>//! impl self_encryption::Storage for SimpleStorage {</span>
 <span class='doccomment'>//!     fn get(&amp;self, name: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt; {</span>
 <span class='doccomment'>//!         let lock = self.entries.lock().unwrap();</span>
 <span class='doccomment'>//!         for entry in lock.iter() {</span>
-<span class='doccomment'>//!             if entry.name == name { return entry.data.to_vec() }</span>
+<span class='doccomment'>//!             if entry.name == name {</span>
+<span class='doccomment'>//!                 return entry.data.to_vec();</span>
+<span class='doccomment'>//!             }</span>
 <span class='doccomment'>//!         }</span>
 <span class='doccomment'>//!         vec![]</span>
 <span class='doccomment'>//!     }</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//!     fn put(&amp;self, name: Vec&lt;u8&gt;, data: Vec&lt;u8&gt;) {</span>
 <span class='doccomment'>//!         let mut lock = self.entries.lock().unwrap();</span>
-<span class='doccomment'>//!         lock.push(Entry { name : name, data : data })</span>
+<span class='doccomment'>//!         lock.push(Entry {</span>
+<span class='doccomment'>//!             name: name,</span>
+<span class='doccomment'>//!             data: data,</span>
+<span class='doccomment'>//!         })</span>
 <span class='doccomment'>//!     }</span>
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//! ```</span>
@@ -1734,65 +1676,68 @@
         <span class='ident'>unknown_lints</span>, <span class='ident'>unsafe_code</span>, <span class='ident'>unused</span>, <span class='ident'>unused_allocation</span>, <span class='ident'>unused_attributes</span>,
         <span class='ident'>unused_comparisons</span>, <span class='ident'>unused_features</span>, <span class='ident'>unused_parens</span>, <span class='ident'>while_true</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>warn</span>(<span class='ident'>trivial_casts</span>, <span class='ident'>trivial_numeric_casts</span>, <span class='ident'>unused_extern_crates</span>, <span class='ident'>unused_import_braces</span>,
-        <span class='ident'>unused_qualifications</span>, <span class='ident'>unused_results</span>, <span class='ident'>variant_size_differences</span>)]</span>
+        <span class='ident'>unused_qualifications</span>, <span class='ident'>unused_results</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>allow</span>(<span class='ident'>box_pointers</span>, <span class='ident'>fat_ptr_transmutes</span>, <span class='ident'>missing_copy_implementations</span>,
-         <span class='ident'>missing_debug_implementations</span>)]</span>
+         <span class='ident'>missing_debug_implementations</span>, <span class='ident'>variant_size_differences</span>)]</span>
 
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>asynchronous</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>flate2</span>;
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
+<span class='attribute'>#[<span class='ident'>allow</span>(<span class='ident'>unused_extern_crates</span>)]</span>  <span class='comment'>// Only using macros from maidsafe_utilites</span>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>maidsafe_utilities</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>memmap</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rand</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rustc_serialize</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>sodiumoxide</span>;
-<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>memmap</span> <span class='kw'>as</span> <span class='ident'>mmap</span>;
-<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>flate2</span>;
 
-<span class='comment'>// This is pub to test the tests directory integration tests; these are temporary and need to be</span>
-<span class='comment'>// replaced with actual integration tests. This should be private</span>
+<span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>test_helpers</span>;
 <span class='kw'>mod</span> <span class='ident'>encryption</span>;
-<span class='doccomment'>/// Information required to recover file content from chunks.</span>
-<span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>datamap</span>;
+<span class='kw'>mod</span> <span class='ident'>datamap</span>;
 
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cmp</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>iter</span>::<span class='ident'>repeat</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::<span class='ident'>Arc</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>io</span>::{<span class='self'>self</span>, <span class='ident'>ErrorKind</span>, <span class='ident'>Read</span>, <span class='prelude-ty'>Result</span>, <span class='ident'>Write</span>};
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>error</span>::<span class='ident'>Error</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fmt</span>::{<span class='self'>self</span>, <span class='ident'>Debug</span>, <span class='ident'>Formatter</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>io</span>::{<span class='self'>self</span>, <span class='ident'>ErrorKind</span>, <span class='ident'>Read</span>, <span class='prelude-ty'>Result</span>, <span class='ident'>Write</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>iter</span>::<span class='ident'>repeat</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>ops</span>::{<span class='ident'>Deref</span>, <span class='ident'>DerefMut</span>, <span class='ident'>Index</span>, <span class='ident'>IndexMut</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::{<span class='ident'>Arc</span>, <span class='ident'>Once</span>, <span class='ident'>ONCE_INIT</span>};
 
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>ControlFlow</span>, <span class='ident'>Deferred</span>};
-<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha512</span>;
 <span class='kw'>use</span> <span class='ident'>encryption</span>::{<span class='ident'>IV_SIZE</span>, <span class='ident'>Iv</span>, <span class='ident'>KEY_SIZE</span>, <span class='ident'>Key</span>, <span class='ident'>decrypt</span>, <span class='ident'>encrypt</span>};
-<span class='kw'>use</span> <span class='ident'>datamap</span>::<span class='ident'>DataMap</span>;
-<span class='kw'>use</span> <span class='ident'>mmap</span>::{<span class='ident'>Mmap</span>, <span class='ident'>Protection</span>};
-<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>write</span>::<span class='ident'>DeflateEncoder</span>;
-<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>read</span>::<span class='ident'>DeflateDecoder</span>;
 <span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>Compression</span>;
+<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>read</span>::<span class='ident'>DeflateDecoder</span>;
+<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>write</span>::<span class='ident'>DeflateEncoder</span>;
+<span class='kw'>use</span> <span class='ident'>memmap</span>::{<span class='ident'>Mmap</span>, <span class='ident'>Protection</span>};
+<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha512</span>;
+
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>datamap</span>::{<span class='ident'>DataMap</span>, <span class='ident'>ChunkDetails</span>};
 
 <span class='kw'>const</span> <span class='ident'>HASH_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='ident'>sha512</span>::<span class='ident'>DIGESTBYTES</span>;
 <span class='kw'>const</span> <span class='ident'>PAD_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> (<span class='ident'>HASH_SIZE</span> <span class='op'>*</span> <span class='number'>3</span>) <span class='op'>-</span> <span class='ident'>KEY_SIZE</span> <span class='op'>-</span> <span class='ident'>IV_SIZE</span>;
-
 <span class='kw'>const</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>50</span> <span class='op'>*</span> (<span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>20</span>);
+
 <span class='doccomment'>/// MAX_MEMORY_MAP_SIZE defined as 1GB.</span>
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MAX_MEMORY_MAP_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>30</span>;
-
-<span class='kw'>struct</span> <span class='ident'>Pad</span>(<span class='kw'>pub</span> [<span class='ident'>u8</span>; <span class='ident'>PAD_SIZE</span>]);
-
 <span class='doccomment'>/// MAX_CHUNK_SIZE defined as 1MB.</span>
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MAX_CHUNK_SIZE</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>1024</span> <span class='op'>*</span> <span class='number'>1024</span>;
 <span class='doccomment'>/// MIN_CHUNK_SIZE defined as 1KB.</span>
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MIN_CHUNK_SIZE</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>1024</span>;
 
-<span class='doccomment'>/// Helper function to XOR a data with a pad (pad will be rotated to fill the length)</span>
+<span class='kw'>struct</span> <span class='ident'>Pad</span>(<span class='kw'>pub</span> [<span class='ident'>u8</span>; <span class='ident'>PAD_SIZE</span>]);
+
+<span class='comment'>// Helper function to XOR a data with a pad (pad will be rotated to fill the length)</span>
 <span class='kw'>fn</span> <span class='ident'>xor</span>(<span class='ident'>data</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>], <span class='kw-2'>&amp;</span><span class='ident'>Pad</span>(<span class='ident'>pad</span>): <span class='kw-2'>&amp;</span><span class='ident'>Pad</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
     <span class='ident'>data</span>.<span class='ident'>iter</span>().<span class='ident'>zip</span>(<span class='ident'>pad</span>.<span class='ident'>iter</span>().<span class='ident'>cycle</span>()).<span class='ident'>map</span>(<span class='op'>|</span>(<span class='kw-2'>&amp;</span><span class='ident'>a</span>, <span class='kw-2'>&amp;</span><span class='ident'>b</span>)<span class='op'>|</span> <span class='ident'>a</span> <span class='op'>^</span> <span class='ident'>b</span>).<span class='ident'>collect</span>()
 }
 
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
 <span class='kw'>enum</span> <span class='ident'>ChunkStatus</span> {
     <span class='ident'>ToBeHashed</span>,
     <span class='ident'>ToBeEncrypted</span>,
     <span class='ident'>AlreadyEncrypted</span>,
 }
 
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
 <span class='kw'>enum</span> <span class='ident'>ChunkLocation</span> {
     <span class='ident'>InSequencer</span>,
     <span class='ident'>Remote</span>,
@@ -1800,7 +1745,7 @@
 
 <span class='comment'>// pub struct Chunk { pub name:  Vec&lt;u8&gt;, pub content: Vec&lt;u8&gt; }</span>
 
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
 <span class='kw'>struct</span> <span class='ident'>Chunk</span> {
     <span class='ident'>number</span>: <span class='ident'>u32</span>,
     <span class='ident'>status</span>: <span class='ident'>ChunkStatus</span>,
@@ -2008,7 +1953,7 @@
     <span class='doccomment'>/// first parameter. The get and put of Storage need to be implemented to allow the</span>
     <span class='doccomment'>/// SelfEncryptor to store encrypted chunks and retrieve them when necessary.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>storage</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>S</span><span class='op'>&gt;</span>, <span class='ident'>datamap</span>: <span class='ident'>DataMap</span>) <span class='op'>-&gt;</span> <span class='ident'>SelfEncryptor</span><span class='op'>&lt;</span><span class='ident'>S</span><span class='op'>&gt;</span> {
-        <span class='ident'>sodiumoxide</span>::<span class='ident'>init</span>();
+        <span class='ident'>initialise_sodiumoxide</span>();
         <span class='kw'>let</span> <span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>datamap</span>.<span class='ident'>len</span>();
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>sequencer</span>;
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>chunks</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[];
@@ -2016,7 +1961,7 @@
         <span class='kw'>if</span> <span class='ident'>file_size</span> <span class='op'>&lt;=</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> {
             <span class='ident'>sequencer</span> <span class='op'>=</span> <span class='ident'>Sequencer</span>::<span class='ident'>as_vector</span>();
         } <span class='kw'>else</span> {
-            <span class='ident'>sequencer</span> <span class='op'>=</span> <span class='ident'>Sequencer</span>::<span class='ident'>as_mmap</span>().<span class='ident'>unwrap</span>();
+            <span class='ident'>sequencer</span> <span class='op'>=</span> <span class='macro'>unwrap_result</span><span class='macro'>!</span>(<span class='ident'>Sequencer</span>::<span class='ident'>as_mmap</span>());
         }
 
         <span class='kw'>match</span> <span class='ident'>datamap</span> {
@@ -2107,7 +2052,7 @@
         } <span class='kw'>else</span> {
             <span class='comment'>// assert(self.get_num_chunks() &gt; 2 &amp;&amp; &quot;Try to close with less than 3 chunks&quot;);</span>
             <span class='kw'>let</span> <span class='ident'>real_chunk_count</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_num_chunks</span>();
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>tmp_chunks</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>datamap</span>::<span class='ident'>ChunkDetails</span>::<span class='ident'>new</span>(); <span class='ident'>real_chunk_count</span> <span class='kw'>as</span> <span class='ident'>usize</span>];
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>tmp_chunks</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>ChunkDetails</span>::<span class='ident'>new</span>(); <span class='ident'>real_chunk_count</span> <span class='kw'>as</span> <span class='ident'>usize</span>];
 
             <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>vec_deferred</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
             <span class='kw'>for</span> <span class='ident'>chunk</span> <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>iter</span>() {
@@ -2165,7 +2110,7 @@
                     <span class='kw'>let</span> <span class='ident'>chunk_number</span> <span class='op'>=</span> <span class='ident'>chunk</span>.<span class='ident'>number</span>;
                     <span class='kw'>let</span> <span class='ident'>def</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>encrypt_chunk</span>(<span class='ident'>chunk</span>.<span class='ident'>number</span>, <span class='ident'>tmp</span>)
                                   .<span class='ident'>chain</span>::<span class='op'>&lt;</span>_, <span class='ident'>String</span>, _<span class='op'>&gt;</span>(<span class='kw'>move</span> <span class='op'>|</span><span class='ident'>res</span><span class='op'>|</span> {
-                                      <span class='kw'>let</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='ident'>res</span>.<span class='ident'>unwrap</span>();
+                                      <span class='kw'>let</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='macro'>unwrap_result</span><span class='macro'>!</span>(<span class='ident'>res</span>);
                                       <span class='kw'>let</span> <span class='ident'>sha512</span>::<span class='ident'>Digest</span>(<span class='ident'>name</span>) <span class='op'>=</span> <span class='ident'>sha512</span>::<span class='ident'>hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>content</span>);
                                       <span class='ident'>storage</span>.<span class='ident'>put</span>(<span class='ident'>name</span>.<span class='ident'>to_vec</span>(), <span class='ident'>content</span>);
                                       <span class='prelude-val'>Ok</span>((<span class='ident'>chunk_number</span>, <span class='ident'>name</span>))
@@ -2252,7 +2197,7 @@
                     <span class='kw'>if</span> <span class='ident'>itr</span>.<span class='ident'>location</span> <span class='op'>==</span> <span class='ident'>ChunkLocation</span>::<span class='ident'>Remote</span> {
                         <span class='ident'>vec_deferred</span>.<span class='ident'>push</span>(<span class='self'>self</span>.<span class='ident'>decrypt_chunk</span>(<span class='ident'>i</span>)
                                               .<span class='ident'>chain</span>::<span class='op'>&lt;</span>_, <span class='ident'>String</span>, _<span class='op'>&gt;</span>(<span class='kw'>move</span> <span class='op'>|</span><span class='ident'>res</span><span class='op'>|</span> {
-                                                  <span class='prelude-val'>Ok</span>((<span class='ident'>pos</span>, <span class='ident'>res</span>.<span class='ident'>unwrap</span>()))
+                                                  <span class='prelude-val'>Ok</span>((<span class='ident'>pos</span>, <span class='macro'>unwrap_result</span><span class='macro'>!</span>(<span class='ident'>res</span>)))
                                               }));
                     }
                     <span class='ident'>found</span> <span class='op'>=</span> <span class='boolval'>true</span>;
@@ -2275,9 +2220,9 @@
                 }
             }
         }
-        <span class='kw'>for</span> (<span class='ident'>pos</span>, <span class='ident'>vec</span>) <span class='kw'>in</span> <span class='ident'>Deferred</span>::<span class='ident'>vec_to_promise</span>(<span class='ident'>vec_deferred</span>, <span class='ident'>ControlFlow</span>::<span class='ident'>ParallelCPUS</span>)
-                              .<span class='ident'>sync</span>()
-                              .<span class='ident'>unwrap</span>() {
+        <span class='kw'>for</span> (<span class='ident'>pos</span>, <span class='ident'>vec</span>) <span class='kw'>in</span> <span class='macro'>unwrap_result</span><span class='macro'>!</span>(<span class='ident'>Deferred</span>::<span class='ident'>vec_to_promise</span>(<span class='ident'>vec_deferred</span>,
+                                                                  <span class='ident'>ControlFlow</span>::<span class='ident'>ParallelCPUS</span>)
+                                             .<span class='ident'>sync</span>()) {
             <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pos_aux</span> <span class='op'>=</span> <span class='ident'>pos</span>;
             <span class='kw'>for</span> <span class='kw-2'>&amp;</span><span class='ident'>byte</span> <span class='kw'>in</span> <span class='kw-2'>&amp;</span><span class='ident'>vec</span> {
                 <span class='self'>self</span>.<span class='ident'>sequencer</span>[<span class='ident'>pos_aux</span> <span class='kw'>as</span> <span class='ident'>usize</span>] <span class='op'>=</span> <span class='ident'>byte</span>;
@@ -2323,9 +2268,6 @@
         <span class='kw'>let</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>storage</span>.<span class='ident'>get</span>(<span class='ident'>name</span>);
 
         <span class='ident'>Deferred</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>String</span><span class='op'>&gt;</span>::<span class='ident'>new</span>(<span class='kw'>move</span> <span class='op'>||</span> {
-            <span class='kw'>if</span> <span class='ident'>content</span>.<span class='ident'>len</span>() <span class='op'>==</span> <span class='number'>0</span> {
-                ()
-            }
             <span class='kw'>let</span> <span class='ident'>xor_result</span> <span class='op'>=</span> <span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>content</span>, <span class='kw-2'>&amp;</span><span class='ident'>pad</span>);
             <span class='kw'>match</span> <span class='ident'>decrypt</span>(<span class='kw-2'>&amp;</span><span class='ident'>xor_result</span>, <span class='kw-2'>&amp;</span><span class='ident'>key</span>, <span class='kw-2'>&amp;</span><span class='ident'>iv</span>) {
                 <span class='prelude-val'>Ok</span>(<span class='ident'>decrypted</span>) <span class='op'>=&gt;</span> {
@@ -2358,8 +2300,8 @@
                         <span class='prelude-val'>Ok</span>(<span class='ident'>compressed</span>) <span class='op'>=&gt;</span> {
                             <span class='kw'>let</span> <span class='ident'>encrypted</span> <span class='op'>=</span> <span class='ident'>encrypt</span>(<span class='kw-2'>&amp;</span><span class='ident'>compressed</span>, <span class='kw-2'>&amp;</span><span class='ident'>key</span>, <span class='kw-2'>&amp;</span><span class='ident'>iv</span>);
                             <span class='prelude-val'>Ok</span>(<span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>encrypted</span>, <span class='kw-2'>&amp;</span><span class='ident'>pad</span>))
-                        },
-                        <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> { <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_string</span>()) }
+                        }
+                        <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_string</span>()),
                     }
                 }
                 <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_string</span>()),
@@ -2449,84 +2391,40 @@
 
         <span class='kw'>let</span> <span class='ident'>remainder</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>%</span> <span class='self'>self</span>.<span class='ident'>get_chunk_size</span>(<span class='number'>0</span>) <span class='kw'>as</span> <span class='ident'>u64</span>;
         <span class='kw'>if</span> <span class='ident'>remainder</span> <span class='op'>==</span> <span class='number'>0</span> <span class='op'>||</span> <span class='ident'>remainder</span> <span class='op'>&gt;=</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>||</span>
-            <span class='ident'>position</span> <span class='op'>&lt;</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>-</span> <span class='ident'>remainder</span> <span class='op'>-</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span>
-        {
+           <span class='ident'>position</span> <span class='op'>&lt;</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>-</span> <span class='ident'>remainder</span> <span class='op'>-</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> {
             <span class='kw'>return</span> (<span class='ident'>position</span> <span class='op'>/</span> <span class='self'>self</span>.<span class='ident'>get_chunk_size</span>(<span class='number'>0</span>) <span class='kw'>as</span> <span class='ident'>u64</span>) <span class='kw'>as</span> <span class='ident'>u32</span>;
         }
         <span class='self'>self</span>.<span class='ident'>get_num_chunks</span>() <span class='op'>-</span> <span class='number'>1</span>
     }
 }
 
+<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>S</span>: <span class='ident'>Storage</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Sync</span> <span class='op'>+</span> <span class='lifetime'>&#39;static</span><span class='op'>&gt;</span> <span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>SelfEncryptor</span><span class='op'>&lt;</span><span class='ident'>S</span><span class='op'>&gt;</span> {
+    <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>formatter</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+        <span class='macro'>try</span><span class='macro'>!</span>(<span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>formatter</span>,
+                    <span class='string'>&quot;SelfEncryptor {{\n    datamap: {:?}\n    chunks:\n&quot;</span>,
+                    <span class='self'>self</span>.<span class='ident'>datamap</span>));
+        <span class='kw'>for</span> <span class='ident'>chunk</span> <span class='kw'>in</span> <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>chunks</span> {
+            <span class='macro'>try</span><span class='macro'>!</span>(<span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>formatter</span>, <span class='string'>&quot;        {:?}\n&quot;</span>, <span class='ident'>chunk</span>))
+        }
+        <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>formatter</span>, <span class='string'>&quot;    file_size: {}\n}}&quot;</span>, <span class='self'>self</span>.<span class='ident'>file_size</span>)
+    }
+}
+
+<span class='kw'>fn</span> <span class='ident'>initialise_sodiumoxide</span>() {
+    <span class='kw'>static</span> <span class='ident'>INITIALISE_SODIUMOXIDE</span>: <span class='ident'>Once</span> <span class='op'>=</span> <span class='ident'>ONCE_INIT</span>;
+    <span class='ident'>INITIALISE_SODIUMOXIDE</span>.<span class='ident'>call_once</span>(<span class='op'>||</span> <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>sodiumoxide</span>::<span class='ident'>init</span>()));
+}
+
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
 <span class='kw'>mod</span> <span class='ident'>test</span> {
-    <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rand</span>;
-
+    <span class='kw'>use</span> <span class='ident'>maidsafe_utilities</span>::<span class='ident'>serialisation</span>;
+    <span class='kw'>use</span> <span class='ident'>rand</span>::<span class='ident'>distributions</span>::{<span class='ident'>Range</span>, <span class='ident'>Sample</span>};
+    <span class='kw'>use</span> <span class='ident'>rand</span>::{<span class='ident'>random</span>, <span class='ident'>thread_rng</span>};
+    <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::<span class='ident'>Arc</span>;
     <span class='kw'>use</span> <span class='ident'>super</span>::<span class='op'>*</span>;
-    <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::{<span class='ident'>Arc</span>, <span class='ident'>Mutex</span>};
-    <span class='kw'>use</span> <span class='ident'>datamap</span>::<span class='ident'>DataMap</span>;
-    <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>rand</span>::<span class='ident'>distributions</span>::{<span class='ident'>Range</span>, <span class='ident'>Sample</span>};
-    <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>rand</span>::<span class='ident'>thread_rng</span>;
+    <span class='kw'>use</span> <span class='ident'>test_helpers</span>::{<span class='ident'>random_bytes</span>, <span class='ident'>SimpleStorage</span>};
 
-    <span class='kw'>fn</span> <span class='ident'>random_bytes</span>(<span class='ident'>length</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>bytes</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='ident'>length</span>);
-        <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='number'>0</span>..<span class='ident'>length</span> {
-            <span class='ident'>bytes</span>.<span class='ident'>push</span>(<span class='ident'>rand</span>::<span class='ident'>random</span>::<span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>());
-        }
-        <span class='ident'>bytes</span>
-    }
-
-    <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Entry</span> {
-        <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>,
-        <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>,
-    }
-
-    <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>MyStorage</span> {
-        <span class='ident'>entries</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Mutex</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Entry</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>,
-    }
-
-    <span class='kw'>impl</span> <span class='ident'>MyStorage</span> {
-        <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>() <span class='op'>-&gt;</span> <span class='ident'>MyStorage</span> {
-            <span class='ident'>MyStorage</span> { <span class='ident'>entries</span>: <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>Mutex</span>::<span class='ident'>new</span>(<span class='ident'>Vec</span>::<span class='ident'>new</span>())) }
-        }
-
-        <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>has_chunk</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-            <span class='kw'>let</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
-            <span class='kw'>for</span> <span class='ident'>entry</span> <span class='kw'>in</span> <span class='ident'>lock</span>.<span class='ident'>iter</span>() {
-                <span class='kw'>if</span> <span class='ident'>entry</span>.<span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>name</span> {
-                    <span class='kw'>return</span> <span class='boolval'>true</span>;
-                }
-            }
-            <span class='boolval'>false</span>
-        }
-
-        <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>num_entries</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>usize</span> {
-            <span class='kw'>let</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
-            <span class='ident'>lock</span>.<span class='ident'>len</span>()
-        }
-    }
-
-    <span class='kw'>impl</span> <span class='ident'>Storage</span> <span class='kw'>for</span> <span class='ident'>MyStorage</span> {
-        <span class='kw'>fn</span> <span class='ident'>get</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
-            <span class='kw'>let</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
-            <span class='kw'>for</span> <span class='ident'>entry</span> <span class='kw'>in</span> <span class='ident'>lock</span>.<span class='ident'>iter</span>() {
-                <span class='kw'>if</span> <span class='ident'>entry</span>.<span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>name</span> {
-                    <span class='kw'>return</span> <span class='ident'>entry</span>.<span class='ident'>data</span>.<span class='ident'>to_vec</span>();
-                }
-            }
-
-            <span class='macro'>vec</span><span class='macro'>!</span>[]
-        }
-
-        <span class='kw'>fn</span> <span class='ident'>put</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) {
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>lock</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>entries</span>.<span class='ident'>lock</span>().<span class='ident'>unwrap</span>();
-            <span class='ident'>lock</span>.<span class='ident'>push</span>(<span class='ident'>Entry</span> {
-                <span class='ident'>name</span>: <span class='ident'>name</span>,
-                <span class='ident'>data</span>: <span class='ident'>data</span>,
-            })
-        }
-    }
-
-    <span class='kw'>fn</span> <span class='ident'>check_file_size</span>(<span class='ident'>se</span>: <span class='kw-2'>&amp;</span><span class='ident'>SelfEncryptor</span><span class='op'>&lt;</span><span class='ident'>MyStorage</span><span class='op'>&gt;</span>, <span class='ident'>expected_file_size</span>: <span class='ident'>u64</span>) {
+    <span class='kw'>fn</span> <span class='ident'>check_file_size</span>(<span class='ident'>se</span>: <span class='kw-2'>&amp;</span><span class='ident'>SelfEncryptor</span><span class='op'>&lt;</span><span class='ident'>SimpleStorage</span><span class='op'>&gt;</span>, <span class='ident'>expected_file_size</span>: <span class='ident'>u64</span>) {
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>se</span>.<span class='ident'>file_size</span>, <span class='ident'>expected_file_size</span>);
         <span class='kw'>if</span> <span class='kw'>let</span> <span class='ident'>DataMap</span>::<span class='ident'>Chunks</span>(<span class='kw-2'>ref</span> <span class='ident'>chunk_details</span>) <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>datamap</span> {
             <span class='kw'>let</span> <span class='ident'>chunks_cumulated_size</span> <span class='op'>=</span> <span class='ident'>chunk_details</span>.<span class='ident'>iter</span>().<span class='ident'>fold</span>(<span class='number'>0u64</span>, <span class='op'>|</span><span class='ident'>acc</span>, <span class='ident'>chunk</span><span class='op'>|</span> {
@@ -2537,22 +2435,22 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>test_xor</span>() {
+    <span class='kw'>fn</span> <span class='ident'>xor</span>() {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[];
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pad</span> <span class='op'>=</span> [<span class='number'>0u8</span>; <span class='ident'>super</span>::<span class='ident'>PAD_SIZE</span>];
         <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='number'>0</span>..<span class='number'>800</span> {
-            <span class='ident'>data</span>.<span class='ident'>push</span>(<span class='ident'>rand</span>::<span class='ident'>random</span>::<span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>());
+            <span class='ident'>data</span>.<span class='ident'>push</span>(<span class='ident'>random</span>::<span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>());
         }
         <span class='kw'>for</span> <span class='ident'>i</span> <span class='kw'>in</span> <span class='number'>0</span>..<span class='ident'>super</span>::<span class='ident'>PAD_SIZE</span> {
-            <span class='ident'>pad</span>[<span class='ident'>i</span>] <span class='op'>=</span> <span class='ident'>rand</span>::<span class='ident'>random</span>::<span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>();
+            <span class='ident'>pad</span>[<span class='ident'>i</span>] <span class='op'>=</span> <span class='ident'>random</span>::<span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>();
         }
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data</span>,
                    <span class='ident'>super</span>::<span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>super</span>::<span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>data</span>, <span class='kw-2'>&amp;</span><span class='ident'>super</span>::<span class='ident'>Pad</span>(<span class='ident'>pad</span>)), <span class='kw-2'>&amp;</span><span class='ident'>super</span>::<span class='ident'>Pad</span>(<span class='ident'>pad</span>)));
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_write</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>write</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>, <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
         <span class='kw'>let</span> <span class='ident'>size</span> <span class='op'>=</span> <span class='number'>3u64</span>;
         <span class='kw'>let</span> <span class='ident'>offset</span> <span class='op'>=</span> <span class='number'>5u64</span>;
@@ -2562,8 +2460,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_multiple_writes</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>multiple_writes</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>.<span class='ident'>clone</span>(), <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
         <span class='kw'>let</span> <span class='ident'>size1</span> <span class='op'>=</span> <span class='number'>3u64</span>;
         <span class='kw'>let</span> <span class='ident'>size2</span> <span class='op'>=</span> <span class='number'>4u64</span>;
@@ -2573,7 +2471,7 @@
         <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>part1</span>, <span class='number'>0</span>);
         <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>part2</span>, <span class='ident'>size1</span>);
         <span class='comment'>// Let&#39;s also test an overwrite.. over middle bytes of part2</span>
-        <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span>[<span class='number'>4u8</span>, <span class='number'>2</span>], <span class='ident'>size1</span><span class='op'>+</span><span class='number'>1</span>);
+        <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span>[<span class='number'>4u8</span>, <span class='number'>2</span>], <span class='ident'>size1</span> <span class='op'>+</span> <span class='number'>1</span>);
         <span class='ident'>check_file_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>se</span>, <span class='ident'>size1</span> <span class='op'>+</span> <span class='ident'>size2</span>);
         <span class='kw'>let</span> <span class='ident'>data_map</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map</span>);
@@ -2581,13 +2479,13 @@
         <span class='kw'>let</span> <span class='ident'>size1</span> <span class='op'>=</span> <span class='ident'>size1</span> <span class='kw'>as</span> <span class='ident'>usize</span>;
         <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[..<span class='ident'>size1</span>] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>part1</span>[..]);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>fetched</span>[<span class='ident'>size1</span>], <span class='ident'>part2</span>[<span class='number'>0</span>]);
-        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>size1</span><span class='op'>+</span><span class='number'>1</span> .. <span class='ident'>size1</span><span class='op'>+</span><span class='number'>3</span>] <span class='op'>==</span> <span class='kw-2'>&amp;</span>[<span class='number'>4u8</span>, <span class='number'>2</span>][..]);
-        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>size1</span><span class='op'>+</span><span class='number'>3</span> ..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>part2</span>[<span class='number'>3</span>..]);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>size1</span> <span class='op'>+</span> <span class='number'>1</span>..<span class='ident'>size1</span> <span class='op'>+</span> <span class='number'>3</span>] <span class='op'>==</span> <span class='kw-2'>&amp;</span>[<span class='number'>4u8</span>, <span class='number'>2</span>][..]);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>size1</span> <span class='op'>+</span> <span class='number'>3</span>..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>part2</span>[<span class='number'>3</span>..]);
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_3_min_chunks_minus1</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>three_min_chunks_minus_one</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>) <span class='op'>-</span> <span class='number'>1</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2618,8 +2516,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_3_min_chunks</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>three_min_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>*</span> <span class='number'>3</span>);
         {
@@ -2661,8 +2559,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_3_min_chunks_plus1</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>three_min_chunks_plus_one</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>) <span class='op'>+</span> <span class='number'>1</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2705,8 +2603,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_3_max_chunks</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>three_max_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2748,8 +2646,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_3_max_chunks_plus1</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>three_max_chunks_plus_one</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>) <span class='op'>+</span> <span class='number'>1</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2797,8 +2695,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_7_and_a_bit_max_chunks</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>seven_and_a_bit_max_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>7</span>) <span class='op'>+</span> <span class='number'>1024</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2845,8 +2743,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_large_file_1_byte_under_11_chunks</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>large_file_one_byte_under_eleven_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>number_of_chunks</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>11</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>*</span> <span class='ident'>number_of_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>-</span> <span class='number'>1</span>;
@@ -2877,8 +2775,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_large_file_1_byte_over_11_chunks</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>large_file_one_byte_over_eleven_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>number_of_chunks</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>11</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>*</span> <span class='ident'>number_of_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>+</span> <span class='number'>1</span>;
@@ -2910,9 +2808,9 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_large_file_size_1024_over_11_chunks</span>() {
+    <span class='kw'>fn</span> <span class='ident'>large_file_size_1024_over_eleven_chunks</span>() {
         <span class='comment'>// has been tested for 50 chunks</span>
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>number_of_chunks</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>11</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> (<span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>*</span> <span class='ident'>number_of_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>+</span> <span class='number'>1024</span>;
@@ -2962,8 +2860,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_5_and_extend_to_7_plus_one</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>five_and_extend_to_seven_plus_one</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>5</span>;
         <span class='kw'>let</span> <span class='ident'>the_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
@@ -2991,8 +2889,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_large_100mb_file</span>() {
-        <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>large_100mb_file</span>() {
+        <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
         <span class='kw'>let</span> <span class='ident'>number_of_chunks</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>100</span>;
         <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>*</span> <span class='ident'>number_of_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>;
@@ -3040,8 +2938,8 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_write_starting_with_existing_datamap</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>write_starting_with_existing_datamap</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='ident'>part1_len</span> <span class='op'>=</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>;
         <span class='kw'>let</span> <span class='ident'>part1_bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>part1_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
         <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
@@ -3059,39 +2957,20 @@
             <span class='comment'>// Start with an existing datamap.</span>
             <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map</span>);
             <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>part2_bytes</span>, <span class='ident'>part1_len</span>);
-            <span class='comment'>//check_file_size(&amp;se, full_len);</span>
+            <span class='comment'>// check_file_size(&amp;se, full_len);</span>
             <span class='ident'>data_map2</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
         }
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data_map2</span>.<span class='ident'>len</span>(), <span class='ident'>full_len</span>);
 
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map2</span>);
         <span class='kw'>let</span> <span class='ident'>fetched</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>read</span>(<span class='number'>0</span>, <span class='ident'>full_len</span>);
-        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>part1_bytes</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[.. <span class='ident'>part1_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>]);
-        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>part2_bytes</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>part1_len</span> <span class='kw'>as</span> <span class='ident'>usize</span> ..]);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>part1_bytes</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[..<span class='ident'>part1_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>]);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>part2_bytes</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>part1_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>..]);
     }
 
-    <span class='comment'>// Definitions for testing serialisation of a vector</span>
-    <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>cbor</span>;
-    <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>cbor</span>::{<span class='ident'>Decoder</span>, <span class='ident'>Encoder</span>, <span class='ident'>CborError</span>};
-
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>serialise</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span>(<span class='ident'>data</span>: <span class='kw-2'>&amp;</span><span class='ident'>T</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>CborError</span><span class='op'>&gt;</span>
-        <span class='kw'>where</span> <span class='ident'>T</span>: ::<span class='ident'>rustc_serialize</span>::<span class='ident'>Encodable</span>
-    {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span> <span class='op'>=</span> <span class='ident'>Encoder</span>::<span class='ident'>from_memory</span>();
-        <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>encoder</span>.<span class='ident'>encode</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>data</span>]));
-        <span class='prelude-val'>Ok</span>(<span class='ident'>encoder</span>.<span class='ident'>into_bytes</span>())
-    }
-
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>deserialise</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span>(<span class='ident'>data</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>T</span>, <span class='ident'>CborError</span><span class='op'>&gt;</span>
-        <span class='kw'>where</span> <span class='ident'>T</span>: ::<span class='ident'>rustc_serialize</span>::<span class='ident'>Decodable</span>
-    {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>decoder</span> <span class='op'>=</span> <span class='ident'>Decoder</span>::<span class='ident'>from_bytes</span>(<span class='ident'>data</span>);
-        <span class='ident'>decoder</span>.<span class='ident'>decode</span>().<span class='ident'>next</span>().<span class='ident'>unwrap</span>()
-    }
-
-    <span class='kw'>fn</span> <span class='ident'>create_vector_data_map</span>(<span class='ident'>storage</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>MyStorage</span><span class='op'>&gt;</span>, <span class='ident'>vec_len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='ident'>DataMap</span> {
+    <span class='kw'>fn</span> <span class='ident'>create_vector_data_map</span>(<span class='ident'>storage</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>SimpleStorage</span><span class='op'>&gt;</span>, <span class='ident'>vec_len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='ident'>DataMap</span> {
         <span class='kw'>let</span> <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span> <span class='op'>=</span> (<span class='number'>0</span>..<span class='ident'>vec_len</span>).<span class='ident'>collect</span>();
-        <span class='kw'>let</span> <span class='ident'>serialised_data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>serialise</span>(<span class='kw-2'>&amp;</span><span class='ident'>data</span>)
+        <span class='kw'>let</span> <span class='ident'>serialised_data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>serialisation</span>::<span class='ident'>serialise</span>(<span class='kw-2'>&amp;</span><span class='ident'>data</span>)
                                            .<span class='ident'>ok</span>()
                                            .<span class='ident'>expect</span>(<span class='string'>&quot;failed to serialise Vec&lt;usize&gt;&quot;</span>);
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>self_encryptor</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>, <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
@@ -3100,11 +2979,11 @@
         <span class='ident'>self_encryptor</span>.<span class='ident'>close</span>()
     }
 
-    <span class='kw'>fn</span> <span class='ident'>check_vector_data_map</span>(<span class='ident'>storage</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>MyStorage</span><span class='op'>&gt;</span>, <span class='ident'>vec_len</span>: <span class='ident'>usize</span>, <span class='ident'>datamap</span>: <span class='kw-2'>&amp;</span><span class='ident'>DataMap</span>) {
+    <span class='kw'>fn</span> <span class='ident'>check_vector_data_map</span>(<span class='ident'>storage</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>SimpleStorage</span><span class='op'>&gt;</span>, <span class='ident'>vec_len</span>: <span class='ident'>usize</span>, <span class='ident'>datamap</span>: <span class='kw-2'>&amp;</span><span class='ident'>DataMap</span>) {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>self_encryptor</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>, <span class='ident'>datamap</span>.<span class='ident'>clone</span>());
         <span class='kw'>let</span> <span class='ident'>length</span> <span class='op'>=</span> <span class='ident'>self_encryptor</span>.<span class='ident'>len</span>();
         <span class='kw'>let</span> <span class='ident'>data_to_deserialise</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>self_encryptor</span>.<span class='ident'>read</span>(<span class='number'>0</span>, <span class='ident'>length</span>);
-        <span class='kw'>let</span> <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>deserialise</span>(<span class='kw-2'>&amp;</span><span class='ident'>data_to_deserialise</span>)
+        <span class='kw'>let</span> <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>serialisation</span>::<span class='ident'>deserialise</span>(<span class='kw-2'>&amp;</span><span class='ident'>data_to_deserialise</span>)
                                    .<span class='ident'>ok</span>()
                                    .<span class='ident'>expect</span>(<span class='string'>&quot;failed to deserialise Vec&lt;usize&gt;&quot;</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data</span>.<span class='ident'>len</span>(), <span class='ident'>vec_len</span>);
@@ -3114,18 +2993,18 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_serialised_vectors</span>() {
+    <span class='kw'>fn</span> <span class='ident'>serialised_vectors</span>() {
         <span class='kw'>for</span> <span class='ident'>vec_len</span> <span class='kw'>in</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>1000</span>, <span class='number'>2000</span>, <span class='number'>5000</span>, <span class='number'>10_000</span>, <span class='number'>20_000</span>, <span class='number'>50_000</span>, <span class='number'>100_000</span>, <span class='number'>20_0000</span>, <span class='number'>50_0000</span>,
                             <span class='number'>1_000_000</span>] {
-            <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+            <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
             <span class='kw'>let</span> <span class='ident'>datamap</span>: <span class='ident'>DataMap</span> <span class='op'>=</span> <span class='ident'>create_vector_data_map</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>vec_len</span>);
             <span class='ident'>check_vector_data_map</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>vec_len</span>, <span class='kw-2'>&amp;</span><span class='ident'>datamap</span>);
         }
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>check_get_chunk_number</span>() {
-        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>MyStorage</span>::<span class='ident'>new</span>());
+    <span class='kw'>fn</span> <span class='ident'>get_chunk_number</span>() {
+        <span class='kw'>let</span> <span class='ident'>my_storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>my_storage</span>, <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
         <span class='comment'>// Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.</span>
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>min_test_size</span> <span class='op'>=</span> <span class='number'>0</span>;
@@ -3172,8 +3051,12 @@
             <span class='kw'>const</span> <span class='ident'>CHUNK_2_END</span>: <span class='ident'>u32</span> <span class='op'>=</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MAX_CHUNK_SIZE</span>) <span class='op'>-</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='op'>-</span> <span class='number'>1</span>;
             <span class='ident'>se</span>.<span class='ident'>truncate</span>(<span class='ident'>file_size</span> <span class='kw'>as</span> <span class='ident'>u64</span>);
             <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>se</span>.<span class='ident'>get_num_chunks</span>(), <span class='number'>4</span>);
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>test_indices</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>CHUNK_0_START</span>, <span class='ident'>CHUNK_0_END</span>, <span class='ident'>CHUNK_1_START</span>, <span class='ident'>CHUNK_1_END</span>,
-                                        <span class='ident'>CHUNK_2_START</span>, <span class='ident'>CHUNK_2_END</span>];
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>test_indices</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>CHUNK_0_START</span>,
+                                        <span class='ident'>CHUNK_0_END</span>,
+                                        <span class='ident'>CHUNK_1_START</span>,
+                                        <span class='ident'>CHUNK_1_END</span>,
+                                        <span class='ident'>CHUNK_2_START</span>,
+                                        <span class='ident'>CHUNK_2_END</span>];
             <span class='ident'>test_indices</span>.<span class='ident'>append</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> ((<span class='ident'>CHUNK_2_END</span> <span class='op'>+</span> <span class='number'>1</span>)..(<span class='ident'>file_size</span> <span class='op'>-</span> <span class='number'>1</span>)).<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;&gt;</span>());
             <span class='kw'>for</span> <span class='ident'>byte_index</span> <span class='kw'>in</span> <span class='ident'>test_indices</span> {
                 <span class='kw'>let</span> <span class='ident'>expected_number</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>byte_index</span> {
@@ -3194,8 +3077,12 @@
             <span class='kw'>const</span> <span class='ident'>CHUNK_2_END</span>: <span class='ident'>u32</span> <span class='op'>=</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MAX_CHUNK_SIZE</span>) <span class='op'>-</span> <span class='number'>1</span>;
             <span class='ident'>se</span>.<span class='ident'>truncate</span>(<span class='ident'>file_size</span> <span class='kw'>as</span> <span class='ident'>u64</span>);
             <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>se</span>.<span class='ident'>get_num_chunks</span>(), <span class='number'>4</span>);
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>test_indices</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>CHUNK_0_START</span>, <span class='ident'>CHUNK_0_END</span>, <span class='ident'>CHUNK_1_START</span>, <span class='ident'>CHUNK_1_END</span>,
-                                        <span class='ident'>CHUNK_2_START</span>, <span class='ident'>CHUNK_2_END</span>];
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>test_indices</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>CHUNK_0_START</span>,
+                                        <span class='ident'>CHUNK_0_END</span>,
+                                        <span class='ident'>CHUNK_1_START</span>,
+                                        <span class='ident'>CHUNK_1_END</span>,
+                                        <span class='ident'>CHUNK_2_START</span>,
+                                        <span class='ident'>CHUNK_2_END</span>];
             <span class='ident'>test_indices</span>.<span class='ident'>append</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> ((<span class='ident'>CHUNK_2_END</span> <span class='op'>+</span> <span class='number'>1</span>)..(<span class='ident'>file_size</span> <span class='op'>-</span> <span class='number'>1</span>)).<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;&gt;</span>());
             <span class='kw'>for</span> <span class='ident'>byte_index</span> <span class='kw'>in</span> <span class='ident'>test_indices</span> {
                 <span class='kw'>let</span> <span class='ident'>expected_number</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>byte_index</span> {
@@ -3269,6 +3156,6 @@
     <script src="../../jquery.js"></script>
     <script src="../../main.js"></script>
     
-    <script async src="../../search-index.js"></script>
+    <script defer src="../../search-index.js"></script>
 </body>
 </html>

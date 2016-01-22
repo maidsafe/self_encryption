@@ -9,6 +9,7 @@
 
     <title>asynchronous::EventLoop - Rust</title>
 
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../main.css">
 
     
@@ -99,7 +100,7 @@
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>vec_res</span>.<span class='ident'>len</span>(), <span class='number'>1</span>);
     <span class='kw'>match</span> <span class='ident'>vec_res</span>[<span class='number'>0</span>] { <span class='ident'>MiEvents</span>::<span class='ident'>Goodbye</span>(<span class='ident'>vec_res</span>) <span class='op'>=&gt;</span> <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>vec_res</span>, <span class='number'>555</span>), _<span class='op'>=&gt;</span> () };
 });</pre>
-</div><h4 id='method.emit' class='method'><code>fn <a href='#method.emit' class='fnname'>emit</a>(&amp;self, event: Ev) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, Ev&gt;</code></h4>
+</div><h4 id='method.emit' class='method'><code>fn <a href='#method.emit' class='fnname'>emit</a>(&amp;self, event: Ev) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, Ev&gt;</code></h4>
 <div class='docblock'><p>Triggers an event &quot;Ev&quot; once. Returns the same event if the event loop is not active.</p>
 </div><h4 id='method.emit_until' class='method'><code>fn <a href='#method.emit_until' class='fnname'>emit_until</a>&lt;F&gt;(&amp;self, f: F) <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>() -&gt; <a class='enum' href='../asynchronous/enum.Emit.html' title='asynchronous::Emit'>Emit</a>&lt;Ev&gt;</span></code></h4>
 <div class='docblock'><p>Triggers an event &quot;Ev&quot; until the return of the &quot;clousure&quot; is None</p>
@@ -118,13 +119,13 @@
 });</pre>
 </div><h4 id='method.finish' class='method'><code>fn <a href='#method.finish' class='fnname'>finish</a>(self) -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt;</code></h4>
 <div class='docblock'><p>Finishes the event loop immediately.</p>
-</div><h4 id='method.finish_in_ms' class='method'><code>fn <a href='#method.finish_in_ms' class='fnname'>finish_in_ms</a>(self, duration_ms: <a href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt;</code></h4>
+</div><h4 id='method.finish_in_ms' class='method'><code>fn <a href='#method.finish_in_ms' class='fnname'>finish_in_ms</a>(self, duration_ms: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt;</code></h4>
 <div class='docblock'><p>Finishes the event loop in N milliseconds</p>
-</div><h4 id='method.is_active' class='method'><code>fn <a href='#method.is_active' class='fnname'>is_active</a>(&amp;self) -&gt; <a href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h4 id='method.is_active' class='method'><code>fn <a href='#method.is_active' class='fnname'>is_active</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
 <div class='docblock'><p>Returns true if the event loop is running</p>
 </div><h4 id='method.get_handler' class='method'><code>fn <a href='#method.get_handler' class='fnname'>get_handler</a>(&amp;self) -&gt; <a class='struct' href='../asynchronous/struct.EventLoopHandler.html' title='asynchronous::EventLoopHandler'>EventLoopHandler</a>&lt;Ev&gt;</code></h4>
 <div class='docblock'><p>Returns a handler to Event Emitter</p>
-</div><h4 id='method.to_promise' class='method'><code>fn <a href='#method.to_promise' class='fnname'>to_promise</a>(self) -&gt; <a class='struct' href='../asynchronous/struct.Promise.html' title='asynchronous::Promise'>Promise</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;Ev&gt;, <a href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h4 id='method.to_promise' class='method'><code>fn <a href='#method.to_promise' class='fnname'>to_promise</a>(self) -&gt; <a class='struct' href='../asynchronous/struct.Promise.html' title='asynchronous::Promise'>Promise</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;Ev&gt;, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
 <div class='docblock'><p>Once the event loop is finished, the promise collects the results.</p>
 </div></div></section>
     <section id='search' class="content hidden"></section>
@@ -185,6 +186,6 @@
     <script src="../jquery.js"></script>
     <script src="../main.js"></script>
     
-    <script async src="../search-index.js"></script>
+    <script defer src="../search-index.js"></script>
 </body>
 </html>
