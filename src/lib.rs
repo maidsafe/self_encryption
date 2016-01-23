@@ -445,8 +445,8 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             }
         }
         self.prepare_window(data.len() as u64, position);
-        for (i, _) in data.iter().enumerate() {
-            self.sequencer[position as usize + i] = data[i];
+        for (i, &byte) in data.iter().enumerate() {
+            self.sequencer[position as usize + i] = byte;
         }
     }
 
