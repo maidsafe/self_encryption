@@ -92,6 +92,7 @@ pub enum DataMap {
     None,
 }
 
+#[cfg_attr(feature="clippy", allow(len_without_is_empty))]
 impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
     pub fn len(&self) -> u64 {
@@ -144,8 +145,8 @@ impl DataMap {
 
 impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
-        match self {
-            &DataMap::Chunks(ref chunks) => {
+        match *self {
+            DataMap::Chunks(ref chunks) => {
                 try!(write!(formatter, "DataMap::Chunks:\n"));
                 let len = chunks.len();
                 for (index, chunk) in chunks.iter().enumerate() {
@@ -157,10 +158,10 @@ impl Debug for DataMap {
                 }
                 Ok(())
             }
-            &DataMap::Content(ref content) => {
+            DataMap::Content(ref content) => {
                 write!(formatter, "DataMap::Content({})", debug_bytes(content))
             }
-            &DataMap::None => write!(formatter, "DataMap::None"),
+            DataMap::None => write!(formatter, "DataMap::None"),
         }
     }
 }
