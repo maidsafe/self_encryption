@@ -567,25 +567,34 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         }
     }
 
-    /// Truncate the self_encryptor to the specified size (if extend, filled with 0u8).
+    /// Truncate the self_encryptor to the specified size (if extended, filled with 0u8).
+    //
+    // NOTE: Right now calls prepare_window with the full length of the truncated file
+    // because chunk sizes may change. Chunks that don't change don't actually need any
+    // treatment here so there's room for performance improvement, especially for large
+    // files.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    pub fn truncate(&mut self, position: u64) -> bool {
+    pub fn truncate(&mut self, new_size: u64) -> bool {
+        if self.file_size == new_size {
+            return true;
+        }
         let old_size = self.file_size;
-        self.file_size = position;  //  All helper methods calculate from file size
-        if position < old_size {
-            self.sequencer.truncate(position as usize);
-            let last_chunk = self.get_chunk_number(position) + 1;
-            self.chunks.truncate(last_chunk as usize);
+        if new_size < old_size {
+            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.file_size = new_size;
+            self.sequencer.truncate(new_size as usize);
+            let num_chunks = self.get_num_chunks(); // call with updated self.file_size
+            self.chunks.truncate(num_chunks as usize);
         } else {
-            if self.file_size > old_size && self.file_size as usize > MAX_IN_MEMORY_SIZE &&
+            if new_size > MAX_IN_MEMORY_SIZE as u64 &&
                self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
                 match self.sequencer.create_mapping() {
                     Ok(()) => (),
                     Err(_) => return false,
                 }
             }
-            // assert(position - old_size < std::numeric_limits<size_t>::max());
-            self.prepare_window((position - old_size), old_size);
+            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.file_size = new_size;
         }
 
         true
@@ -605,11 +614,11 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// any absent chunks from external storage.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     fn prepare_window(&mut self, length: u64, position: u64) {
-        if (length + position) as usize > self.sequencer.len() {
-            let tmp_size = self.sequencer.len();
-            self.sequencer.extend(repeat(0).take((length as usize + position as usize) - tmp_size));
-        }
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+            if length + position > self.sequencer.len() as u64 {
+                let tmp_size = self.sequencer.len() as u64;
+                self.sequencer.extend(repeat(0).take((length + position - tmp_size) as usize));
+            }
             return;
         }
         let mut first_chunk = self.get_chunk_number(position);
@@ -624,6 +633,13 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
             }
         }
+        let last_chunks_end_pos = self.get_start_end_positions(last_chunk - 1).1;
+        let required_len = cmp::max(length + position, last_chunks_end_pos);
+        if required_len > self.sequencer.len() as u64 {
+            let current_len = self.sequencer.len() as u64;
+            self.sequencer.extend(repeat(0).take((required_len - current_len) as usize));
+        }
+
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
         for i in first_chunk..last_chunk {
@@ -1322,6 +1338,108 @@ mod test {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
+    }
+
+    #[test]
+    fn truncate_three_max_chunks() {
+        let storage = Arc::new(SimpleStorage::new());
+        let data_map: DataMap;
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
+        let bytes = random_bytes(bytes_len as usize);
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            se.truncate(bytes_len - 24);
+            assert_eq!(se.get_num_chunks(), 3);
+            check_file_size(&se, bytes_len - 24);
+            data_map = se.close();
+        }
+        assert_eq!(data_map.len(), bytes_len - 24);
+        match data_map {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 3);
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map);
+        let fetched = se.read(0, bytes_len - 24);
+        assert!(&fetched[..] == &bytes[.. (bytes_len - 24) as usize]);
+    }
+
+    #[test]
+    fn truncate_from_datamap() {
+        let storage = Arc::new(SimpleStorage::new());
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3;
+        let bytes = random_bytes(bytes_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            data_map = se.close();
+        }
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(storage.clone(), data_map);
+            se.truncate(bytes_len - 24);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), bytes_len - 24);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 6);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map2);
+        let fetched = se.read(0, bytes_len - 24);
+        assert!(&fetched[..] == &bytes[.. (bytes_len - 24) as usize]);
+    }
+
+    #[test]
+    fn truncate_to_extend_from_datamap() {
+        let storage = Arc::new(SimpleStorage::new());
+        let bytes_len = MAX_CHUNK_SIZE as u64 * 3 - 24;
+        let bytes = random_bytes(bytes_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            se.write(&bytes, 0);
+            check_file_size(&se, bytes_len);
+            data_map = se.close();
+        }
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(storage.clone(), data_map);
+            se.truncate(bytes_len + 24);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), bytes_len + 24);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(storage.clone().num_entries(), 6);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+        let mut se = SelfEncryptor::new(storage.clone(), data_map2);
+        let fetched = se.read(0, bytes_len + 24);
+        assert!(&fetched[.. bytes_len as usize] == &bytes[..]);
+        assert!(&fetched[bytes_len as usize ..] == &[0u8; 24]);
     }
 
     #[test]
