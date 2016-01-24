@@ -1520,6 +1520,47 @@ mod test {
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
+    #[test]
+    fn write_starting_with_existing_datamap2() {
+        let my_storage = Arc::new(SimpleStorage::new());
+        let part1_len = MAX_CHUNK_SIZE * 3 - 24;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len as u64);
+            data_map = se.close();
+        }
+        let part2_len = 1024;
+        let part2_bytes = random_bytes(part2_len as usize);
+        let full_len = part1_len + part2_len;
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            se.write(&part2_bytes, part1_len as u64);
+            assert_eq!(se.get_num_chunks(), 4);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), full_len as u64);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 3);
+                assert_eq!(my_storage.clone().num_entries(), 6);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(my_storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, full_len as u64);
+        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
+        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+    }
+
     fn create_vector_data_map(storage: Arc<SimpleStorage>, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
         let serialised_data: Vec<u8> = serialisation::serialise(&data)
