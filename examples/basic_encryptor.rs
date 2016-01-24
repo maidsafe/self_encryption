@@ -96,7 +96,7 @@ struct DiskBasedStorage {
 }
 
 impl DiskBasedStorage {
-    fn calculate_path(&self, name: Vec<u8>) -> PathBuf {
+    fn calculate_path(&self, name: &[u8]) -> PathBuf {
         let mut path = PathBuf::from(self.storage_path.clone());
         path.push(file_name(&name));
         path
@@ -104,7 +104,7 @@ impl DiskBasedStorage {
 }
 
 impl Storage for DiskBasedStorage {
-    fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    fn get(&self, name: &[u8]) -> Vec<u8> {
         let path = self.calculate_path(name);
         let display = path.display();
         let mut file = match File::open(&path) {
@@ -117,7 +117,7 @@ impl Storage for DiskBasedStorage {
     }
 
     fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let path = self.calculate_path(name);
+        let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Err(error) => panic!("Failed to create {:?} - {:?}", path, error),
             Ok(f) => f,
