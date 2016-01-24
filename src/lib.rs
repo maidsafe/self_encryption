@@ -434,7 +434,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     pub fn write(&mut self, data: &[u8], position: u64) {
         if self.file_size < (data.len() as u64 + position) {
             let length = self.file_size;
-            self.prepare_window(length, 0);
+            self.prepare_window(length, 0, false);
         }
         self.file_size = cmp::max(self.file_size, data.len() as u64 + position);
         if self.file_size > MAX_IN_MEMORY_SIZE as u64 &&
@@ -444,7 +444,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 Err(_) => return,
             }
         }
-        self.prepare_window(data.len() as u64, position);
+        self.prepare_window(data.len() as u64, position, true);
         for (i, &byte) in data.iter().enumerate() {
             self.sequencer[position as usize + i] = byte;
         }
@@ -456,7 +456,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// '0u8's.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
-        self.prepare_window(length, position);
+        self.prepare_window(length, position, false);
         let mut read = Vec::with_capacity(length as usize);
         for &byte in self.sequencer.iter().skip(position as usize).take(length as usize) {
             read.push(byte);
@@ -473,7 +473,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // Call prepare_window for the full file size to force any missing chunks to be inserted
         // into self.chunks.
         let file_size = self.file_size;
-        self.prepare_window(file_size, 0);
+        self.prepare_window(file_size, 0, false);
 
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             let mut content = self.sequencer.to_vec();
@@ -579,10 +579,10 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         }
         let old_size = self.file_size;
         if new_size < old_size {
-            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.prepare_window(new_size, 0, true);  // call before changing self.file_size
             self.file_size = new_size;
             self.sequencer.truncate(new_size as usize);
-            let num_chunks = self.get_num_chunks(); // call with updated self.file_size
+            let num_chunks = self.get_num_chunks();  // call with updated self.file_size
             self.chunks.truncate(num_chunks as usize);
         } else {
             if new_size > MAX_IN_MEMORY_SIZE as u64 && self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
@@ -591,7 +591,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                     Err(_) => return false,
                 }
             }
-            self.prepare_window(new_size, 0);   // call before changing self.file_size
+            self.prepare_window(new_size, 0, true);  // call before changing self.file_size
             self.file_size = new_size;
         }
 
@@ -611,7 +611,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in
     /// any absent chunks from external storage.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    fn prepare_window(&mut self, length: u64, position: u64) {
+    fn prepare_window(&mut self, length: u64, position: u64, for_writing: bool) {
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             if length + position > self.sequencer.len() as u64 {
                 let tmp_size = self.sequencer.len() as u64;
@@ -641,30 +641,33 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
         for i in first_chunk..last_chunk {
-            let mut found = false;
-            for itr in &self.chunks {
-                if itr.number == i {
+            let mut chunk_index = None;
+            for (index, chunk) in self.chunks.iter().enumerate() {
+                if chunk.number == i {
                     let pos = self.get_start_end_positions(i).0;
-                    if itr.location == ChunkLocation::Remote {
+                    if chunk.location == ChunkLocation::Remote {
                         vec_deferred.push(self.decrypt_chunk(i)
                                               .chain::<_, String, _>(move |res| {
                                                   Ok((pos, unwrap_result!(res)))
                                               }));
                     }
-                    found = true;
+                    chunk_index = Some(index);
                     break;
                 }
             }
-            if !found {
-                self.chunks.push(Chunk {
-                    number: i,
-                    status: ChunkStatus::ToBeHashed,
-                    location: ChunkLocation::InSequencer,
-                });
-            } else {
-                if let Some(found_chunk) = self.chunks.get_mut(i as usize) {
-                    found_chunk.status = ChunkStatus::ToBeHashed;
-                    found_chunk.location = ChunkLocation::InSequencer;
+            match chunk_index {
+                Some(index) => {
+                    self.chunks[index].location = ChunkLocation::InSequencer;
+                    if for_writing {
+                        self.chunks[index].status = ChunkStatus::ToBeHashed;
+                    }
+                }
+                None => {
+                    self.chunks.push(Chunk {
+                        number: i,
+                        status: ChunkStatus::ToBeHashed,
+                        location: ChunkLocation::InSequencer,
+                    });
                 }
             }
         }
