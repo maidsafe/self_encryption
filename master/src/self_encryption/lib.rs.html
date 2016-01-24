@@ -1568,6 +1568,122 @@
 <span id="1525">1525</span>
 <span id="1526">1526</span>
 <span id="1527">1527</span>
+<span id="1528">1528</span>
+<span id="1529">1529</span>
+<span id="1530">1530</span>
+<span id="1531">1531</span>
+<span id="1532">1532</span>
+<span id="1533">1533</span>
+<span id="1534">1534</span>
+<span id="1535">1535</span>
+<span id="1536">1536</span>
+<span id="1537">1537</span>
+<span id="1538">1538</span>
+<span id="1539">1539</span>
+<span id="1540">1540</span>
+<span id="1541">1541</span>
+<span id="1542">1542</span>
+<span id="1543">1543</span>
+<span id="1544">1544</span>
+<span id="1545">1545</span>
+<span id="1546">1546</span>
+<span id="1547">1547</span>
+<span id="1548">1548</span>
+<span id="1549">1549</span>
+<span id="1550">1550</span>
+<span id="1551">1551</span>
+<span id="1552">1552</span>
+<span id="1553">1553</span>
+<span id="1554">1554</span>
+<span id="1555">1555</span>
+<span id="1556">1556</span>
+<span id="1557">1557</span>
+<span id="1558">1558</span>
+<span id="1559">1559</span>
+<span id="1560">1560</span>
+<span id="1561">1561</span>
+<span id="1562">1562</span>
+<span id="1563">1563</span>
+<span id="1564">1564</span>
+<span id="1565">1565</span>
+<span id="1566">1566</span>
+<span id="1567">1567</span>
+<span id="1568">1568</span>
+<span id="1569">1569</span>
+<span id="1570">1570</span>
+<span id="1571">1571</span>
+<span id="1572">1572</span>
+<span id="1573">1573</span>
+<span id="1574">1574</span>
+<span id="1575">1575</span>
+<span id="1576">1576</span>
+<span id="1577">1577</span>
+<span id="1578">1578</span>
+<span id="1579">1579</span>
+<span id="1580">1580</span>
+<span id="1581">1581</span>
+<span id="1582">1582</span>
+<span id="1583">1583</span>
+<span id="1584">1584</span>
+<span id="1585">1585</span>
+<span id="1586">1586</span>
+<span id="1587">1587</span>
+<span id="1588">1588</span>
+<span id="1589">1589</span>
+<span id="1590">1590</span>
+<span id="1591">1591</span>
+<span id="1592">1592</span>
+<span id="1593">1593</span>
+<span id="1594">1594</span>
+<span id="1595">1595</span>
+<span id="1596">1596</span>
+<span id="1597">1597</span>
+<span id="1598">1598</span>
+<span id="1599">1599</span>
+<span id="1600">1600</span>
+<span id="1601">1601</span>
+<span id="1602">1602</span>
+<span id="1603">1603</span>
+<span id="1604">1604</span>
+<span id="1605">1605</span>
+<span id="1606">1606</span>
+<span id="1607">1607</span>
+<span id="1608">1608</span>
+<span id="1609">1609</span>
+<span id="1610">1610</span>
+<span id="1611">1611</span>
+<span id="1612">1612</span>
+<span id="1613">1613</span>
+<span id="1614">1614</span>
+<span id="1615">1615</span>
+<span id="1616">1616</span>
+<span id="1617">1617</span>
+<span id="1618">1618</span>
+<span id="1619">1619</span>
+<span id="1620">1620</span>
+<span id="1621">1621</span>
+<span id="1622">1622</span>
+<span id="1623">1623</span>
+<span id="1624">1624</span>
+<span id="1625">1625</span>
+<span id="1626">1626</span>
+<span id="1627">1627</span>
+<span id="1628">1628</span>
+<span id="1629">1629</span>
+<span id="1630">1630</span>
+<span id="1631">1631</span>
+<span id="1632">1632</span>
+<span id="1633">1633</span>
+<span id="1634">1634</span>
+<span id="1635">1635</span>
+<span id="1636">1636</span>
+<span id="1637">1637</span>
+<span id="1638">1638</span>
+<span id="1639">1639</span>
+<span id="1640">1640</span>
+<span id="1641">1641</span>
+<span id="1642">1642</span>
+<span id="1643">1643</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -2135,26 +2251,33 @@
         }
     }
 
-    <span class='doccomment'>/// Truncate the self_encryptor to the specified size (if extend, filled with 0u8).</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>truncate</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>position</span>: <span class='ident'>u64</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+    <span class='doccomment'>/// Truncate the self_encryptor to the specified size (if extended, filled with 0u8).</span>
+    <span class='comment'>//</span>
+    <span class='comment'>// NOTE: Right now calls prepare_window with the full length of the truncated file</span>
+    <span class='comment'>// because chunk sizes may change. Chunks that don&#39;t change don&#39;t actually need any</span>
+    <span class='comment'>// treatment here so there&#39;s room for performance improvement, especially for large</span>
+    <span class='comment'>// files.</span>
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>truncate</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>new_size</span>: <span class='ident'>u64</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>==</span> <span class='ident'>new_size</span> {
+            <span class='kw'>return</span> <span class='boolval'>true</span>;
+        }
         <span class='kw'>let</span> <span class='ident'>old_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>file_size</span>;
-        <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>position</span>;  <span class='comment'>//  All helper methods calculate from file size</span>
-        <span class='kw'>if</span> <span class='ident'>position</span> <span class='op'>&lt;</span> <span class='ident'>old_size</span> {
-            <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>truncate</span>(<span class='ident'>position</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
-            <span class='kw'>let</span> <span class='ident'>last_chunk</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_chunk_number</span>(<span class='ident'>position</span>) <span class='op'>+</span> <span class='number'>1</span>;
-            <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>truncate</span>(<span class='ident'>last_chunk</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
+        <span class='kw'>if</span> <span class='ident'>new_size</span> <span class='op'>&lt;</span> <span class='ident'>old_size</span> {
+            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>);   <span class='comment'>// call before changing self.file_size</span>
+            <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>new_size</span>;
+            <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>truncate</span>(<span class='ident'>new_size</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
+            <span class='kw'>let</span> <span class='ident'>num_chunks</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_num_chunks</span>(); <span class='comment'>// call with updated self.file_size</span>
+            <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>truncate</span>(<span class='ident'>num_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
         } <span class='kw'>else</span> {
-            <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&gt;</span> <span class='ident'>old_size</span> {
-                <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>&gt;</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='op'>&amp;&amp;</span>
-                   <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> {
-                    <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>create_mapping</span>() {
-                        <span class='prelude-val'>Ok</span>(()) <span class='op'>=&gt;</span> (),
-                        <span class='prelude-val'>Err</span>(_) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='boolval'>false</span>,
-                    }
+            <span class='kw'>if</span> <span class='ident'>new_size</span> <span class='op'>&gt;</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>&amp;&amp;</span>
+               <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> {
+                <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>create_mapping</span>() {
+                    <span class='prelude-val'>Ok</span>(()) <span class='op'>=&gt;</span> (),
+                    <span class='prelude-val'>Err</span>(_) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='boolval'>false</span>,
                 }
             }
-            <span class='comment'>// assert(position - old_size &lt; std::numeric_limits&lt;size_t&gt;::max());</span>
-            <span class='self'>self</span>.<span class='ident'>prepare_window</span>((<span class='ident'>position</span> <span class='op'>-</span> <span class='ident'>old_size</span>), <span class='ident'>old_size</span>);
+            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>);   <span class='comment'>// call before changing self.file_size</span>
+            <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>new_size</span>;
         }
 
         <span class='boolval'>true</span>
@@ -2168,11 +2291,11 @@
     <span class='doccomment'>/// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in</span>
     <span class='doccomment'>/// any absent chunks from external storage.</span>
     <span class='kw'>fn</span> <span class='ident'>prepare_window</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>length</span>: <span class='ident'>u64</span>, <span class='ident'>position</span>: <span class='ident'>u64</span>) {
-        <span class='kw'>if</span> (<span class='ident'>length</span> <span class='op'>+</span> <span class='ident'>position</span>) <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>&gt;</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() {
-            <span class='kw'>let</span> <span class='ident'>tmp_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>();
-            <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>extend</span>(<span class='ident'>repeat</span>(<span class='number'>0</span>).<span class='ident'>take</span>((<span class='ident'>length</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>+</span> <span class='ident'>position</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>-</span> <span class='ident'>tmp_size</span>));
-        }
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&lt;</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MIN_CHUNK_SIZE</span>) <span class='kw'>as</span> <span class='ident'>u64</span> {
+            <span class='kw'>if</span> <span class='ident'>length</span> <span class='op'>+</span> <span class='ident'>position</span> <span class='op'>&gt;</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span> {
+                <span class='kw'>let</span> <span class='ident'>tmp_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span>;
+                <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>extend</span>(<span class='ident'>repeat</span>(<span class='number'>0</span>).<span class='ident'>take</span>((<span class='ident'>length</span> <span class='op'>+</span> <span class='ident'>position</span> <span class='op'>-</span> <span class='ident'>tmp_size</span>) <span class='kw'>as</span> <span class='ident'>usize</span>));
+            }
             <span class='kw'>return</span>;
         }
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>first_chunk</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_chunk_number</span>(<span class='ident'>position</span>);
@@ -2187,6 +2310,13 @@
                 }
             }
         }
+        <span class='kw'>let</span> <span class='ident'>last_chunks_end_pos</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_start_end_positions</span>(<span class='ident'>last_chunk</span> <span class='op'>-</span> <span class='number'>1</span>).<span class='number'>1</span>;
+        <span class='kw'>let</span> <span class='ident'>required_len</span> <span class='op'>=</span> <span class='ident'>cmp</span>::<span class='ident'>max</span>(<span class='ident'>length</span> <span class='op'>+</span> <span class='ident'>position</span>, <span class='ident'>last_chunks_end_pos</span>);
+        <span class='kw'>if</span> <span class='ident'>required_len</span> <span class='op'>&gt;</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span> {
+            <span class='kw'>let</span> <span class='ident'>current_len</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span>;
+            <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>extend</span>(<span class='ident'>repeat</span>(<span class='number'>0</span>).<span class='ident'>take</span>((<span class='ident'>required_len</span> <span class='op'>-</span> <span class='ident'>current_len</span>) <span class='kw'>as</span> <span class='ident'>usize</span>));
+        }
+
         <span class='comment'>// [TODO]: Thread next - 2015-02-28 06:09pm</span>
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>vec_deferred</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
         <span class='kw'>for</span> <span class='ident'>i</span> <span class='kw'>in</span> <span class='ident'>first_chunk</span>..<span class='ident'>last_chunk</span> {
@@ -2886,6 +3016,108 @@
             <span class='ident'>DataMap</span>::<span class='ident'>Content</span>(_) <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;shall not return DataMap::Content&quot;</span>),
             <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;shall not return DataMap::None&quot;</span>),
         }
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>truncate_three_max_chunks</span>() {
+        <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
+        <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>;
+        <span class='kw'>let</span> <span class='ident'>bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
+        {
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
+            <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>bytes</span>, <span class='number'>0</span>);
+            <span class='ident'>check_file_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>se</span>, <span class='ident'>bytes_len</span>);
+            <span class='ident'>se</span>.<span class='ident'>truncate</span>(<span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+            <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>se</span>.<span class='ident'>get_num_chunks</span>(), <span class='number'>3</span>);
+            <span class='ident'>check_file_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>se</span>, <span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+            <span class='ident'>data_map</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
+        }
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data_map</span>.<span class='ident'>len</span>(), <span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+        <span class='kw'>match</span> <span class='ident'>data_map</span> {
+            <span class='ident'>DataMap</span>::<span class='ident'>Chunks</span>(<span class='kw-2'>ref</span> <span class='ident'>chunks</span>) <span class='op'>=&gt;</span> {
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>chunks</span>.<span class='ident'>len</span>(), <span class='number'>3</span>);
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>num_entries</span>(), <span class='number'>3</span>);
+                <span class='kw'>for</span> <span class='ident'>chunk_detail</span> <span class='kw'>in</span> <span class='ident'>chunks</span>.<span class='ident'>iter</span>() {
+                    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>has_chunk</span>(<span class='kw-2'>&amp;</span><span class='ident'>chunk_detail</span>.<span class='ident'>hash</span>));
+                }
+            }
+            _ <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;datamap should be DataMap::Chunks&quot;</span>),
+        }
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map</span>);
+        <span class='kw'>let</span> <span class='ident'>fetched</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>read</span>(<span class='number'>0</span>, <span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>bytes</span>[.. (<span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>) <span class='kw'>as</span> <span class='ident'>usize</span>]);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>truncate_from_datamap</span>() {
+        <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span>;
+        <span class='kw'>let</span> <span class='ident'>bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
+        <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
+        {
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
+            <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>bytes</span>, <span class='number'>0</span>);
+            <span class='ident'>check_file_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>se</span>, <span class='ident'>bytes_len</span>);
+            <span class='ident'>data_map</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
+        }
+        <span class='kw'>let</span> <span class='ident'>data_map2</span>: <span class='ident'>DataMap</span>;
+        {
+            <span class='comment'>// Start with an existing datamap.</span>
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map</span>);
+            <span class='ident'>se</span>.<span class='ident'>truncate</span>(<span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+            <span class='ident'>data_map2</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
+        }
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data_map2</span>.<span class='ident'>len</span>(), <span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+        <span class='kw'>match</span> <span class='ident'>data_map2</span> {
+            <span class='ident'>DataMap</span>::<span class='ident'>Chunks</span>(<span class='kw-2'>ref</span> <span class='ident'>chunks</span>) <span class='op'>=&gt;</span> {
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>chunks</span>.<span class='ident'>len</span>(), <span class='number'>3</span>);
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>num_entries</span>(), <span class='number'>6</span>);   <span class='comment'>// old ones + new ones</span>
+                <span class='kw'>for</span> <span class='ident'>chunk_detail</span> <span class='kw'>in</span> <span class='ident'>chunks</span>.<span class='ident'>iter</span>() {
+                    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>has_chunk</span>(<span class='kw-2'>&amp;</span><span class='ident'>chunk_detail</span>.<span class='ident'>hash</span>));
+                }
+            }
+            _ <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;datamap should be DataMap::Chunks&quot;</span>),
+        }
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map2</span>);
+        <span class='kw'>let</span> <span class='ident'>fetched</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>read</span>(<span class='number'>0</span>, <span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[..] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>bytes</span>[.. (<span class='ident'>bytes_len</span> <span class='op'>-</span> <span class='number'>24</span>) <span class='kw'>as</span> <span class='ident'>usize</span>]);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>truncate_to_extend_from_datamap</span>() {
+        <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='ident'>bytes_len</span> <span class='op'>=</span> <span class='ident'>MAX_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>*</span> <span class='number'>3</span> <span class='op'>-</span> <span class='number'>24</span>;
+        <span class='kw'>let</span> <span class='ident'>bytes</span> <span class='op'>=</span> <span class='ident'>random_bytes</span>(<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
+        <span class='kw'>let</span> <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>;
+        {
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>DataMap</span>::<span class='prelude-val'>None</span>);
+            <span class='ident'>se</span>.<span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='ident'>bytes</span>, <span class='number'>0</span>);
+            <span class='ident'>check_file_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>se</span>, <span class='ident'>bytes_len</span>);
+            <span class='ident'>data_map</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
+        }
+        <span class='kw'>let</span> <span class='ident'>data_map2</span>: <span class='ident'>DataMap</span>;
+        {
+            <span class='comment'>// Start with an existing datamap.</span>
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map</span>);
+            <span class='ident'>se</span>.<span class='ident'>truncate</span>(<span class='ident'>bytes_len</span> <span class='op'>+</span> <span class='number'>24</span>);
+            <span class='ident'>data_map2</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>close</span>();
+        }
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>data_map2</span>.<span class='ident'>len</span>(), <span class='ident'>bytes_len</span> <span class='op'>+</span> <span class='number'>24</span>);
+        <span class='kw'>match</span> <span class='ident'>data_map2</span> {
+            <span class='ident'>DataMap</span>::<span class='ident'>Chunks</span>(<span class='kw-2'>ref</span> <span class='ident'>chunks</span>) <span class='op'>=&gt;</span> {
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>chunks</span>.<span class='ident'>len</span>(), <span class='number'>3</span>);
+                <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>num_entries</span>(), <span class='number'>6</span>);   <span class='comment'>// old ones + new ones</span>
+                <span class='kw'>for</span> <span class='ident'>chunk_detail</span> <span class='kw'>in</span> <span class='ident'>chunks</span>.<span class='ident'>iter</span>() {
+                    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>().<span class='ident'>has_chunk</span>(<span class='kw-2'>&amp;</span><span class='ident'>chunk_detail</span>.<span class='ident'>hash</span>));
+                }
+            }
+            _ <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;datamap should be DataMap::Chunks&quot;</span>),
+        }
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>se</span> <span class='op'>=</span> <span class='ident'>SelfEncryptor</span>::<span class='ident'>new</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>data_map2</span>);
+        <span class='kw'>let</span> <span class='ident'>fetched</span> <span class='op'>=</span> <span class='ident'>se</span>.<span class='ident'>read</span>(<span class='number'>0</span>, <span class='ident'>bytes_len</span> <span class='op'>+</span> <span class='number'>24</span>);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[.. <span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span>] <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>bytes</span>[..]);
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>fetched</span>[<span class='ident'>bytes_len</span> <span class='kw'>as</span> <span class='ident'>usize</span> ..] <span class='op'>==</span> <span class='kw-2'>&amp;</span>[<span class='number'>0u8</span>; <span class='number'>24</span>]);
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
