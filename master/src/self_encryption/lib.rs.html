@@ -1687,8 +1687,6 @@
 <span id="1644">1644</span>
 <span id="1645">1645</span>
 <span id="1646">1646</span>
-<span id="1647">1647</span>
-<span id="1648">1648</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -1750,7 +1748,7 @@
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! impl self_encryption::Storage for SimpleStorage {</span>
-<span class='doccomment'>//!     fn get(&amp;self, name: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt; {</span>
+<span class='doccomment'>//!     fn get(&amp;self, name: &amp;[u8]) -&gt; Vec&lt;u8&gt; {</span>
 <span class='doccomment'>//!         let lock = self.entries.lock().unwrap();</span>
 <span class='doccomment'>//!         for entry in lock.iter() {</span>
 <span class='doccomment'>//!             if entry.name == name {</span>
@@ -1868,8 +1866,6 @@
     <span class='ident'>InSequencer</span>,
     <span class='ident'>Remote</span>,
 }
-
-<span class='comment'>// pub struct Chunk { pub name:  Vec&lt;u8&gt;, pub content: Vec&lt;u8&gt; }</span>
 
 <span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>)]</span>
 <span class='kw'>struct</span> <span class='ident'>Chunk</span> {
@@ -2050,7 +2046,7 @@
 <span class='doccomment'>/// of content. Storage can be in-memory HashMap or disk based</span>
 <span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>Storage</span> {
     <span class='doccomment'>/// Fetch the data bearing the name</span>
-    <span class='kw'>fn</span> <span class='ident'>get</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>;
+    <span class='kw'>fn</span> <span class='ident'>get</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>;
     <span class='doccomment'>/// Insert the data bearing the name.</span>
     <span class='kw'>fn</span> <span class='ident'>put</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>data</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>);
 }
@@ -2402,7 +2398,7 @@
 
     <span class='doccomment'>/// Performs the decryption algorithm to decrypt chunk of data.</span>
     <span class='kw'>fn</span> <span class='ident'>decrypt_chunk</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>chunk_number</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='ident'>Deferred</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>String</span><span class='op'>&gt;</span> {
-        <span class='kw'>let</span> <span class='ident'>name</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>datamap</span>.<span class='ident'>get_sorted_chunks</span>()[<span class='ident'>chunk_number</span> <span class='kw'>as</span> <span class='ident'>usize</span>].<span class='ident'>hash</span>.<span class='ident'>clone</span>();
+        <span class='kw'>let</span> <span class='ident'>name</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>datamap</span>.<span class='ident'>get_sorted_chunks</span>()[<span class='ident'>chunk_number</span> <span class='kw'>as</span> <span class='ident'>usize</span>].<span class='ident'>hash</span>;
         <span class='comment'>// [TODO]: work out passing functors properly - 2015-03-02 07:00pm</span>
         <span class='kw'>let</span> (<span class='ident'>pad</span>, <span class='ident'>key</span>, <span class='ident'>iv</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_pad_key_and_iv</span>(<span class='ident'>chunk_number</span>);
         <span class='kw'>let</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>storage</span>.<span class='ident'>get</span>(<span class='ident'>name</span>);
