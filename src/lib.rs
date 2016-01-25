@@ -58,7 +58,7 @@
 //! }
 //!
 //! impl self_encryption::Storage for SimpleStorage {
-//!     fn get(&self, name: Vec<u8>) -> Vec<u8> {
+//!     fn get(&self, name: &[u8]) -> Vec<u8> {
 //!         let lock = self.entries.lock().unwrap();
 //!         for entry in lock.iter() {
 //!             if entry.name == name {
@@ -176,8 +176,6 @@ enum ChunkLocation {
     InSequencer,
     Remote,
 }
-
-// pub struct Chunk { pub name:  Vec<u8>, pub content: Vec<u8> }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Chunk {
@@ -358,7 +356,7 @@ impl Extend<u8> for Sequencer {
 /// of content. Storage can be in-memory HashMap or disk based
 pub trait Storage {
     /// Fetch the data bearing the name
-    fn get(&self, name: Vec<u8>) -> Vec<u8>;
+    fn get(&self, name: &[u8]) -> Vec<u8>;
     /// Insert the data bearing the name.
     fn put(&self, name: Vec<u8>, data: Vec<u8>);
 }
@@ -710,7 +708,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
     /// Performs the decryption algorithm to decrypt chunk of data.
     fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>, String> {
-        let name = self.datamap.get_sorted_chunks()[chunk_number as usize].hash.clone();
+        let name = &self.datamap.get_sorted_chunks()[chunk_number as usize].hash;
         // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let (pad, key, iv) = self.get_pad_key_and_iv(chunk_number);
         let content = self.storage.get(name);

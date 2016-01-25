@@ -60,7 +60,7 @@ impl SimpleStorage {
 }
 
 impl Storage for SimpleStorage {
-    fn get(&self, name: Vec<u8>) -> Vec<u8> {
+    fn get(&self, name: &[u8]) -> Vec<u8> {
         let lock = unwrap_result!(self.entries.lock());
         for entry in lock.iter() {
             if entry.name == name {
