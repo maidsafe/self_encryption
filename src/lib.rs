@@ -58,7 +58,7 @@
 //! }
 //!
 //! impl self_encryption::Storage for SimpleStorage {
-//!     fn get(&self, name: Vec<u8>) -> Vec<u8> {
+//!     fn get(&self, name: &[u8]) -> Vec<u8> {
 //!         let lock = self.entries.lock().unwrap();
 //!         for entry in lock.iter() {
 //!             if entry.name == name {
