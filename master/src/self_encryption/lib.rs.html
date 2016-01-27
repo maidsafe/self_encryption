@@ -1687,6 +1687,9 @@
 <span id="1644">1644</span>
 <span id="1645">1645</span>
 <span id="1646">1646</span>
+<span id="1647">1647</span>
+<span id="1648">1648</span>
+<span id="1649">1649</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -2122,7 +2125,7 @@
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>write</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>data</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>], <span class='ident'>position</span>: <span class='ident'>u64</span>) {
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&lt;</span> (<span class='ident'>data</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>+</span> <span class='ident'>position</span>) {
             <span class='kw'>let</span> <span class='ident'>length</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>file_size</span>;
-            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>length</span>, <span class='number'>0</span>);
+            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>length</span>, <span class='number'>0</span>, <span class='boolval'>false</span>);
         }
         <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>cmp</span>::<span class='ident'>max</span>(<span class='self'>self</span>.<span class='ident'>file_size</span>, <span class='ident'>data</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>+</span> <span class='ident'>position</span>);
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&gt;</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>&amp;&amp;</span>
@@ -2132,7 +2135,7 @@
                 <span class='prelude-val'>Err</span>(_) <span class='op'>=&gt;</span> <span class='kw'>return</span>,
             }
         }
-        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>data</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span>, <span class='ident'>position</span>);
+        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>data</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span>, <span class='ident'>position</span>, <span class='boolval'>true</span>);
         <span class='kw'>for</span> (<span class='ident'>i</span>, <span class='kw-2'>&amp;</span><span class='ident'>byte</span>) <span class='kw'>in</span> <span class='ident'>data</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>() {
             <span class='self'>self</span>.<span class='ident'>sequencer</span>[<span class='ident'>position</span> <span class='kw'>as</span> <span class='ident'>usize</span> <span class='op'>+</span> <span class='ident'>i</span>] <span class='op'>=</span> <span class='ident'>byte</span>;
         }
@@ -2144,7 +2147,7 @@
     <span class='doccomment'>/// &#39;0u8&#39;s.</span>
     <span class='attribute'>#[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>allow</span>(<span class='ident'>cast_possible_truncation</span>))]</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>read</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>position</span>: <span class='ident'>u64</span>, <span class='ident'>length</span>: <span class='ident'>u64</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
-        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>length</span>, <span class='ident'>position</span>);
+        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>length</span>, <span class='ident'>position</span>, <span class='boolval'>false</span>);
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>read</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='ident'>length</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
         <span class='kw'>for</span> <span class='kw-2'>&amp;</span><span class='ident'>byte</span> <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>iter</span>().<span class='ident'>skip</span>(<span class='ident'>position</span> <span class='kw'>as</span> <span class='ident'>usize</span>).<span class='ident'>take</span>(<span class='ident'>length</span> <span class='kw'>as</span> <span class='ident'>usize</span>) {
             <span class='ident'>read</span>.<span class='ident'>push</span>(<span class='ident'>byte</span>);
@@ -2161,7 +2164,7 @@
         <span class='comment'>// Call prepare_window for the full file size to force any missing chunks to be inserted</span>
         <span class='comment'>// into self.chunks.</span>
         <span class='kw'>let</span> <span class='ident'>file_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>file_size</span>;
-        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>file_size</span>, <span class='number'>0</span>);
+        <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>file_size</span>, <span class='number'>0</span>, <span class='boolval'>false</span>);
 
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&lt;</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MIN_CHUNK_SIZE</span>) <span class='kw'>as</span> <span class='ident'>u64</span> {
             <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>to_vec</span>();
@@ -2267,10 +2270,10 @@
         }
         <span class='kw'>let</span> <span class='ident'>old_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>file_size</span>;
         <span class='kw'>if</span> <span class='ident'>new_size</span> <span class='op'>&lt;</span> <span class='ident'>old_size</span> {
-            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>);   <span class='comment'>// call before changing self.file_size</span>
+            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>, <span class='boolval'>true</span>);  <span class='comment'>// call before changing self.file_size</span>
             <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>new_size</span>;
             <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>truncate</span>(<span class='ident'>new_size</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
-            <span class='kw'>let</span> <span class='ident'>num_chunks</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_num_chunks</span>(); <span class='comment'>// call with updated self.file_size</span>
+            <span class='kw'>let</span> <span class='ident'>num_chunks</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_num_chunks</span>();  <span class='comment'>// call with updated self.file_size</span>
             <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>truncate</span>(<span class='ident'>num_chunks</span> <span class='kw'>as</span> <span class='ident'>usize</span>);
         } <span class='kw'>else</span> {
             <span class='kw'>if</span> <span class='ident'>new_size</span> <span class='op'>&gt;</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> <span class='op'>&amp;&amp;</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> {
@@ -2279,7 +2282,7 @@
                     <span class='prelude-val'>Err</span>(_) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='boolval'>false</span>,
                 }
             }
-            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>);   <span class='comment'>// call before changing self.file_size</span>
+            <span class='self'>self</span>.<span class='ident'>prepare_window</span>(<span class='ident'>new_size</span>, <span class='number'>0</span>, <span class='boolval'>true</span>);  <span class='comment'>// call before changing self.file_size</span>
             <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>new_size</span>;
         }
 
@@ -2299,7 +2302,7 @@
     <span class='doccomment'>/// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in</span>
     <span class='doccomment'>/// any absent chunks from external storage.</span>
     <span class='attribute'>#[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>allow</span>(<span class='ident'>cast_possible_truncation</span>))]</span>
-    <span class='kw'>fn</span> <span class='ident'>prepare_window</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>length</span>: <span class='ident'>u64</span>, <span class='ident'>position</span>: <span class='ident'>u64</span>) {
+    <span class='kw'>fn</span> <span class='ident'>prepare_window</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>length</span>: <span class='ident'>u64</span>, <span class='ident'>position</span>: <span class='ident'>u64</span>, <span class='ident'>for_writing</span>: <span class='ident'>bool</span>) {
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>file_size</span> <span class='op'>&lt;</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MIN_CHUNK_SIZE</span>) <span class='kw'>as</span> <span class='ident'>u64</span> {
             <span class='kw'>if</span> <span class='ident'>length</span> <span class='op'>+</span> <span class='ident'>position</span> <span class='op'>&gt;</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span> {
                 <span class='kw'>let</span> <span class='ident'>tmp_size</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>sequencer</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u64</span>;
@@ -2329,30 +2332,33 @@
         <span class='comment'>// [TODO]: Thread next - 2015-02-28 06:09pm</span>
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>vec_deferred</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
         <span class='kw'>for</span> <span class='ident'>i</span> <span class='kw'>in</span> <span class='ident'>first_chunk</span>..<span class='ident'>last_chunk</span> {
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>found</span> <span class='op'>=</span> <span class='boolval'>false</span>;
-            <span class='kw'>for</span> <span class='ident'>itr</span> <span class='kw'>in</span> <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>chunks</span> {
-                <span class='kw'>if</span> <span class='ident'>itr</span>.<span class='ident'>number</span> <span class='op'>==</span> <span class='ident'>i</span> {
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>chunk_index</span> <span class='op'>=</span> <span class='prelude-val'>None</span>;
+            <span class='kw'>for</span> (<span class='ident'>index</span>, <span class='ident'>chunk</span>) <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>() {
+                <span class='kw'>if</span> <span class='ident'>chunk</span>.<span class='ident'>number</span> <span class='op'>==</span> <span class='ident'>i</span> {
                     <span class='kw'>let</span> <span class='ident'>pos</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_start_end_positions</span>(<span class='ident'>i</span>).<span class='number'>0</span>;
-                    <span class='kw'>if</span> <span class='ident'>itr</span>.<span class='ident'>location</span> <span class='op'>==</span> <span class='ident'>ChunkLocation</span>::<span class='ident'>Remote</span> {
+                    <span class='kw'>if</span> <span class='ident'>chunk</span>.<span class='ident'>location</span> <span class='op'>==</span> <span class='ident'>ChunkLocation</span>::<span class='ident'>Remote</span> {
                         <span class='ident'>vec_deferred</span>.<span class='ident'>push</span>(<span class='self'>self</span>.<span class='ident'>decrypt_chunk</span>(<span class='ident'>i</span>)
                                               .<span class='ident'>chain</span>::<span class='op'>&lt;</span>_, <span class='ident'>String</span>, _<span class='op'>&gt;</span>(<span class='kw'>move</span> <span class='op'>|</span><span class='ident'>res</span><span class='op'>|</span> {
                                                   <span class='prelude-val'>Ok</span>((<span class='ident'>pos</span>, <span class='macro'>unwrap_result</span><span class='macro'>!</span>(<span class='ident'>res</span>)))
                                               }));
                     }
-                    <span class='ident'>found</span> <span class='op'>=</span> <span class='boolval'>true</span>;
+                    <span class='ident'>chunk_index</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>index</span>);
                     <span class='kw'>break</span>;
                 }
             }
-            <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>found</span> {
-                <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>push</span>(<span class='ident'>Chunk</span> {
-                    <span class='ident'>number</span>: <span class='ident'>i</span>,
-                    <span class='ident'>status</span>: <span class='ident'>ChunkStatus</span>::<span class='ident'>ToBeHashed</span>,
-                    <span class='ident'>location</span>: <span class='ident'>ChunkLocation</span>::<span class='ident'>InSequencer</span>,
-                });
-            } <span class='kw'>else</span> {
-                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>found_chunk</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>get_mut</span>(<span class='ident'>i</span> <span class='kw'>as</span> <span class='ident'>usize</span>) {
-                    <span class='ident'>found_chunk</span>.<span class='ident'>status</span> <span class='op'>=</span> <span class='ident'>ChunkStatus</span>::<span class='ident'>ToBeHashed</span>;
-                    <span class='ident'>found_chunk</span>.<span class='ident'>location</span> <span class='op'>=</span> <span class='ident'>ChunkLocation</span>::<span class='ident'>InSequencer</span>;
+            <span class='kw'>match</span> <span class='ident'>chunk_index</span> {
+                <span class='prelude-val'>Some</span>(<span class='ident'>index</span>) <span class='op'>=&gt;</span> {
+                    <span class='self'>self</span>.<span class='ident'>chunks</span>[<span class='ident'>index</span>].<span class='ident'>location</span> <span class='op'>=</span> <span class='ident'>ChunkLocation</span>::<span class='ident'>InSequencer</span>;
+                    <span class='kw'>if</span> <span class='ident'>for_writing</span> {
+                        <span class='self'>self</span>.<span class='ident'>chunks</span>[<span class='ident'>index</span>].<span class='ident'>status</span> <span class='op'>=</span> <span class='ident'>ChunkStatus</span>::<span class='ident'>ToBeHashed</span>;
+                    }
+                }
+                <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> {
+                    <span class='self'>self</span>.<span class='ident'>chunks</span>.<span class='ident'>push</span>(<span class='ident'>Chunk</span> {
+                        <span class='ident'>number</span>: <span class='ident'>i</span>,
+                        <span class='ident'>status</span>: <span class='ident'>ChunkStatus</span>::<span class='ident'>ToBeHashed</span>,
+                        <span class='ident'>location</span>: <span class='ident'>ChunkLocation</span>::<span class='ident'>InSequencer</span>,
+                    });
                 }
             }
         }
