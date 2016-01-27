@@ -471,7 +471,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         // Call prepare_window for the full file size to force any missing chunks to be inserted
         // into self.chunks.
         let file_size = self.file_size;
-        self.prepare_window(file_size, 0, false);
+        self.prepare_window(file_size, 0, true);
 
         if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
             let mut content = self.sequencer.to_vec();
