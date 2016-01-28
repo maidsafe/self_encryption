@@ -480,7 +480,13 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         } else {
             // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
             let real_chunk_count = self.get_num_chunks();
-            let mut tmp_chunks = vec![ChunkDetails::new(); real_chunk_count as usize];
+            let mut tmp_chunks = if self.datamap.has_chunks() {
+                let mut datamap_chunks = self.datamap.get_sorted_chunks();
+                datamap_chunks.resize(real_chunk_count as usize, ChunkDetails::new());
+                datamap_chunks
+            } else {
+                vec![ChunkDetails::new(); real_chunk_count as usize]
+            };
 
             let mut deferred_hashes = Vec::new();
             for chunk in &self.chunks {
@@ -623,7 +629,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             first_chunk = 0;
             last_chunk = 3;
         } else {
-            for _ in 0..2 {
+            for _ in 0..3 {
                 if last_chunk < self.get_num_chunks() {
                     last_chunk += 1;
                 }
