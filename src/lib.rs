@@ -1540,14 +1540,13 @@ mod test {
             // Start with an existing datamap.
             let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
             se.write(&part2_bytes, part1_len as u64);
-            assert_eq!(se.get_num_chunks(), 4);
             data_map2 = se.close();
         }
         assert_eq!(data_map2.len(), full_len as u64);
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
-                assert_eq!(chunks.len(), 3);
-                assert_eq!(my_storage.clone().num_entries(), 6);   // old ones + new ones
+                assert_eq!(chunks.len(), 4);
+                assert_eq!(my_storage.clone().num_entries(), 7);   // old ones + new ones
                 for chunk_detail in chunks.iter() {
                     assert!(my_storage.clone().has_chunk(&chunk_detail.hash));
                 }
