@@ -78,7 +78,7 @@
 //! }
 //! ```
 //!
-//! Use of this setup would be to implement a self encryptor e.g  `let mut se =
+//! Use of this setup would be to implement a self encryptor e.g. `let mut se =
 //! SelfEncryptor::new(my_storage, datamap::DataMap::None);`
 //!
 //! Then call write (and read after write)…etc… on the encryptor. The `close()` method will
@@ -129,6 +129,7 @@ mod encryption;
 mod datamap;
 
 use std::cmp;
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{self, Debug, Formatter};
 use std::io::{self, ErrorKind, Read, Result, Write};
@@ -480,21 +481,22 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         } else {
             // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
             let real_chunk_count = self.get_num_chunks();
+            let mut datamap_chunks = vec![];
             let mut tmp_chunks = if self.datamap.has_chunks() {
-                let mut datamap_chunks = self.datamap.get_sorted_chunks();
-                datamap_chunks.resize(real_chunk_count as usize, ChunkDetails::new());
-                datamap_chunks
+                datamap_chunks = self.datamap.get_sorted_chunks();
+                let mut cloned_chunks = datamap_chunks.clone();
+                cloned_chunks.resize(real_chunk_count as usize, ChunkDetails::new());
+                cloned_chunks
             } else {
                 vec![ChunkDetails::new(); real_chunk_count as usize]
             };
 
             let mut deferred_hashes = Vec::new();
             for chunk in &self.chunks {
-                let missing_pre_encryption_hash = if self.datamap.has_chunks() {
-                    self.datamap.get_sorted_chunks()[chunk.number as usize].pre_hash.is_empty()
-                } else {
-                    true
-                };
+                let mut missing_pre_encryption_hash = true;
+                if let Some(datamap_chunk) = datamap_chunks.get(chunk.number as usize) {
+                    missing_pre_encryption_hash = datamap_chunk.pre_hash.is_empty()
+                }
                 if chunk.number < real_chunk_count &&
                    (chunk.status == ChunkStatus::ToBeHashed || missing_pre_encryption_hash ||
                     real_chunk_count == 3) {
@@ -623,19 +625,10 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             }
             return;
         }
-        let mut first_chunk = self.get_chunk_number(position);
-        let mut last_chunk = self.get_chunk_number(position + length);
-        if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
-            first_chunk = 0;
-            last_chunk = 3;
-        } else {
-            for _ in 0..3 {
-                if last_chunk < self.get_num_chunks() {
-                    last_chunk += 1;
-                }
-            }
-        }
-        let last_chunks_end_pos = self.get_start_end_positions(last_chunk - 1).1;
+
+        let (chunk_indices, last_chunks_end_pos) = self.get_affected_chunk_indices(length,
+                                                                                   position,
+                                                                                   for_writing);
         let required_len = cmp::max(length + position, last_chunks_end_pos);
         if required_len > self.sequencer.len() as u64 {
             let current_len = self.sequencer.len() as u64;
@@ -644,13 +637,13 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
-        for i in first_chunk..last_chunk {
+        for i in &chunk_indices {
             let mut chunk_index = None;
             for (index, chunk) in self.chunks.iter().enumerate() {
-                if chunk.number == i {
-                    let pos = self.get_start_end_positions(i).0;
+                if chunk.number == *i {
+                    let pos = self.get_start_end_positions(*i).0;
                     if chunk.location == ChunkLocation::Remote {
-                        vec_deferred.push(self.decrypt_chunk(i)
+                        vec_deferred.push(self.decrypt_chunk(*i)
                                               .chain::<_, String, _>(move |res| {
                                                   Ok((pos, unwrap_result!(res)))
                                               }));
@@ -668,7 +661,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
                 None => {
                     self.chunks.push(Chunk {
-                        number: i,
+                        number: *i,
                         status: ChunkStatus::ToBeHashed,
                         location: ChunkLocation::InSequencer,
                     });
@@ -684,6 +677,59 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 pos_aux += 1;
             }
         }
+    }
+
+    // This returns the indices of all chunks which are affected by a read (possibly need retrieving
+    // and decrypting) or a write (need retrieved and decrypted if previously stored and flagged for
+    // encryption).  It also returns the last chunk's end position, since the sequencer may need
+    // extended up to this size.
+    fn get_affected_chunk_indices(&self,
+                                  length: u64,
+                                  position: u64,
+                                  for_writing: bool)
+                                  -> (BTreeSet<u32>, u64) {
+        assert!(self.file_size >= (3 * MIN_CHUNK_SIZE) as u64);
+        if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
+            return ((0..3).collect::<BTreeSet<_>>(),
+                    self.get_start_end_positions(2).1);
+        }
+
+        let begin = self.get_chunk_number(position);
+        let end = self.get_chunk_number(position + length - 1) + 1;
+        let mut indices = (begin..end).collect::<BTreeSet<_>>();
+
+        if !for_writing {
+            return (indices, self.get_start_end_positions(end - 1).1);
+        }
+
+        // Since we're writing, we need the next two chunks also, as they will need re-encrypting
+        let num_chunks = self.get_num_chunks();
+        for i in 0..2 {
+            let _ = indices.insert((end + i) % num_chunks);
+        }
+        // Safe to just unwrap here, since `last()` can't return `None`.
+        let last_chunk = *unwrap_option!(indices.iter().last(), "");
+        let last_chunks_end_pos = self.get_start_end_positions(last_chunk).1;
+
+        // If the file was previously < (3*MAX_CHUNK_SIZE)+MIN_CHUNK_SIZE and the write increased
+        // the file size, then chunks 0, 1, and 2 all need re-encrypted.  In this case, 0 and 1 will
+        // just have been added in the for loop immediately above, so we only need to handle
+        // chunk 2.  It only needs re-encrypted if its size has changed.
+        if begin <= 2 || !self.datamap.has_chunks() {
+            // We've already added `2` to the indices or the chunk wasn't previously encrypted.
+            return (indices, last_chunks_end_pos);
+        }
+
+        let new_size = self.get_chunk_size(2) as u64;
+        match self.datamap.get_sorted_chunks().get(2) {
+            Some(datamap_chunk) => {
+                if datamap_chunk.source_size != new_size {
+                    let _ = indices.insert(2);
+                }
+            }
+            None => unreachable!("If the datamap has _any_ chunks it should at least have three."),
+        }
+        (indices, last_chunks_end_pos)
     }
 
     fn get_pad_key_and_iv(&self, chunk_number: u32) -> (Pad, Key, Iv) {
