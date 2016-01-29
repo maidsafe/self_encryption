@@ -1613,6 +1613,37 @@ mod test {
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
+    #[test]
+    fn overwrite_starting_with_existing_datamap() {
+        let my_storage = Arc::new(SimpleStorage::new());
+        let part1_len = MAX_CHUNK_SIZE * 4;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len as u64);
+            data_map = se.close();
+        }
+        let part2_len = 2;
+        let part2_bytes = random_bytes(part2_len);
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            // Overwrite. This and next two chunks will have to be re-encrypted.
+            se.write(&part2_bytes, 2);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), part1_len as u64);
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, part1_len as u64);
+        assert!(&part1_bytes[..2] == &fetched[..2]);
+        assert!(&part2_bytes[..] == &fetched[2..2 + part2_len]);
+        assert!(&part1_bytes[2 + part2_len..] == &fetched[2 + part2_len..]);
+    }
+
     fn create_vector_data_map(storage: Arc<SimpleStorage>, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
         let serialised_data: Vec<u8> = serialisation::serialise(&data)
