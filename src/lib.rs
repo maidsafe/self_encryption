@@ -78,7 +78,7 @@
 //! }
 //! ```
 //!
-//! Use of this setup would be to implement a self encryptor e.g  `let mut se =
+//! Use of this setup would be to implement a self encryptor e.g. `let mut se =
 //! SelfEncryptor::new(my_storage, datamap::DataMap::None);`
 //!
 //! Then call write (and read after write)…etc… on the encryptor. The `close()` method will
@@ -129,6 +129,7 @@ mod encryption;
 mod datamap;
 
 use std::cmp;
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{self, Debug, Formatter};
 use std::io::{self, ErrorKind, Read, Result, Write};
@@ -480,15 +481,22 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         } else {
             // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
             let real_chunk_count = self.get_num_chunks();
-            let mut tmp_chunks = vec![ChunkDetails::new(); real_chunk_count as usize];
+            let mut datamap_chunks = vec![];
+            let mut tmp_chunks = if self.datamap.has_chunks() {
+                datamap_chunks = self.datamap.get_sorted_chunks();
+                let mut cloned_chunks = datamap_chunks.clone();
+                cloned_chunks.resize(real_chunk_count as usize, ChunkDetails::new());
+                cloned_chunks
+            } else {
+                vec![ChunkDetails::new(); real_chunk_count as usize]
+            };
 
             let mut deferred_hashes = Vec::new();
             for chunk in &self.chunks {
-                let missing_pre_encryption_hash = if self.datamap.has_chunks() {
-                    self.datamap.get_sorted_chunks()[chunk.number as usize].pre_hash.is_empty()
-                } else {
-                    true
-                };
+                let mut missing_pre_encryption_hash = true;
+                if let Some(datamap_chunk) = datamap_chunks.get(chunk.number as usize) {
+                    missing_pre_encryption_hash = datamap_chunk.pre_hash.is_empty()
+                }
                 if chunk.number < real_chunk_count &&
                    (chunk.status == ChunkStatus::ToBeHashed || missing_pre_encryption_hash ||
                     real_chunk_count == 3) {
@@ -617,19 +625,10 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             }
             return;
         }
-        let mut first_chunk = self.get_chunk_number(position);
-        let mut last_chunk = self.get_chunk_number(position + length);
-        if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
-            first_chunk = 0;
-            last_chunk = 3;
-        } else {
-            for _ in 0..2 {
-                if last_chunk < self.get_num_chunks() {
-                    last_chunk += 1;
-                }
-            }
-        }
-        let last_chunks_end_pos = self.get_start_end_positions(last_chunk - 1).1;
+
+        let (chunk_indices, last_chunks_end_pos) = self.get_affected_chunk_indices(length,
+                                                                                   position,
+                                                                                   for_writing);
         let required_len = cmp::max(length + position, last_chunks_end_pos);
         if required_len > self.sequencer.len() as u64 {
             let current_len = self.sequencer.len() as u64;
@@ -638,13 +637,13 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
 
         // [TODO]: Thread next - 2015-02-28 06:09pm
         let mut vec_deferred = Vec::new();
-        for i in first_chunk..last_chunk {
+        for i in &chunk_indices {
             let mut chunk_index = None;
             for (index, chunk) in self.chunks.iter().enumerate() {
-                if chunk.number == i {
-                    let pos = self.get_start_end_positions(i).0;
+                if chunk.number == *i {
+                    let pos = self.get_start_end_positions(*i).0;
                     if chunk.location == ChunkLocation::Remote {
-                        vec_deferred.push(self.decrypt_chunk(i)
+                        vec_deferred.push(self.decrypt_chunk(*i)
                                               .chain::<_, String, _>(move |res| {
                                                   Ok((pos, unwrap_result!(res)))
                                               }));
@@ -662,7 +661,7 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 }
                 None => {
                     self.chunks.push(Chunk {
-                        number: i,
+                        number: *i,
                         status: ChunkStatus::ToBeHashed,
                         location: ChunkLocation::InSequencer,
                     });
@@ -678,6 +677,59 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
                 pos_aux += 1;
             }
         }
+    }
+
+    // This returns the indices of all chunks which are affected by a read (possibly need retrieving
+    // and decrypting) or a write (need retrieved and decrypted if previously stored and flagged for
+    // encryption).  It also returns the last chunk's end position, since the sequencer may need
+    // extended up to this size.
+    fn get_affected_chunk_indices(&self,
+                                  length: u64,
+                                  position: u64,
+                                  for_writing: bool)
+                                  -> (BTreeSet<u32>, u64) {
+        assert!(self.file_size >= (3 * MIN_CHUNK_SIZE) as u64);
+        if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
+            return ((0..3).collect::<BTreeSet<_>>(),
+                    self.get_start_end_positions(2).1);
+        }
+
+        let begin = self.get_chunk_number(position);
+        let end = self.get_chunk_number(position + length - 1) + 1;
+        let mut indices = (begin..end).collect::<BTreeSet<_>>();
+
+        if !for_writing {
+            return (indices, self.get_start_end_positions(end - 1).1);
+        }
+
+        // Since we're writing, we need the next two chunks also, as they will need re-encrypting
+        let num_chunks = self.get_num_chunks();
+        for i in 0..2 {
+            let _ = indices.insert((end + i) % num_chunks);
+        }
+        // Safe to just unwrap here, since `last()` can't return `None`.
+        let last_chunk = *unwrap_option!(indices.iter().last(), "");
+        let last_chunks_end_pos = self.get_start_end_positions(last_chunk).1;
+
+        // If the file was previously < (3*MAX_CHUNK_SIZE)+MIN_CHUNK_SIZE and the write increased
+        // the file size, then chunks 0, 1, and 2 all need re-encrypted.  In this case, 0 and 1 will
+        // just have been added in the for loop immediately above, so we only need to handle
+        // chunk 2.  It only needs re-encrypted if its size has changed.
+        if begin <= 2 || !self.datamap.has_chunks() {
+            // We've already added `2` to the indices or the chunk wasn't previously encrypted.
+            return (indices, last_chunks_end_pos);
+        }
+
+        let new_size = self.get_chunk_size(2) as u64;
+        match self.datamap.get_sorted_chunks().get(2) {
+            Some(datamap_chunk) => {
+                if datamap_chunk.source_size != new_size {
+                    let _ = indices.insert(2);
+                }
+            }
+            None => unreachable!("If the datamap has _any_ chunks it should at least have three."),
+        }
+        (indices, last_chunks_end_pos)
     }
 
     fn get_pad_key_and_iv(&self, chunk_number: u32) -> (Pad, Key, Iv) {
@@ -1519,6 +1571,77 @@ mod test {
         let fetched = se.read(0, full_len as u64);
         assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+    }
+
+    #[test]
+    fn write_starting_with_existing_datamap2() {
+        let my_storage = Arc::new(SimpleStorage::new());
+        let part1_len = MAX_CHUNK_SIZE * 3 - 24;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len as u64);
+            data_map = se.close();
+        }
+        let part2_len = 1024;
+        let part2_bytes = random_bytes(part2_len as usize);
+        let full_len = part1_len + part2_len;
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            se.write(&part2_bytes, part1_len as u64);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), full_len as u64);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), 4);
+                assert_eq!(my_storage.clone().num_entries(), 7);   // old ones + new ones
+                for chunk_detail in chunks.iter() {
+                    assert!(my_storage.clone().has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("datamap should be DataMap::Chunks"),
+        }
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, full_len as u64);
+        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
+        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+    }
+
+    #[test]
+    fn overwrite_starting_with_existing_datamap() {
+        let my_storage = Arc::new(SimpleStorage::new());
+        let part1_len = MAX_CHUNK_SIZE * 4;
+        let part1_bytes = random_bytes(part1_len as usize);
+        let data_map: DataMap;
+        {
+            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            se.write(&part1_bytes, 0);
+            check_file_size(&se, part1_len as u64);
+            data_map = se.close();
+        }
+        let part2_len = 2;
+        let part2_bytes = random_bytes(part2_len);
+        let data_map2: DataMap;
+        {
+            // Start with an existing datamap.
+            let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+            // Overwrite. This and next two chunks will have to be re-encrypted.
+            se.write(&part2_bytes, 2);
+            data_map2 = se.close();
+        }
+        assert_eq!(data_map2.len(), part1_len as u64);
+
+        let mut se = SelfEncryptor::new(my_storage.clone(), data_map2);
+        let fetched = se.read(0, part1_len as u64);
+        assert!(&part1_bytes[..2] == &fetched[..2]);
+        assert!(&part2_bytes[..] == &fetched[2..2 + part2_len]);
+        assert!(&part1_bytes[2 + part2_len..] == &fetched[2 + part2_len..]);
     }
 
     fn create_vector_data_map(storage: Arc<SimpleStorage>, vec_len: usize) -> DataMap {
