@@ -129,7 +129,6 @@ mod encryption;
 mod datamap;
 
 use std::cmp;
-use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{self, Debug, Formatter};
 use std::io::{self, ErrorKind, Read, Result, Write};
@@ -165,24 +164,25 @@ fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
     data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 enum ChunkStatus {
     ToBeHashed,
     ToBeEncrypted,
     AlreadyEncrypted,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum ChunkLocation {
-    InSequencer,
-    Remote,
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+struct Chunk {
+    status: ChunkStatus,
+    in_sequencer: bool,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct Chunk {
-    number: u32,
-    status: ChunkStatus,
-    location: ChunkLocation,
+impl Chunk {
+    fn flag_for_encryption(&mut self) {
+        if self.status == ChunkStatus::AlreadyEncrypted {
+            self.status = ChunkStatus::ToBeEncrypted;
+        }
+    }
 }
 
 /// Optionally create a sequence of bytes via a vector or memory map.
@@ -367,8 +367,9 @@ pub trait Storage {
 /// This is a library to ensure content is secured.
 pub struct SelfEncryptor<S: Storage> {
     storage: Arc<S>,
-    datamap: DataMap,
-    chunks: Vec<Chunk>,
+    sorted_map: Vec<ChunkDetails>,  // the original datamap, sorted
+    chunks: Vec<Chunk>,             // this is sorted as well
+    map_size: u64,                  // original file size of the datamap
     sequencer: Sequencer,
     file_size: u64,
 }
@@ -382,7 +383,6 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         initialise_sodiumoxide();
         let file_size = datamap.len();
         let mut sequencer;
-        let mut chunks = vec![];
 
         if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             sequencer = Sequencer::new_as_vector();
@@ -390,33 +390,39 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             sequencer = unwrap_result!(Sequencer::new_as_mmap());
         }
 
+        let sorted_map;
+        let chunks;
+        let map_size;
         match datamap {
             DataMap::Content(ref content) => {
                 sequencer.init(content);
-                chunks.push(Chunk {
-                    number: 0,
+                sorted_map = vec![];
+                chunks = vec![];
+                map_size = 0;
+            }
+            DataMap::Chunks(_) => {
+                sorted_map = datamap.get_sorted_chunks();
+                let c = Chunk {
                     status: ChunkStatus::AlreadyEncrypted,
-                    location: ChunkLocation::Remote,
-                })
+                    in_sequencer: false,
+                };
+                chunks = vec![c; sorted_map.len()];
+                map_size = file_size;
             }
-            DataMap::Chunks(ref data_map_chunks) => {
-                for chunk in data_map_chunks.iter() {
-                    chunks.push(Chunk {
-                        number: chunk.chunk_num,
-                        status: ChunkStatus::AlreadyEncrypted,
-                        location: ChunkLocation::Remote,
-                    });
-                }
+            DataMap::None => {
+                sorted_map = vec![];
+                chunks = vec![];
+                map_size = 0;
             }
-            DataMap::None => {}
         }
 
         SelfEncryptor {
             storage: storage,
-            datamap: datamap,
+            sorted_map: sorted_map,
             chunks: chunks,
             sequencer: sequencer,
             file_size: file_size,
+            map_size: map_size,
         }
     }
 
@@ -431,176 +437,160 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
     /// (starts from 0).
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn write(&mut self, data: &[u8], position: u64) {
-        if self.file_size < (data.len() as u64 + position) {
-            let length = self.file_size;
-            self.prepare_window(length, 0, false);
-        }
-        self.file_size = cmp::max(self.file_size, data.len() as u64 + position);
-        if self.file_size > MAX_IN_MEMORY_SIZE as u64 &&
-           self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
-            match self.sequencer.create_mapping() {
-                Ok(()) => (),
-                Err(_) => return,
-            }
-        }
-        self.prepare_window(data.len() as u64, position, true);
+        self.prepare_window_for_writing(position, data.len() as u64);
         for (i, &byte) in data.iter().enumerate() {
             self.sequencer[position as usize + i] = byte;
         }
     }
 
     /// The returned content is read from the specified position with specified length. Trying to
-    /// read beyond the file size will cause the self_encryptor to be truncated up and return
-    /// content filled with 0u8 in the gap.  Any other unwritten gaps will also be filled with
+    /// read beyond the file size will cause the self_encryptor to return content filled with 0u8
+    /// in the gap (file size isn't affected).  Any other unwritten gaps will also be filled with
     /// '0u8's.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn read(&mut self, position: u64, length: u64) -> Vec<u8> {
-        self.prepare_window(length, position, false);
-        let mut read = Vec::with_capacity(length as usize);
+        self.prepare_window_for_reading(position, length);
+        let mut result = Vec::with_capacity(length as usize);
         for &byte in self.sequencer.iter().skip(position as usize).take(length as usize) {
-            read.push(byte);
+            result.push(byte);
         }
-        read
-        // &self.sequencer[position as usize..(position+length) as usize]
+        result
     }
 
     /// This function returns a DataMap, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in self_encryptor will only get
     /// flushed into storage when this function gets called.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    pub fn close(&mut self) -> DataMap {
-        // Call prepare_window for the full file size to force any missing chunks to be inserted
-        // into self.chunks.
-        let file_size = self.file_size;
-        self.prepare_window(file_size, 0, false);
-
-        if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
+    pub fn close(mut self) -> DataMap {
+        if self.file_size == 0 {
+            return DataMap::None;
+        }
+        if self.file_size < 3 * MIN_CHUNK_SIZE as u64 {
             let mut content = self.sequencer.to_vec();
             content.truncate(self.file_size as usize);
-            DataMap::Content(content)
-        } else {
-            // assert(self.get_num_chunks() > 2 && "Try to close with less than 3 chunks");
-            let real_chunk_count = self.get_num_chunks();
-            let mut datamap_chunks = vec![];
-            let mut tmp_chunks = if self.datamap.has_chunks() {
-                datamap_chunks = self.datamap.get_sorted_chunks();
-                let mut cloned_chunks = datamap_chunks.clone();
-                cloned_chunks.resize(real_chunk_count as usize, ChunkDetails::new());
-                cloned_chunks
-            } else {
-                vec![ChunkDetails::new(); real_chunk_count as usize]
-            };
-
-            let mut deferred_hashes = Vec::new();
-            for chunk in &self.chunks {
-                let mut missing_pre_encryption_hash = true;
-                if let Some(datamap_chunk) = datamap_chunks.get(chunk.number as usize) {
-                    missing_pre_encryption_hash = datamap_chunk.pre_hash.is_empty()
-                }
-                if chunk.number < real_chunk_count &&
-                   (chunk.status == ChunkStatus::ToBeHashed || missing_pre_encryption_hash ||
-                    real_chunk_count == 3) {
-                    let this_size = self.get_chunk_size(chunk.number) as usize;
-                    let pos = self.get_start_end_positions(chunk.number).0;
-
-                    let mut tmp = vec![0u8; this_size];
-                    for (index, tmp_char) in tmp.iter_mut().enumerate() {
-                        *tmp_char = self.sequencer[index + pos as usize];
-                    }
-
-                    let chunk_number = chunk.number;
-                    deferred_hashes.push(Deferred::<_, String>::new(move || {
-                        let sha512::Digest(name) = sha512::hash(&tmp[..]);
-                        Ok((chunk_number, name, this_size))
-                    }));
-                }
-            }
-            if let Ok(result) = Deferred::vec_to_promise(deferred_hashes,
-                                                         ControlFlow::ParallelCPUS)
-                                    .sync() {
-                for (chunk_number, name, this_size) in result {
-                    tmp_chunks[chunk_number as usize].pre_hash.clear();
-                    tmp_chunks[chunk_number as usize].pre_hash = name.to_vec();
-                    tmp_chunks[chunk_number as usize].source_size = this_size as u64;
-                    tmp_chunks[chunk_number as usize].chunk_num = chunk_number;
-                    // assert(4096 == tmp_chunks[chunk.number].pre_hash.len() && "Hash size wrong");
-                }
-            }
-            self.datamap = DataMap::Chunks(tmp_chunks.to_vec());
-            for chunk in &mut self.chunks {
-                if chunk.number < real_chunk_count && chunk.status == ChunkStatus::ToBeHashed {
-                    chunk.status = ChunkStatus::ToBeEncrypted;
-                }
-            }
-            let mut deferred_encryption = Vec::new();
-            for chunk in &self.chunks {
-                if chunk.number < real_chunk_count && chunk.status == ChunkStatus::ToBeEncrypted {
-                    let this_size = self.get_chunk_size(chunk.number) as usize;
-                    let pos = self.get_start_end_positions(chunk.number).0;
-
-                    let mut tmp = vec![0u8; this_size];
-                    for (index, tmp_char) in tmp.iter_mut().enumerate() {
-                        *tmp_char = self.sequencer[index + pos as usize];
-                    }
-
-                    let storage = self.storage.clone();
-                    let chunk_number = chunk.number;
-                    let def = self.encrypt_chunk(chunk.number, tmp)
-                                  .chain::<_, String, _>(move |res| {
-                                      let content = unwrap_result!(res);
-                                      let sha512::Digest(name) = sha512::hash(&content);
-                                      storage.put(name.to_vec(), content);
-                                      Ok((chunk_number, name))
-                                  });
-                    deferred_encryption.push(def);
-                }
-            }
-            if let Ok(result) = Deferred::vec_to_promise(deferred_encryption,
-                                                         ControlFlow::ParallelCPUS)
-                                    .sync() {
-                for (chunk_number, name) in result {
-                    tmp_chunks[chunk_number as usize].hash = name.to_vec();
-                }
-            }
-
-            for chunk in &mut self.chunks {
-                if chunk.status == ChunkStatus::ToBeEncrypted {
-                    chunk.status = ChunkStatus::AlreadyEncrypted;
-                }
-            }
-
-            DataMap::Chunks(tmp_chunks)
+            return DataMap::Content(content);
         }
+
+        // Decrypt:
+        // - first two chunks if last chunks size has changed
+        // - chunks whose size is out of date
+        let possibly_reusable_end;  // end of range of possibly reusable chunks
+        let (resized_start, resized_end) = resized_chunks(self.map_size, self.file_size);
+        if resized_start != resized_end {
+            self.chunks[0].flag_for_encryption();
+            self.chunks[1].flag_for_encryption();
+            let byte_end = get_start_end_positions(self.map_size, 1).1;
+            self.prepare_window_for_reading(0, byte_end);
+
+            let byte_start = get_start_end_positions(self.map_size, resized_start).0;
+            let byte_end = self.map_size;
+            self.prepare_window_for_reading(byte_start, byte_end - byte_start);
+            possibly_reusable_end = resized_start as usize;
+        } else {
+            possibly_reusable_end = get_num_chunks(self.map_size) as usize;
+        }
+
+        let num_new_chunks = get_num_chunks(self.file_size) as usize;
+        let mut new_map = vec![ChunkDetails::new(); num_new_chunks];
+
+        let mut deferred_hashes = Vec::new();
+        for i in 0 .. num_new_chunks {
+            if i < possibly_reusable_end && self.chunks[i].status != ChunkStatus::ToBeHashed {
+                new_map[i].chunk_num = i as u32;
+                new_map[i].hash.clear();
+                new_map[i].pre_hash = self.sorted_map[i].pre_hash.clone();
+                new_map[i].source_size = self.sorted_map[i].source_size;
+            } else {
+                let this_size = get_chunk_size(self.file_size, i as u32) as usize;
+                let pos = get_start_end_positions(self.file_size, i as u32).0;
+                assert!(this_size > 0);
+
+                let mut tmp = vec![0u8; this_size];
+                for (index, tmp_byte) in tmp.iter_mut().enumerate() {
+                    *tmp_byte = self.sequencer[index + pos as usize];
+                }
+
+                deferred_hashes.push(Deferred::<_, String>::new(move || {
+                    let sha512::Digest(name) = sha512::hash(&tmp[..]);
+                    Ok((i, name, this_size))
+                }));
+            }
+        }
+        if let Ok(result) = Deferred::vec_to_promise(deferred_hashes,
+                                                     ControlFlow::ParallelCPUS)
+                                .sync() {
+            for (chunk_number, name, this_size) in result {
+                new_map[chunk_number].chunk_num = chunk_number as u32;
+                new_map[chunk_number].hash.clear();
+                new_map[chunk_number].pre_hash = name.to_vec();
+                new_map[chunk_number].source_size = this_size as u64;
+            }
+        }
+
+        let mut deferred_encryption = Vec::new();
+        for i in 0 .. num_new_chunks {
+            if i < possibly_reusable_end && self.chunks[i].status == ChunkStatus::AlreadyEncrypted {
+                new_map[i].hash = self.sorted_map[i].hash.clone();
+            } else {
+                let this_size = get_chunk_size(self.file_size, i as u32) as usize;
+                let pos = get_start_end_positions(self.file_size, i as u32).0;
+
+                assert!(this_size > 0);
+                let mut tmp = vec![0u8; this_size];
+                for (index, tmp_char) in tmp.iter_mut().enumerate() {
+                    *tmp_char = self.sequencer[index + pos as usize];
+                }
+
+                let storage = self.storage.clone();
+                let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
+                let def = encrypt_chunk(tmp, pki)
+                              .chain::<_, String, _>(move |res| {
+                                  let content = unwrap_result!(res);
+                                  let sha512::Digest(name) = sha512::hash(&content);
+                                  storage.put(name.to_vec(), content);
+                                  Ok((i, name))
+                              });
+                deferred_encryption.push(def);
+            }
+        }
+        if let Ok(result) = Deferred::vec_to_promise(deferred_encryption,
+                                                     ControlFlow::ParallelCPUS)
+                                .sync() {
+            for (chunk_number, name) in result {
+                new_map[chunk_number].hash = name.to_vec();
+            }
+        }
+
+        DataMap::Chunks(new_map)
     }
 
     /// Truncate the self_encryptor to the specified size (if extended, filled with 0u8).
-    // NOTE: Right now calls prepare_window with the full length of the truncated file
-    // because chunk sizes may change. Chunks that don't change don't actually need any
-    // treatment here so there's room for performance improvement, especially for large
-    // files.
     #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn truncate(&mut self, new_size: u64) -> bool {
         if self.file_size == new_size {
             return true;
         }
-        let old_size = self.file_size;
-        if new_size < old_size {
-            self.prepare_window(new_size, 0, true);  // call before changing self.file_size
-            self.file_size = new_size;
-            self.sequencer.truncate(new_size as usize);
-            let num_chunks = self.get_num_chunks();  // call with updated self.file_size
-            self.chunks.truncate(num_chunks as usize);
-        } else {
-            if new_size > MAX_IN_MEMORY_SIZE as u64 && self.sequencer.len() <= MAX_IN_MEMORY_SIZE {
-                match self.sequencer.create_mapping() {
-                    Ok(()) => (),
-                    Err(_) => return false,
+        if new_size < self.file_size {
+            let (chunks_start, chunks_end) =
+                overlapped_chunks(self.map_size, new_size, self.file_size - new_size);
+            if chunks_start != chunks_end {
+                // One chunk might need to be decrypted.
+                if !self.chunks[chunks_start].in_sequencer {
+                    let byte_start = get_start_end_positions(self.map_size, chunks_start as u32).0;
+                    if byte_start < new_size {
+                        self.prepare_window_for_reading(byte_start, new_size - byte_start);
+                    }
+                }
+                for chunk in &mut self.chunks[chunks_start .. chunks_end] {
+                    chunk.status = ChunkStatus::ToBeHashed;
+                    chunk.in_sequencer = true;
                 }
             }
-            self.prepare_window(new_size, 0, true);  // call before changing self.file_size
-            self.file_size = new_size;
+            self.sequencer.truncate(new_size as usize);
+        } else {
+            self.extend_sequencer_up_to(new_size);
         }
-
+        self.file_size = new_size;
         true
     }
 
@@ -614,59 +604,84 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         self.file_size == 0
     }
 
-    /// Prepare a sliding window to ensure there are enough chunk slots for writing, and to read in
-    /// any absent chunks from external storage.
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    fn prepare_window(&mut self, length: u64, position: u64, for_writing: bool) {
-        if self.file_size < (3 * MIN_CHUNK_SIZE) as u64 {
-            if length + position > self.sequencer.len() as u64 {
-                let tmp_size = self.sequencer.len() as u64;
-                self.sequencer.extend(repeat(0).take((length + position - tmp_size) as usize));
-            }
+    fn prepare_window_for_writing(&mut self, position: u64, length: u64) {
+        self.file_size = cmp::max(self.file_size, position + length);
+
+        let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
+        if chunks_start == chunks_end {
+            self.extend_sequencer_up_to(position + length);
             return;
         }
 
-        let (chunk_indices, last_chunks_end_pos) = self.get_affected_chunk_indices(length,
-                                                                                   position,
-                                                                                   for_writing);
-        let required_len = cmp::max(length + position, last_chunks_end_pos);
-        if required_len > self.sequencer.len() as u64 {
-            let current_len = self.sequencer.len() as u64;
-            self.sequencer.extend(repeat(0).take((required_len - current_len) as usize));
+        // Two more chunks need to be decrypted for re-encryption.
+        let next_two = [chunks_end % get_num_chunks(self.map_size) as usize,
+                        (chunks_end + 1) % get_num_chunks(self.map_size) as usize];
+
+        let required_len = {
+            let mut end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
+            end = cmp::max(end, get_start_end_positions(self.map_size, next_two[0] as u32).1);
+            end = cmp::max(end, get_start_end_positions(self.map_size, next_two[1] as u32).1);
+            cmp::max(position + length, end)
+        };
+        self.extend_sequencer_up_to(required_len);
+
+        // Middle chunks don't need decrypting since they'll get overwritten.
+        // TODO If first/last chunk gets completely overwritten, no need to decrypt.
+        let mut vec_deferred = Vec::new();
+        for &i in [chunks_start, chunks_end - 1].iter().chain(&next_two) {
+            if self.chunks[i].in_sequencer {
+                continue;
+            }
+            self.chunks[i].in_sequencer = true;
+            let pos = get_start_end_positions(self.map_size, i as u32).0;
+            vec_deferred.push(self.decrypt_chunk(i as u32)
+                                  .chain::<_, String, _>(move |res| {
+                                      Ok((pos, unwrap_result!(res)))
+                                  }));
+        }
+        for (pos, vec) in unwrap_result!(Deferred::vec_to_promise(vec_deferred,
+                                                                  ControlFlow::ParallelCPUS)
+                                             .sync()) {
+            let mut pos_aux = pos;
+            for &byte in &vec {
+                self.sequencer[pos_aux as usize] = byte;
+                pos_aux += 1;
+            }
+        }
+        for chunk in &mut self.chunks[chunks_start .. chunks_end] {
+            chunk.status = ChunkStatus::ToBeHashed;
+            chunk.in_sequencer = true;
+        }
+        for &i in &next_two {
+            self.chunks[i].flag_for_encryption();
+        }
+    }
+
+    fn prepare_window_for_reading(&mut self, position: u64, length: u64) {
+        let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
+
+        if chunks_start == chunks_end {
+            self.extend_sequencer_up_to(position + length);
+            return;
         }
 
-        // [TODO]: Thread next - 2015-02-28 06:09pm
+        let required_len = {
+            let end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
+            cmp::max(position + length, end)
+        };
+        self.extend_sequencer_up_to(required_len);
+
         let mut vec_deferred = Vec::new();
-        for i in &chunk_indices {
-            let mut chunk_index = None;
-            for (index, chunk) in self.chunks.iter().enumerate() {
-                if chunk.number == *i {
-                    let pos = self.get_start_end_positions(*i).0;
-                    if chunk.location == ChunkLocation::Remote {
-                        vec_deferred.push(self.decrypt_chunk(*i)
-                                              .chain::<_, String, _>(move |res| {
-                                                  Ok((pos, unwrap_result!(res)))
-                                              }));
-                    }
-                    chunk_index = Some(index);
-                    break;
-                }
+        for i in chunks_start .. chunks_end {
+            if self.chunks[i].in_sequencer {
+                continue;
             }
-            match chunk_index {
-                Some(index) => {
-                    self.chunks[index].location = ChunkLocation::InSequencer;
-                    if for_writing {
-                        self.chunks[index].status = ChunkStatus::ToBeHashed;
-                    }
-                }
-                None => {
-                    self.chunks.push(Chunk {
-                        number: *i,
-                        status: ChunkStatus::ToBeHashed,
-                        location: ChunkLocation::InSequencer,
-                    });
-                }
-            }
+            self.chunks[i].in_sequencer = true;
+            let pos = get_start_end_positions(self.map_size, i as u32).0;
+            vec_deferred.push(self.decrypt_chunk(i as u32)
+                                  .chain::<_, String, _>(move |res| {
+                                      Ok((pos, unwrap_result!(res)))
+                                  }));
         }
         for (pos, vec) in unwrap_result!(Deferred::vec_to_promise(vec_deferred,
                                                                   ControlFlow::ParallelCPUS)
@@ -679,95 +694,28 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
         }
     }
 
-    // This returns the indices of all chunks which are affected by a read (possibly need retrieving
-    // and decrypting) or a write (need retrieved and decrypted if previously stored and flagged for
-    // encryption).  It also returns the last chunk's end position, since the sequencer may need
-    // extended up to this size.
-    fn get_affected_chunk_indices(&self,
-                                  length: u64,
-                                  position: u64,
-                                  for_writing: bool)
-                                  -> (BTreeSet<u32>, u64) {
-        assert!(self.file_size >= (3 * MIN_CHUNK_SIZE) as u64);
-        if self.file_size < (3 * MAX_CHUNK_SIZE) as u64 {
-            return ((0..3).collect::<BTreeSet<_>>(),
-                    self.get_start_end_positions(2).1);
-        }
-
-        let begin = self.get_chunk_number(position);
-        let end = self.get_chunk_number(position + length - 1) + 1;
-        let mut indices = (begin..end).collect::<BTreeSet<_>>();
-
-        if !for_writing {
-            return (indices, self.get_start_end_positions(end - 1).1);
-        }
-
-        // Since we're writing, we need the next two chunks also, as they will need re-encrypting
-        let num_chunks = self.get_num_chunks();
-        for i in 0..2 {
-            let _ = indices.insert((end + i) % num_chunks);
-        }
-        // Safe to just unwrap here, since `last()` can't return `None`.
-        let last_chunk = *unwrap_option!(indices.iter().last(), "");
-        let last_chunks_end_pos = self.get_start_end_positions(last_chunk).1;
-
-        // If the file was previously < (3*MAX_CHUNK_SIZE)+MIN_CHUNK_SIZE and the write increased
-        // the file size, then chunks 0, 1, and 2 all need re-encrypted.  In this case, 0 and 1 will
-        // just have been added in the for loop immediately above, so we only need to handle
-        // chunk 2.  It only needs re-encrypted if its size has changed.
-        if begin <= 2 || !self.datamap.has_chunks() {
-            // We've already added `2` to the indices or the chunk wasn't previously encrypted.
-            return (indices, last_chunks_end_pos);
-        }
-
-        let new_size = self.get_chunk_size(2) as u64;
-        match self.datamap.get_sorted_chunks().get(2) {
-            Some(datamap_chunk) => {
-                if datamap_chunk.source_size != new_size {
-                    let _ = indices.insert(2);
+    fn extend_sequencer_up_to(&mut self, new_len: u64) {
+        if new_len > self.sequencer.len() as u64 {
+            if new_len > MAX_IN_MEMORY_SIZE as u64 {
+                match self.sequencer.create_mapping() {
+                    Ok(()) => (),
+                    Err(_) => return,   // FIXME return error or something
                 }
+            } else {
+                let old_len = self.sequencer.len() as u64;
+                self.sequencer.extend(repeat(0).take((new_len - old_len) as usize));
             }
-            None => unreachable!("If the datamap has _any_ chunks it should at least have three."),
         }
-        (indices, last_chunks_end_pos)
     }
 
-    fn get_pad_key_and_iv(&self, chunk_number: u32) -> (Pad, Key, Iv) {
-        let n_1 = self.get_previous_chunk_number(chunk_number);
-        let n_2 = self.get_previous_chunk_number(n_1);
-        let sorted_chunks = self.datamap.get_sorted_chunks();
-        let vec = &sorted_chunks[chunk_number as usize].pre_hash;
-        let n_1_vec = &sorted_chunks[n_1 as usize].pre_hash;
-        let n_2_vec = &sorted_chunks[n_2 as usize].pre_hash;
-
-        let mut pad = [0u8; PAD_SIZE];
-        for (i, &element) in vec.iter()
-                                .chain(&n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE])
-                                .chain(&n_2_vec[..])
-                                .enumerate() {
-            pad[i] = element;
-        }
-
-        let mut key = [0u8; KEY_SIZE];
-        for (i, &element) in n_1_vec[0..KEY_SIZE].iter().enumerate() {
-            key[i] = element;
-        }
-
-        let mut iv = [0u8; IV_SIZE];
-        for (i, &element) in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].iter().enumerate() {
-            iv[i] = element;
-        }
-
-        (Pad(pad), Key(key), Iv(iv))
-    }
-
-    /// Performs the decryption algorithm to decrypt chunk of data.
+    /// Decrypts a chunk of data.
     fn decrypt_chunk(&self, chunk_number: u32) -> Deferred<Vec<u8>, String> {
-        let name = &self.datamap.get_sorted_chunks()[chunk_number as usize].hash;
-        // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let (pad, key, iv) = self.get_pad_key_and_iv(chunk_number);
+        let name = &self.sorted_map[chunk_number as usize].hash;
         let content = self.storage.get(name);
+        let (pad, key, iv) =
+            get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
 
+        // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         Deferred::<Vec<u8>, String>::new(move || {
             let xor_result = xor(&content, &pad);
             match decrypt(&xor_result, &key, &iv) {
@@ -788,128 +736,213 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             }
         })
     }
+}
 
-    /// Performs encryption algorithm on chunk of data.
-    fn encrypt_chunk(&self, chunk_number: u32, content: Vec<u8>) -> Deferred<Vec<u8>, String> {
-        // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-        let (pad, key, iv) = self.get_pad_key_and_iv(chunk_number);
-        Deferred::<Vec<u8>, String>::new(move || {
-            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
-            match encoder.write_all(&content[..]) {
-                Ok(()) => {
-                    match encoder.finish() {
-                        Ok(compressed) => {
-                            let encrypted = encrypt(&compressed, &key, &iv);
-                            Ok(xor(&encrypted, &pad))
-                        }
-                        Err(error) => Err(error.description().to_owned()),
+/// Encrypts a chunk of data.
+fn encrypt_chunk(content: Vec<u8>, pki: (Pad, Key, Iv)) -> Deferred<Vec<u8>, String> {
+    let (pad, key, iv) = pki;
+    // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
+    Deferred::<Vec<u8>, String>::new(move || {
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
+        match encoder.write_all(&content[..]) {
+            Ok(()) => {
+                match encoder.finish() {
+                    Ok(compressed) => {
+                        let encrypted = encrypt(&compressed, &key, &iv);
+                        Ok(xor(&encrypted, &pad))
                     }
+                    Err(error) => Err(error.description().to_owned()),
                 }
-                Err(error) => Err(error.description().to_owned()),
             }
-        })
+            Err(error) => Err(error.description().to_owned()),
+        }
+    })
+}
+
+fn get_pad_key_and_iv(chunk_number: u32, sorted_map: &[ChunkDetails], map_size: u64)
+                                                                 -> (Pad, Key, Iv) {
+    let n_1 = get_previous_chunk_number(map_size, chunk_number);
+    let n_2 = get_previous_chunk_number(map_size, n_1);
+    let vec     = &sorted_map[chunk_number as usize].pre_hash;
+    let n_1_vec = &sorted_map[n_1 as usize].pre_hash;
+    let n_2_vec = &sorted_map[n_2 as usize].pre_hash;
+
+    let mut pad = [0u8; PAD_SIZE];
+    for (i, &element) in vec.iter()
+                            .chain(&n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE])
+                            .chain(&n_2_vec[..])
+                            .enumerate() {
+        pad[i] = element;
     }
 
-    // Helper methods.
+    let mut key = [0u8; KEY_SIZE];
+    for (i, &element) in n_1_vec[0..KEY_SIZE].iter().enumerate() {
+        key[i] = element;
+    }
 
-    /// Returns the number of chunks according to file size.
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    fn get_num_chunks(&self) -> u32 {
-        if self.file_size < (3 * MIN_CHUNK_SIZE as u64) {
-            return 0;
-        }
-        if self.file_size < (3 * MAX_CHUNK_SIZE as u64) {
-            return 3;
-        }
-        if self.file_size % MAX_CHUNK_SIZE as u64 == 0 {
-            (self.file_size / MAX_CHUNK_SIZE as u64) as u32
+    let mut iv = [0u8; IV_SIZE];
+    for (i, &element) in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].iter().enumerate() {
+        iv[i] = element;
+    }
+
+    (Pad(pad), Key(key), Iv(iv))
+}
+
+/// Returns the chunk range [start, end) that is overlapped by the byte range defined by
+/// `position` and `length`. Returns empty range if file_size is so small that there are
+/// no chunks.
+fn overlapped_chunks(file_size: u64, position: u64, length: u64) -> (usize, usize) {
+    if file_size < (3 * MIN_CHUNK_SIZE as u64) || position >= file_size || length == 0 {
+        return (0, 0);
+    }
+    let start = get_chunk_number(file_size, position);
+    let end_pos = position + length - 1;    // inclusive
+    let end =
+        if end_pos < file_size {
+            get_chunk_number(file_size, end_pos) + 1
         } else {
-            ((self.file_size / MAX_CHUNK_SIZE as u64) + 1) as u32
-        }
-    }
+            get_num_chunks(file_size)
+        };
+    (start as usize, end as usize)
+}
 
-    /// Returns the size of a chunk of data.
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    fn get_chunk_size(&self, chunk_number: u32) -> u32 {
-        if self.file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            return 0;
-        }
-        if self.file_size < 3 * MAX_CHUNK_SIZE as u64 {
-            if chunk_number < 2 {
-                return (self.file_size / 3) as u32;
-            } else {
-                return (self.file_size - (2 * (self.file_size / 3))) as u32;
-            }
-        }
-        if chunk_number < self.get_num_chunks() - 2 {
-            return MAX_CHUNK_SIZE;
-        }
-        let remainder = (self.file_size % MAX_CHUNK_SIZE as u64) as u32;
-        let penultimate = (self.get_num_chunks() - 2) == chunk_number;
+/// Returns a chunk range [start, end) whose sizes are affected by a change in file size.
+fn resized_chunks(old_size: u64, new_size: u64) -> (u32, u32) {
+    if old_size == new_size || old_size < (3 * MIN_CHUNK_SIZE as u64) {
+        return (0, 0);
+    }
+    if old_size < (3 * MAX_CHUNK_SIZE as u64) {
+        return (0, 3);
+    }
+    if new_size > old_size {
+        let remainder = (old_size % MAX_CHUNK_SIZE as u64) as u32;
         if remainder == 0 {
-            return MAX_CHUNK_SIZE;
-        }
-        if remainder < MIN_CHUNK_SIZE {
-            if penultimate {
-                MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
-            } else {
-                MIN_CHUNK_SIZE + remainder
-            }
-        } else {
-            if penultimate {
-                MAX_CHUNK_SIZE
-            } else {
-                remainder
-            }
-        }
-    }
-
-    /// Returns the start and end positions of chunk data in the file.
-    fn get_start_end_positions(&self, chunk_number: u32) -> (u64, u64) {
-        if self.get_num_chunks() == 0 {
             return (0, 0);
-        }
-        let start;
-        let last = (self.get_num_chunks() - 1) == chunk_number;
-        if last {
-            start = self.get_chunk_size(0) as u64 * (chunk_number as u64 - 1) +
-                    self.get_chunk_size(chunk_number - 1) as u64;
+        } else if remainder >= MIN_CHUNK_SIZE {
+            let last = get_num_chunks(old_size) - 1;
+            return (last, last + 1);
         } else {
-            start = self.get_chunk_size(0) as u64 * chunk_number as u64;
+            let last = get_num_chunks(old_size) - 1;
+            return (last - 1, last + 1);
         }
-        (start, (start + self.get_chunk_size(chunk_number) as u64))
     }
 
-    fn get_previous_chunk_number(&self, chunk_number: u32) -> u32 {
-        if self.get_num_chunks() == 0 {
-            return 0;
+    // new_size is less than old_size, old_size is at least 3 * MAX_CHUNK_SIZE
+
+    if new_size >= (3 * MAX_CHUNK_SIZE as u64) {
+        let remainder = (new_size % MAX_CHUNK_SIZE as u64) as u32;
+        if remainder == 0 {
+            return (0, 0);
+        } else if remainder >= MIN_CHUNK_SIZE {
+            let last = get_chunk_number(old_size, new_size - 1);
+            return (last, last + 1);
+        } else {
+            let last = get_chunk_number(old_size, new_size - 1);
+            return (last - 1, last + 1);
         }
-        (self.get_num_chunks() + chunk_number - 1) % self.get_num_chunks()
+    }
+    if new_size > 0 {
+        return (0, get_chunk_number(old_size, new_size - 1) + 1);
+    }
+    (0, 0)
+}
+
+/// Returns the number of chunks according to file size.
+#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
+fn get_num_chunks(file_size: u64) -> u32 {
+    if file_size < (3 * MIN_CHUNK_SIZE as u64) {
+        return 0;
+    }
+    if file_size < (3 * MAX_CHUNK_SIZE as u64) {
+        return 3;
+    }
+    if file_size % MAX_CHUNK_SIZE as u64 == 0 {
+        (file_size / MAX_CHUNK_SIZE as u64) as u32
+    } else {
+        ((file_size / MAX_CHUNK_SIZE as u64) + 1) as u32
+    }
+}
+
+/// Returns the size of a chunk according to file size.
+#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
+fn get_chunk_size(file_size: u64, chunk_number: u32) -> u32 {
+    if file_size < 3 * MIN_CHUNK_SIZE as u64 {
+        return 0;
+    }
+    if file_size < 3 * MAX_CHUNK_SIZE as u64 {
+        if chunk_number < 2 {
+            return (file_size / 3) as u32;
+        } else {
+            return (file_size - (2 * (file_size / 3))) as u32;
+        }
+    }
+    if chunk_number < get_num_chunks(file_size) - 2 {
+        return MAX_CHUNK_SIZE;
+    }
+    let remainder = (file_size % MAX_CHUNK_SIZE as u64) as u32;
+    let penultimate = (get_num_chunks(file_size) - 2) == chunk_number;
+    if remainder == 0 {
+        return MAX_CHUNK_SIZE;
+    }
+    if remainder < MIN_CHUNK_SIZE {
+        if penultimate {
+            MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
+        } else {
+            MIN_CHUNK_SIZE + remainder
+        }
+    } else {
+        if penultimate {
+            MAX_CHUNK_SIZE
+        } else {
+            remainder
+        }
+    }
+}
+
+/// Returns the [start, end) half-open byte range of a chunk.
+fn get_start_end_positions(file_size: u64, chunk_number: u32) -> (u64, u64) {
+    if get_num_chunks(file_size) == 0 {
+        return (0, 0);
+    }
+    let start;
+    let last = (get_num_chunks(file_size) - 1) == chunk_number;
+    if last {
+        start = get_chunk_size(file_size, 0) as u64 * (chunk_number as u64 - 1) +
+                get_chunk_size(file_size, chunk_number - 1) as u64;
+    } else {
+        start = get_chunk_size(file_size, 0) as u64 * chunk_number as u64;
+    }
+    (start, start + get_chunk_size(file_size, chunk_number) as u64)
+}
+
+fn get_previous_chunk_number(file_size: u64, chunk_number: u32) -> u32 {
+    if get_num_chunks(file_size) == 0 {
+        return 0;
+    }
+    (get_num_chunks(file_size) + chunk_number - 1) % get_num_chunks(file_size)
+}
+
+#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
+fn get_chunk_number(file_size: u64, position: u64) -> u32 {
+    if get_num_chunks(file_size) == 0 {
+        return 0;
     }
 
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
-    fn get_chunk_number(&self, position: u64) -> u32 {
-        if self.get_num_chunks() == 0 {
-            return 0;
-        }
-
-        let remainder = self.file_size % self.get_chunk_size(0) as u64;
-        if remainder == 0 || remainder >= MIN_CHUNK_SIZE as u64 ||
-           position < self.file_size - remainder - MIN_CHUNK_SIZE as u64 {
-            return (position / self.get_chunk_size(0) as u64) as u32;
-        }
-        self.get_num_chunks() - 1
+    let remainder = file_size % get_chunk_size(file_size, 0) as u64;
+    if remainder == 0 || remainder >= MIN_CHUNK_SIZE as u64 ||
+       position < file_size - remainder - MIN_CHUNK_SIZE as u64 {
+        return (position / get_chunk_size(file_size, 0) as u64) as u32;
     }
+    get_num_chunks(file_size) - 1
 }
 
 impl<S: Storage + Send + Sync + 'static> Debug for SelfEncryptor<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        try!(write!(formatter,
-                    "SelfEncryptor {{\n    datamap: {:?}\n    chunks:\n",
-                    self.datamap));
-        for chunk in &self.chunks {
-            try!(write!(formatter, "        {:?}\n", chunk))
+        try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
+        for (i, chunk) in self.chunks.iter().enumerate() {
+            try!(write!(formatter, "        {:?}   {:?}\n", self.sorted_map[i], chunk))
         }
+        try!(write!(formatter, "    map_size: {}\n", self.map_size));
         write!(formatter, "    file_size: {}\n}}", self.file_size)
     }
 }
@@ -928,10 +961,151 @@ mod test {
     use super::*;
     use test_helpers::{random_bytes, SimpleStorage};
 
+    #[test]
+    fn helper_functions() {
+        let mut file_size = MIN_CHUNK_SIZE as u64 * 3;
+        assert_eq!(::get_num_chunks(file_size), 3);
+        assert_eq!(::get_chunk_size(file_size, 0), 1024);
+        assert_eq!(::get_chunk_size(file_size, 1), 1024);
+        assert_eq!(::get_chunk_size(file_size, 2), 1024);
+        assert_eq!(::get_previous_chunk_number(file_size, 0), 2);
+        assert_eq!(::get_previous_chunk_number(file_size, 1), 0);
+        assert_eq!(::get_previous_chunk_number(file_size, 2), 1);
+        assert_eq!(::get_start_end_positions(file_size, 0).0, 0u64);
+        assert_eq!(::get_start_end_positions(file_size, 0).1, MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).0, MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).1, 2 * MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).0, 2 * MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).1, 3 * MIN_CHUNK_SIZE as u64);
+
+        file_size = (MIN_CHUNK_SIZE as u64 * 3) + 1;
+        assert_eq!(::get_num_chunks(file_size), 3);
+        assert_eq!(::get_chunk_size(file_size, 0), 1024);
+        assert_eq!(::get_chunk_size(file_size, 1), 1024);
+        assert_eq!(::get_chunk_size(file_size, 2), 1025);
+        assert_eq!(::get_previous_chunk_number(file_size, 0), 2);
+        assert_eq!(::get_previous_chunk_number(file_size, 1), 0);
+        assert_eq!(::get_previous_chunk_number(file_size, 2), 1);
+        assert_eq!(::get_start_end_positions(file_size, 0).0, 0u64);
+        assert_eq!(::get_start_end_positions(file_size, 0).1, MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).0, MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).1, 2 * MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).0, 2 * MIN_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).1,
+                   1 + 3 * MIN_CHUNK_SIZE as u64);
+
+        file_size = MAX_CHUNK_SIZE as u64 * 3;
+        assert_eq!(::get_num_chunks(file_size), 3);
+        assert_eq!(::get_chunk_size(file_size, 0), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 1), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 2), MAX_CHUNK_SIZE);
+        assert_eq!(::get_previous_chunk_number(file_size, 0), 2);
+        assert_eq!(::get_previous_chunk_number(file_size, 1), 0);
+        assert_eq!(::get_previous_chunk_number(file_size, 2), 1);
+        assert_eq!(::get_start_end_positions(file_size, 0).0, 0u64);
+        assert_eq!(::get_start_end_positions(file_size, 0).1, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).0, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).1, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).0, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).1, 3 * MAX_CHUNK_SIZE as u64);
+
+        file_size = MAX_CHUNK_SIZE as u64 * 3 + 1;
+        assert_eq!(::get_num_chunks(file_size), 4);
+        assert_eq!(::get_chunk_size(file_size, 0), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 1), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 3), MIN_CHUNK_SIZE + 1);
+        assert_eq!(::get_previous_chunk_number(file_size, 0), 3);
+        assert_eq!(::get_previous_chunk_number(file_size, 1), 0);
+        assert_eq!(::get_previous_chunk_number(file_size, 2), 1);
+        assert_eq!(::get_previous_chunk_number(file_size, 3), 2);
+        assert_eq!(::get_start_end_positions(file_size, 0).0, 0u64);
+        assert_eq!(::get_start_end_positions(file_size, 0).1, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).0, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).1, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).0, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).1,
+                   ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
+        assert_eq!(::get_start_end_positions(file_size, 3).0,
+                   ::get_start_end_positions(file_size, 2).1);
+        assert_eq!(::get_start_end_positions(file_size, 3).1, file_size);
+
+        file_size = (MAX_CHUNK_SIZE * 7) as u64 + 1024;
+        assert_eq!(::get_num_chunks(file_size), 8);
+        assert_eq!(::get_chunk_size(file_size, 0), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 1), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 2), MAX_CHUNK_SIZE);
+        assert_eq!(::get_chunk_size(file_size, 3), MAX_CHUNK_SIZE);
+        assert_eq!(::get_previous_chunk_number(file_size, 0), 7);
+        assert_eq!(::get_previous_chunk_number(file_size, 1), 0);
+        assert_eq!(::get_previous_chunk_number(file_size, 2), 1);
+        assert_eq!(::get_previous_chunk_number(file_size, 3), 2);
+        assert_eq!(::get_start_end_positions(file_size, 0).0, 0u64);
+        assert_eq!(::get_start_end_positions(file_size, 0).1, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).0, MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 1).1, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).0, 2 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 2).1, 3 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 3).0, 3 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, 7).1,
+                           ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
+
+        file_size = (MAX_CHUNK_SIZE * 11) as u64 - 1;
+        assert_eq!(::get_num_chunks(file_size), 11);
+        assert_eq!(::get_previous_chunk_number(file_size, 11), 10);
+
+        file_size = (MAX_CHUNK_SIZE * 11) as u64 + 1;
+        assert_eq!(::get_num_chunks(file_size), 11 + 1);
+        assert_eq!(::get_previous_chunk_number(file_size, 11), 10);
+
+        let number_of_chunks: u32 = 11;
+        file_size = (MAX_CHUNK_SIZE as u64 * number_of_chunks as u64) + 1024;
+        assert_eq!(::get_num_chunks(file_size), number_of_chunks + 1);
+        for i in 0..number_of_chunks {
+            // preceding and next index, wrapped around
+            let h = (i + number_of_chunks) % (number_of_chunks + 1);
+            let j = (i + 1) % (number_of_chunks + 1);
+            assert_eq!(::get_chunk_size(file_size, i), MAX_CHUNK_SIZE);
+            assert_eq!(::get_previous_chunk_number(file_size, i), h);
+            assert_eq!(::get_start_end_positions(file_size, i).0,
+                       i as u64 * MAX_CHUNK_SIZE as u64);
+            assert_eq!(::get_start_end_positions(file_size, i).1,
+                       j as u64 * MAX_CHUNK_SIZE as u64);
+        }
+        assert_eq!(::get_chunk_size(file_size, number_of_chunks), MIN_CHUNK_SIZE);
+        assert_eq!(::get_previous_chunk_number(file_size, number_of_chunks),
+                   number_of_chunks - 1);
+        assert_eq!(::get_start_end_positions(file_size, number_of_chunks).0,
+                   number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, number_of_chunks).1,
+                   ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
+
+        let number_of_chunks: u32 = 100;
+        file_size = MAX_CHUNK_SIZE as u64 * number_of_chunks as u64;
+        assert_eq!(::get_num_chunks(file_size), number_of_chunks);
+        for i in 0..number_of_chunks - 1 {
+            // preceding and next index, wrapped around
+            let h = (i + number_of_chunks - 1) % number_of_chunks;
+            let j = (i + 1) % number_of_chunks;
+            assert_eq!(::get_chunk_size(file_size, i), MAX_CHUNK_SIZE);
+            assert_eq!(::get_previous_chunk_number(file_size, i), h);
+            assert_eq!(::get_start_end_positions(file_size, i).0,
+                       i as u64 * MAX_CHUNK_SIZE as u64);
+            assert_eq!(::get_start_end_positions(file_size, i).1,
+                       j as u64 * MAX_CHUNK_SIZE as u64);
+        }
+        assert_eq!(::get_previous_chunk_number(file_size, number_of_chunks),
+                   number_of_chunks - 1);
+        assert_eq!(::get_start_end_positions(file_size, number_of_chunks).0,
+                   number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
+        assert_eq!(::get_start_end_positions(file_size, number_of_chunks - 1).1,
+                   ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
+    }
+
     fn check_file_size(se: &SelfEncryptor<SimpleStorage>, expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
-        if let DataMap::Chunks(ref chunk_details) = se.datamap {
-            let chunks_cumulated_size = chunk_details.iter().fold(0u64, |acc, chunk| {
+        if se.sorted_map.len() > 0 {
+            let chunks_cumulated_size = se.sorted_map.iter().fold(0u64, |acc, chunk| {
                 acc + chunk.source_size
             });
             assert_eq!(chunks_cumulated_size, expected_file_size);
@@ -995,15 +1169,9 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), 0);
-            assert_eq!(se.chunks.len(), 0);
+            assert_eq!(se.sorted_map.len(), 0);
             assert_eq!(se.sequencer.len(), bytes_len as usize);
             check_file_size(&se, bytes_len as u64);
-            match se.datamap {
-                DataMap::Chunks(_) => panic!("shall not return DataMap::Chunks"),
-                DataMap::Content(_) => panic!("shall not return DataMap::Content"),
-                DataMap::None => {}
-            }
             // check close
             data_map = se.close();
         }
@@ -1015,7 +1183,7 @@ mod test {
         // check read, write
         let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
-        assert_eq!(fetched, the_bytes);
+        assert!(fetched == the_bytes);
     }
 
     #[test]
@@ -1026,22 +1194,9 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            // check helper functions
-            assert_eq!(se.get_num_chunks(), 3);
-            assert_eq!(se.get_chunk_size(0), 1024);
-            assert_eq!(se.get_chunk_size(1), 1024);
-            assert_eq!(se.get_chunk_size(2), 1024);
-            assert_eq!(se.get_previous_chunk_number(0), 2);
-            assert_eq!(se.get_previous_chunk_number(1), 0);
-            assert_eq!(se.get_previous_chunk_number(2), 1);
-            assert_eq!(se.get_start_end_positions(0).0, 0u64);
-            assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1, 3 * MIN_CHUNK_SIZE as u64);
             check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
-            // check close
+            let fetched = se.read(0, MIN_CHUNK_SIZE as u64 * 3);
+            assert!(fetched == the_bytes);
             data_map = se.close();
         }
         match data_map {
@@ -1070,22 +1225,7 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), 3);
-            assert_eq!(se.get_chunk_size(0), 1024);
-            assert_eq!(se.get_chunk_size(1), 1024);
-            assert_eq!(se.get_chunk_size(2), 1025);
-            assert_eq!(se.get_previous_chunk_number(0), 2);
-            assert_eq!(se.get_previous_chunk_number(1), 0);
-            assert_eq!(se.get_previous_chunk_number(2), 1);
-            assert_eq!(se.get_start_end_positions(0).0, 0u64);
-            assert_eq!(se.get_start_end_positions(0).1, MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).0, MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).1, 2 * MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).0, 2 * MIN_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1,
-                       1 + 3 * MIN_CHUNK_SIZE as u64);
             check_file_size(&se, bytes_len as u64);
-            // check close
             data_map = se.close();
         }
         match data_map {
@@ -1099,7 +1239,6 @@ mod test {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read, write
         let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert!(fetched == the_bytes);
@@ -1114,21 +1253,7 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), 3);
-            assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_previous_chunk_number(0), 2);
-            assert_eq!(se.get_previous_chunk_number(1), 0);
-            assert_eq!(se.get_previous_chunk_number(2), 1);
-            assert_eq!(se.get_start_end_positions(0).0, 0u64);
-            assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
             check_file_size(&se, bytes_len as u64);
-            // check close
             data_map = se.close();
         }
         match data_map {
@@ -1142,7 +1267,6 @@ mod test {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read, write
         let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert!(fetched == the_bytes);
@@ -1157,25 +1281,6 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), 4);
-            assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE - MIN_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(3), MIN_CHUNK_SIZE + 1);
-            assert_eq!(se.get_previous_chunk_number(0), 3);
-            assert_eq!(se.get_previous_chunk_number(1), 0);
-            assert_eq!(se.get_previous_chunk_number(2), 1);
-            assert_eq!(se.get_previous_chunk_number(3), 2);
-            assert_eq!(se.get_start_end_positions(0).0, 0u64);
-            assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1,
-                       ((3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE) as u64);
-            assert_eq!(se.get_start_end_positions(3).0,
-                       se.get_start_end_positions(2).1);
-            assert_eq!(se.get_start_end_positions(3).1, bytes_len as u64);
             check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
@@ -1206,26 +1311,7 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), 8);
-            assert_eq!(se.get_chunk_size(0), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(1), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(2), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_chunk_size(3), MAX_CHUNK_SIZE);
-            assert_eq!(se.get_previous_chunk_number(0), 7);
-            assert_eq!(se.get_previous_chunk_number(1), 0);
-            assert_eq!(se.get_previous_chunk_number(2), 1);
-            assert_eq!(se.get_previous_chunk_number(3), 2);
-            assert_eq!(se.get_start_end_positions(0).0, 0u64);
-            assert_eq!(se.get_start_end_positions(0).1, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).0, MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(1).1, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).0, 2 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(2).1, 3 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(3).0, 3 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(7).1,
-                       ((7 * MAX_CHUNK_SIZE) as u64 + 1024));
             check_file_size(&se, bytes_len as u64);
-            // check close
             data_map = se.close();
         }
         match data_map {
@@ -1239,7 +1325,6 @@ mod test {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read and write
         let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert!(fetched == the_bytes);
@@ -1255,9 +1340,6 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), number_of_chunks);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
-                       number_of_chunks - 1);
             check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
@@ -1287,9 +1369,6 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
-                       number_of_chunks - 1);
             check_file_size(&se, bytes_len as u64);
             data_map = se.close();
         }
@@ -1321,25 +1400,6 @@ mod test {
         {
             let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
             se.write(&the_bytes, 0);
-            assert_eq!(se.get_num_chunks(), number_of_chunks + 1);
-            for i in 0..number_of_chunks {
-                // preceding and next index, wrapped around
-                let h = (i + number_of_chunks) % (number_of_chunks + 1);
-                let j = (i + 1) % (number_of_chunks + 1);
-                assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
-                assert_eq!(se.get_previous_chunk_number(i), h);
-                assert_eq!(se.get_start_end_positions(i).0,
-                           i as u64 * MAX_CHUNK_SIZE as u64);
-                assert_eq!(se.get_start_end_positions(i).1,
-                           j as u64 * MAX_CHUNK_SIZE as u64);
-            }
-            assert_eq!(se.get_chunk_size(number_of_chunks), MIN_CHUNK_SIZE);
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
-                       number_of_chunks - 1);
-            assert_eq!(se.get_start_end_positions(number_of_chunks).0,
-                       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(number_of_chunks).1,
-                       ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
             check_file_size(&se, bytes_len as u64);
             // check close
             data_map = se.close();
@@ -1373,9 +1433,7 @@ mod test {
             se.write(&the_bytes, 0);
             check_file_size(&se, bytes_len as u64);
             se.truncate((7 * MAX_CHUNK_SIZE + 1) as u64);
-            assert_eq!(se.get_num_chunks(), 8);
             check_file_size(&se, (7 * MAX_CHUNK_SIZE + 1) as u64);
-            // check close
             data_map = se.close();
         }
         match data_map {
@@ -1402,7 +1460,6 @@ mod test {
             se.write(&bytes, 0);
             check_file_size(&se, bytes_len as u64);
             se.truncate(bytes_len as u64 - 24);
-            assert_eq!(se.get_num_chunks(), 3);
             check_file_size(&se, bytes_len as u64 - 24);
             data_map = se.close();
         }
@@ -1503,26 +1560,7 @@ mod test {
         {
             let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
             se.write(&bytes, 0);
-            assert_eq!(se.get_num_chunks(), number_of_chunks);
-            for i in 0..number_of_chunks - 1 {
-                // preceding and next index, wrapped around
-                let h = (i + number_of_chunks - 1) % number_of_chunks;
-                let j = (i + 1) % number_of_chunks;
-                assert_eq!(se.get_chunk_size(i), MAX_CHUNK_SIZE);
-                assert_eq!(se.get_previous_chunk_number(i), h);
-                assert_eq!(se.get_start_end_positions(i).0,
-                           i as u64 * MAX_CHUNK_SIZE as u64);
-                assert_eq!(se.get_start_end_positions(i).1,
-                           j as u64 * MAX_CHUNK_SIZE as u64);
-            }
-            assert_eq!(se.get_previous_chunk_number(number_of_chunks),
-                       number_of_chunks - 1);
-            assert_eq!(se.get_start_end_positions(number_of_chunks).0,
-                       number_of_chunks as u64 * MAX_CHUNK_SIZE as u64);
-            assert_eq!(se.get_start_end_positions(number_of_chunks - 1).1,
-                       ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
             check_file_size(&se, bytes_len as u64);
-            // check close
             data_map = se.close();
         }
         match data_map {
@@ -1536,7 +1574,6 @@ mod test {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        // check read and write
         let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
         let fetched = new_se.read(0, bytes_len as u64);
         assert!(fetched == bytes);
@@ -1678,15 +1715,12 @@ mod test {
 
     #[test]
     fn get_chunk_number() {
-        let my_storage = Arc::new(SimpleStorage::new());
-        let mut se = SelfEncryptor::new(my_storage, DataMap::None);
         // Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.
         let mut min_test_size = 0;
         let mut max_test_size = 3 * MIN_CHUNK_SIZE;
         for file_size in min_test_size..max_test_size {
-            se.truncate(file_size as u64);
             for byte_index in 0..file_size {
-                assert_eq!(se.get_chunk_number(byte_index as u64), 0);
+                assert_eq!(::get_chunk_number(file_size as u64, byte_index as u64), 0);
             }
         }
 
@@ -1698,15 +1732,14 @@ mod test {
         let mut rng = thread_rng();
         let step = range.sample(&mut rng);
         for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {
-            se.truncate(file_size as u64);
-            assert_eq!(se.get_num_chunks(), 3);
+            assert_eq!(::get_num_chunks(file_size as u64), 3);
             let mut index_start;
             let mut index_end = 0;
             for chunk_index in 0..3 {
                 index_start = index_end;
-                index_end += se.get_chunk_size(chunk_index);
+                index_end += ::get_chunk_size(file_size as u64, chunk_index);
                 for byte_index in index_start..index_end {
-                    assert_eq!(se.get_chunk_number(byte_index as u64), chunk_index);
+                    assert_eq!(::get_chunk_number(file_size as u64, byte_index as u64), chunk_index);
                 }
             }
         }
@@ -1723,8 +1756,7 @@ mod test {
         const CHUNK_2_START: u32 = 2 * MAX_CHUNK_SIZE;
         for file_size in min_test_size..max_test_size {
             const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE - 1;
-            se.truncate(file_size as u64);
-            assert_eq!(se.get_num_chunks(), 4);
+            assert_eq!(::get_num_chunks(file_size as u64), 4);
             let mut test_indices = vec![CHUNK_0_START,
                                         CHUNK_0_END,
                                         CHUNK_1_START,
@@ -1739,7 +1771,7 @@ mod test {
                     CHUNK_2_START...CHUNK_2_END => 2,
                     _ => 3,
                 };
-                assert_eq!(se.get_chunk_number(byte_index as u64), expected_number);
+                assert_eq!(::get_chunk_number(file_size as u64, byte_index as u64), expected_number);
             }
         }
 
@@ -1749,8 +1781,7 @@ mod test {
         max_test_size = 4 * MAX_CHUNK_SIZE;
         for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {
             const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - 1;
-            se.truncate(file_size as u64);
-            assert_eq!(se.get_num_chunks(), 4);
+            assert_eq!(::get_num_chunks(file_size as u64), 4);
             let mut test_indices = vec![CHUNK_0_START,
                                         CHUNK_0_END,
                                         CHUNK_1_START,
@@ -1765,7 +1796,7 @@ mod test {
                     CHUNK_2_START...CHUNK_2_END => 2,
                     _ => 3,
                 };
-                assert_eq!(se.get_chunk_number(byte_index as u64), expected_number);
+                assert_eq!(::get_chunk_number(file_size as u64, byte_index as u64), expected_number);
             }
         }
     }
