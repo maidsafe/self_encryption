@@ -46,7 +46,7 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-838' class='srclink' href='../src/self_encryption/lib.rs.html#368-374' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-772' class='srclink' href='../src/self_encryption/lib.rs.html#368-375' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct SelfEncryptor&lt;S: <a class='trait' href='../self_encryption/trait.Storage.html' title='self_encryption::Storage'>Storage</a>&gt; {
     // some fields omitted
 }</pre><div class='docblock'><p>This is the encryption object and all file handling should be done using this object as the low
@@ -66,10 +66,10 @@ libraries for developers. The input data will be written from the specified posi
 (starts from 0).</p>
 </div><h4 id='method.read' class='method'><code>fn <a href='#method.read' class='fnname'>read</a>(&amp;mut self, position: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>, length: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
 <div class='docblock'><p>The returned content is read from the specified position with specified length. Trying to
-read beyond the file size will cause the self_encryptor to be truncated up and return
-content filled with 0u8 in the gap.  Any other unwritten gaps will also be filled with
+read beyond the file size will cause the self_encryptor to return content filled with 0u8
+in the gap (file size isn&#39;t affected).  Any other unwritten gaps will also be filled with
 &#39;0u8&#39;s.</p>
-</div><h4 id='method.close' class='method'><code>fn <a href='#method.close' class='fnname'>close</a>(&amp;mut self) -&gt; <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h4>
+</div><h4 id='method.close' class='method'><code>fn <a href='#method.close' class='fnname'>close</a>(self) -&gt; <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h4>
 <div class='docblock'><p>This function returns a DataMap, which is the info required to recover encrypted content
 from data storage location.  Content temporarily held in self_encryptor will only get
 flushed into storage when this function gets called.</p>
