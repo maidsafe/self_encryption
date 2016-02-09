@@ -31,8 +31,7 @@
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy_pedantic))]
+#![cfg_attr(feature="clippy", deny(clippy, clippy_pedantic))]
 
 #[macro_use]
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
