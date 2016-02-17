@@ -573,12 +573,16 @@ impl<S: Storage + Send + Sync + 'static> SelfEncryptor<S> {
             let (chunks_start, chunks_end) =
                 overlapped_chunks(self.map_size, new_size, self.file_size - new_size);
             if chunks_start != chunks_end {
-                // One chunk might need to be decrypted.
+                // One chunk might need to be decrypted + the first two for re-encryption.
                 if !self.chunks[chunks_start].in_sequencer {
                     let byte_start = get_start_end_positions(self.map_size, chunks_start as u32).0;
                     if byte_start < new_size {
                         self.prepare_window_for_reading(byte_start, new_size - byte_start);
                     }
+                    self.chunks[0].flag_for_encryption();
+                    self.chunks[1].flag_for_encryption();
+                    let byte_end = get_start_end_positions(self.map_size, 1).1;
+                    self.prepare_window_for_reading(0, byte_end);
                 }
                 for chunk in &mut self.chunks[chunks_start .. chunks_end] {
                     chunk.status = ChunkStatus::ToBeHashed;
