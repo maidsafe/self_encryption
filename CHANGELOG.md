@@ -1,5 +1,10 @@
 # Self-Encryption - Change Log
 
+## [0.2.6]
+- Various bug fixes and tidy up.
+- Setup clippy usage.
+- Include nightly builds on travis.
+
 ## [0.2.5]
 - Swap forked memory_map for original memmap crate.
 
