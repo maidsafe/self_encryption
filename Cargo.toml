@@ -11,12 +11,12 @@ homepage = "http://maidsafe.net"
 
 [dependencies]
 asynchronous = "~0.4.5"
-clippy = {version = "~0.0.37", optional = true}
-flate2 = "~0.2.12"
-maidsafe_utilities = "~0.1.5"
+clippy = {version = "~0.0.44", optional = true}
+flate2 = "~0.2.13"
+maidsafe_utilities = "~0.2.1"
 memmap = "~0.2.3"
-rand = "~0.3.13"
-rustc-serialize = "~0.3.16"
+rand = "~0.3.14"
+rustc-serialize = "~0.3.18"
 sodiumoxide = "~0.0.9"
 
 [dev-dependencies]
