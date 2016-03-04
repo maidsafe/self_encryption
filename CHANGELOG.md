@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.3.0]
+- Updated dependencies.
+
 ## [0.2.6]
 - Various bug fixes and tidy up.
 - Setup clippy usage.
