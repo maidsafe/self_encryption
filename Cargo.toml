@@ -1,19 +1,19 @@
 [package]
-name = "self_encryption"
-version = "0.2.6"
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "http://maidsafe.net/self_encryption/latest"
-repository = "https://github.com/maidsafe/self_encryption"
-readme = "README.md"
-license = "GPL-3.0"
 homepage = "http://maidsafe.net"
+license = "GPL-3.0"
+name = "self_encryption"
+readme = "README.md"
+repository = "https://github.com/maidsafe/self_encryption"
+version = "0.3.0"
 
 [dependencies]
 asynchronous = "~0.4.5"
-clippy = {version = "~0.0.44", optional = true}
+clippy = {version = "~0.0.45", optional = true}
 flate2 = "~0.2.13"
-maidsafe_utilities = "~0.3.0"
+maidsafe_utilities = "~0.4.0"
 memmap = "~0.2.3"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.18"
