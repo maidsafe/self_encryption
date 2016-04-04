@@ -1843,7 +1843,6 @@
 <span id="1800">1800</span>
 <span id="1801">1801</span>
 <span id="1802">1802</span>
-<span id="1803">1803</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -3552,8 +3551,7 @@
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
     <span class='kw'>fn</span> <span class='ident'>serialised_vectors</span>() {
-        <span class='kw'>for</span> <span class='ident'>vec_len</span> <span class='kw'>in</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>1000</span>, <span class='number'>2000</span>, <span class='number'>5000</span>, <span class='number'>10_000</span>, <span class='number'>20_000</span>, <span class='number'>50_000</span>, <span class='number'>100_000</span>, <span class='number'>20_0000</span>, <span class='number'>50_0000</span>,
-                            <span class='number'>1_000_000</span>] {
+        <span class='kw'>for</span> <span class='ident'>vec_len</span> <span class='kw'>in</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>1000</span>, <span class='number'>2000</span>, <span class='number'>5000</span>, <span class='number'>10_000</span>, <span class='number'>20_000</span>, <span class='number'>50_000</span>, <span class='number'>100_000</span>, <span class='number'>200_000</span>] {
             <span class='kw'>let</span> <span class='ident'>storage</span> <span class='op'>=</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>SimpleStorage</span>::<span class='ident'>new</span>());
             <span class='kw'>let</span> <span class='ident'>datamap</span>: <span class='ident'>DataMap</span> <span class='op'>=</span> <span class='ident'>create_vector_data_map</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>vec_len</span>);
             <span class='ident'>check_vector_data_map</span>(<span class='ident'>storage</span>.<span class='ident'>clone</span>(), <span class='ident'>vec_len</span>, <span class='kw-2'>&amp;</span><span class='ident'>datamap</span>);
