@@ -1705,8 +1705,7 @@ mod test {
 
     #[test]
     fn serialised_vectors() {
-        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 20_0000, 50_0000,
-                            1_000_000] {
+        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000] {
             let storage = Arc::new(SimpleStorage::new());
             let datamap: DataMap = create_vector_data_map(storage.clone(), vec_len);
             check_vector_data_map(storage.clone(), vec_len, &datamap);
