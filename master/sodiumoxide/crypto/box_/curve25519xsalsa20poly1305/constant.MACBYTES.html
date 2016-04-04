@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `crypto_sign_edwards25519sha512batch_bytes` fn in crate `libsodium_sys`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, crypto_sign_edwards25519sha512batch_bytes">
+    <meta name="description" content="API documentation for the Rust `MACBYTES` constant in crate `sodiumoxide`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, MACBYTES">
 
-    <title>libsodium_sys::crypto_sign_edwards25519sha512batch_bytes - Rust</title>
+    <title>sodiumoxide::crypto::box_::curve25519xsalsa20poly1305::MACBYTES - Rust</title>
 
-    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
-    <link rel="stylesheet" type="text/css" href="../main.css">
+    <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../../main.css">
 
     
     
@@ -27,7 +27,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'><a href='index.html'>libsodium_sys</a></p><script>window.sidebarCurrent = {name: 'crypto_sign_edwards25519sha512batch_bytes', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>box_</a>::<wbr><a href='index.html'>curve25519xsalsa20poly1305</a></p><script>window.sidebarCurrent = {name: 'MACBYTES', ty: 'constant', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
     <nav class="sub">
@@ -41,13 +41,16 @@
         </form>
     </nav>
 
-    <section id='main' class="content fn">
-<h1 class='fqn'><span class='in-band'><a href='index.html'>libsodium_sys</a>::<wbr><a class='fn' href=''>crypto_sign_edwards25519sha512batch_bytes</a></span><span class='out-of-band'><span id='render-detail'>
+    <section id='main' class="content constant">
+<h1 class='fqn'><span class='in-band'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>box_</a>::<wbr><a href='index.html'>curve25519xsalsa20poly1305</a>::<wbr><a class='constant' href=''>MACBYTES</a></span><span class='out-of-band'><span id='render-detail'>
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-637' class='srclink' href='../src/libsodium_sys/src/crypto_sign_edwards25519sha512batch.rs.html#27' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub unsafe extern fn crypto_sign_edwards25519sha512batch_bytes() -&gt; <a class='type' href='../libc/type.size_t.html' title='libc::size_t'>size_t</a></pre></section>
+        </span><a id='src-63' class='srclink' href='../../../../src/sodiumoxide/crypto/box_/curve25519xsalsa20poly1305.rs.html#31' title='goto source code'>[src]</a></span></h1>
+<pre class='rust const'>pub const MACBYTES: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a><code> = </code><code>ffi::crypto_box_curve25519xsalsa20poly1305_MACBYTES</code></pre><div class='docblock'><p>Number of bytes in the authenticator tag of an encrypted message
+i.e. the number of bytes by which the ciphertext is larger than the
+plaintext.</p>
+</div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -99,13 +102,13 @@
     
 
     <script>
-        window.rootPath = "../";
-        window.currentCrate = "libsodium_sys";
+        window.rootPath = "../../../../";
+        window.currentCrate = "sodiumoxide";
         window.playgroundUrl = "";
     </script>
-    <script src="../jquery.js"></script>
-    <script src="../main.js"></script>
+    <script src="../../../../jquery.js"></script>
+    <script src="../../../../main.js"></script>
     
-    <script defer src="../search-index.js"></script>
+    <script defer src="../../../../search-index.js"></script>
 </body>
 </html>

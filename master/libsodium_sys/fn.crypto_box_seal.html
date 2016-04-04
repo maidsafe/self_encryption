@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `PUBLICKEYBYTES` constant in crate `sodiumoxide`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, PUBLICKEYBYTES">
+    <meta name="description" content="API documentation for the Rust `crypto_box_seal` fn in crate `libsodium_sys`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, crypto_box_seal">
 
-    <title>sodiumoxide::crypto::sign::edwards25519sha512batch::PUBLICKEYBYTES - Rust</title>
+    <title>libsodium_sys::crypto_box_seal - Rust</title>
 
-    <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
-    <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
 
     
     
@@ -27,7 +27,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sign</a>::<wbr><a href='index.html'>edwards25519sha512batch</a></p><script>window.sidebarCurrent = {name: 'PUBLICKEYBYTES', ty: 'constant', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'><a href='index.html'>libsodium_sys</a></p><script>window.sidebarCurrent = {name: 'crypto_box_seal', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
     <nav class="sub">
@@ -41,14 +41,13 @@
         </form>
     </nav>
 
-    <section id='main' class="content constant">
-<h1 class='fqn'><span class='in-band'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sign</a>::<wbr><a href='index.html'>edwards25519sha512batch</a>::<wbr><a class='constant' href=''>PUBLICKEYBYTES</a></span><span class='out-of-band'><span id='render-detail'>
+    <section id='main' class="content fn">
+<h1 class='fqn'><span class='in-band'><a href='index.html'>libsodium_sys</a>::<wbr><a class='fn' href=''>crypto_box_seal</a></span><span class='out-of-band'><span id='render-detail'>
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-974' class='srclink' href='../../../../src/sodiumoxide/crypto/sign/edwards25519sha512batch.rs.html#12' title='goto source code'>[src]</a></span></h1>
-<pre class='rust const'>pub const PUBLICKEYBYTES: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a><code> = </code><code>ffi::crypto_sign_edwards25519sha512batch_PUBLICKEYBYTES</code></pre><div class='docblock'><p>Number of bytes in a <code>PublicKey</code>.</p>
-</div></section>
+        </span><a id='src-239' class='srclink' href='../src/libsodium_sys/src/crypto_box.rs.html#105-110' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub unsafe extern fn crypto_box_seal(c: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>, m: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></a>, mlen: <a class='type' href='../libc/type.c_ulonglong.html' title='libc::c_ulonglong'>c_ulonglong</a>, pk: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>; crypto_box_PUBLICKEYBYTES]</a></a>) -&gt; <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a></pre></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -100,13 +99,13 @@
     
 
     <script>
-        window.rootPath = "../../../../";
-        window.currentCrate = "sodiumoxide";
+        window.rootPath = "../";
+        window.currentCrate = "libsodium_sys";
         window.playgroundUrl = "";
     </script>
-    <script src="../../../../jquery.js"></script>
-    <script src="../../../../main.js"></script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
     
-    <script defer src="../../../../search-index.js"></script>
+    <script defer src="../search-index.js"></script>
 </body>
 </html>

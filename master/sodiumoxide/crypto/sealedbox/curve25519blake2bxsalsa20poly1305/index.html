@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `sign` fn in crate `sodiumoxide`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, sign">
+    <meta name="description" content="API documentation for the Rust `curve25519blake2bxsalsa20poly1305` mod in crate `sodiumoxide`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, curve25519blake2bxsalsa20poly1305">
 
-    <title>sodiumoxide::crypto::sign::edwards25519sha512batch::sign - Rust</title>
+    <title>sodiumoxide::crypto::sealedbox::curve25519blake2bxsalsa20poly1305 - Rust</title>
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
@@ -27,7 +27,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sign</a>::<wbr><a href='index.html'>edwards25519sha512batch</a></p><script>window.sidebarCurrent = {name: 'sign', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'><a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sealedbox</a></p><script>window.sidebarCurrent = {name: 'curve25519blake2bxsalsa20poly1305', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
     </nav>
 
     <nav class="sub">
@@ -41,15 +41,35 @@
         </form>
     </nav>
 
-    <section id='main' class="content fn">
-<h1 class='fqn'><span class='in-band'>Function <a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sign</a>::<wbr><a href='index.html'>edwards25519sha512batch</a>::<wbr><a class='fn' href=''>sign</a></span><span class='out-of-band'><span id='render-detail'>
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../../../index.html'>sodiumoxide</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>sealedbox</a>::<wbr><a class='mod' href=''>curve25519blake2bxsalsa20poly1305</a></span><span class='out-of-band'><span id='render-detail'>
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-1191' class='srclink' href='../../../../src/sodiumoxide/crypto/sign/edwards25519sha512batch.rs.html#53-66' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn sign(m: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>, SecretKey: &amp;<a class='struct' href='../../../../sodiumoxide/crypto/sign/edwards25519sha512batch/struct.SecretKey.html' title='sodiumoxide::crypto::sign::edwards25519sha512batch::SecretKey'>SecretKey</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</pre><div class='docblock'><p><code>sign()</code> signs a message <code>m</code> using the signer&#39;s secret key <code>sk</code>.
-<code>sign()</code> returns the resulting signed message <code>sm</code>.</p>
-</div></section>
+        </span><a id='src-547' class='srclink' href='../../../../src/sodiumoxide/crypto/sealedbox/curve25519blake2bxsalsa20poly1305.rs.html#1-90' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A particular combination of Curve25519, Blake2B, Salsa20 and Poly1305.</p>
+</div><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.open.html'
+                               title='sodiumoxide::crypto::sealedbox::curve25519blake2bxsalsa20poly1305::open'>open</a></td>
+                        <td class='docblock short'>
+                             <p>The <code>open()</code> function decrypts the ciphertext <code>c</code> using the key pair <code>(pk, sk)</code>
+and returns the decrypted message.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.seal.html'
+                               title='sodiumoxide::crypto::sealedbox::curve25519blake2bxsalsa20poly1305::seal'>seal</a></td>
+                        <td class='docblock short'>
+                             <p>The <code>seal()</code> function encrypts a message <code>m</code> for a recipient whose public key
+is <code>pk</code>. It returns the ciphertext whose length is <code>SEALBYTES + m.len()</code>.</p>
+
+                        </td>
+                    </tr>
+                </table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
