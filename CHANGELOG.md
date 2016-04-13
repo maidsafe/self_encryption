@@ -1,5 +1,12 @@
 # Self-Encryption - Change Log
 
+## [0.3.1]
+- Fix truncate, flagging first two chunks for encryption, and add new test.
+- Updates contributor agreement.
+- Fixed failing test exceeding serialisation limits.
+- Disable clippy use_debug check.
+- Updated dependencies.
+
 ## [0.3.0]
 - Updated dependencies.
 
