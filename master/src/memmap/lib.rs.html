@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-88ac128001ac3a9a/memmap-0.2.3/src/lib.rs`.">
+    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-88ac128001ac3a9a/memmap-0.3.0/src/lib.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>lib.rs.html -- source</title>
@@ -861,6 +861,23 @@
 <span id="818">818</span>
 <span id="819">819</span>
 <span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! A cross-platform Rust API for memory maps.</span>
 
@@ -877,6 +894,7 @@
 <span class='kw'>use</span> <span class='ident'>unix</span>::<span class='ident'>MmapInner</span>;
 
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cell</span>::<span class='ident'>UnsafeCell</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fmt</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fs</span>::{<span class='self'>self</span>, <span class='ident'>File</span>};
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>io</span>::{<span class='ident'>Error</span>, <span class='ident'>ErrorKind</span>, <span class='prelude-ty'>Result</span>};
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>path</span>::<span class='ident'>Path</span>;
@@ -1014,7 +1032,7 @@
     <span class='doccomment'>/// When this returns with a non-error result, all outstanding changes to a</span>
     <span class='doccomment'>/// file-backed memory map are guaranteed to be durably stored. The file&#39;s</span>
     <span class='doccomment'>/// metadata (including last modification timestamp) may not be updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='kw'>let</span> <span class='ident'>len</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>len</span>();
         <span class='self'>self</span>.<span class='ident'>inner</span>.<span class='ident'>flush</span>(<span class='number'>0</span>, <span class='ident'>len</span>)
     }
@@ -1024,7 +1042,7 @@
     <span class='doccomment'>/// This method initiates flushing modified pages to durable storage, but it</span>
     <span class='doccomment'>/// will not wait for the operation to complete before returning. The file&#39;s</span>
     <span class='doccomment'>/// metadata (including last modification timestamp) may not be updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='kw'>let</span> <span class='ident'>len</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>len</span>();
         <span class='self'>self</span>.<span class='ident'>inner</span>.<span class='ident'>flush_async</span>(<span class='number'>0</span>, <span class='ident'>len</span>)
     }
@@ -1039,7 +1057,7 @@
     <span class='doccomment'>/// updated. It is not guaranteed the only the changes in the specified</span>
     <span class='doccomment'>/// range are flushed; other outstanding changes to the mmap may be flushed</span>
     <span class='doccomment'>/// as well.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_range</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>offset</span>: <span class='ident'>usize</span>, <span class='ident'>len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_range</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>offset</span>: <span class='ident'>usize</span>, <span class='ident'>len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner</span>.<span class='ident'>flush</span>(<span class='ident'>offset</span>, <span class='ident'>len</span>)
     }
 
@@ -1054,7 +1072,7 @@
     <span class='doccomment'>/// is not guaranteed that the only changes flushed are those in the</span>
     <span class='doccomment'>/// specified range; other outstanding changes to the mmap may be flushed as</span>
     <span class='doccomment'>/// well.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async_range</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>offset</span>: <span class='ident'>usize</span>, <span class='ident'>len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async_range</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>offset</span>: <span class='ident'>usize</span>, <span class='ident'>len</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner</span>.<span class='ident'>flush_async</span>(<span class='ident'>offset</span>, <span class='ident'>len</span>)
     }
 
@@ -1114,12 +1132,16 @@
     }
 }
 
+<span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>Mmap</span> {
+    <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+        <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;Mmap {{ ptr: {:?}, len: {} }}&quot;</span>, <span class='self'>self</span>.<span class='ident'>ptr</span>(), <span class='self'>self</span>.<span class='ident'>len</span>())
+    }
+}
+
 <span class='doccomment'>/// A view of a memory map.</span>
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// The view may be split into disjoint ranges, each of which will share the</span>
 <span class='doccomment'>/// underlying memory map.</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// A mmap view is not cloneable.</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>MmapView</span> {
     <span class='ident'>inner</span>: <span class='ident'>Rc</span><span class='op'>&lt;</span><span class='ident'>UnsafeCell</span><span class='op'>&lt;</span><span class='ident'>Mmap</span><span class='op'>&gt;&gt;</span>,
     <span class='ident'>offset</span>: <span class='ident'>usize</span>,
@@ -1186,7 +1208,7 @@
     <span class='doccomment'>/// file-backed memory map view are guaranteed to be durably stored. The</span>
     <span class='doccomment'>/// file&#39;s metadata (including last modification timestamp) may not be</span>
     <span class='doccomment'>/// updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner_mut</span>().<span class='ident'>flush_range</span>(<span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
     }
 
@@ -1196,7 +1218,7 @@
     <span class='doccomment'>/// This method initiates flushing modified pages to durable storage, but it</span>
     <span class='doccomment'>/// will not wait for the operation to complete before returning. The file&#39;s</span>
     <span class='doccomment'>/// metadata (including last modification timestamp) may not be updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner_mut</span>().<span class='ident'>flush_async_range</span>(<span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
     }
 
@@ -1252,12 +1274,17 @@
     }
 }
 
+<span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>MmapView</span> {
+    <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+        <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;MmapView {{ ptr: {:?}, offset: {}, len: {} }}&quot;</span>,
+               <span class='self'>self</span>.<span class='ident'>inner</span>().<span class='ident'>ptr</span>(), <span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
+    }
+}
+
 <span class='doccomment'>/// A thread-safe view of a memory map.</span>
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// The view may be split into disjoint ranges, each of which will share the</span>
 <span class='doccomment'>/// underlying memory map.</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// A mmap view is not cloneable.</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>MmapViewSync</span> {
     <span class='ident'>inner</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>UnsafeCell</span><span class='op'>&lt;</span><span class='ident'>Mmap</span><span class='op'>&gt;&gt;</span>,
     <span class='ident'>offset</span>: <span class='ident'>usize</span>,
@@ -1320,7 +1347,7 @@
     <span class='doccomment'>/// When this returns with a non-error result, all outstanding changes to a file-backed memory</span>
     <span class='doccomment'>/// map view are guaranteed to be durably stored. The file&#39;s metadata (including last</span>
     <span class='doccomment'>/// modification timestamp) may not be updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner_mut</span>().<span class='ident'>flush_range</span>(<span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
     }
 
@@ -1329,7 +1356,7 @@
     <span class='doccomment'>/// This method initiates flushing modified pages to durable storage, but it will not wait</span>
     <span class='doccomment'>/// for the operation to complete before returning. The file&#39;s metadata (including last</span>
     <span class='doccomment'>/// modification timestamp) may not be updated.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>flush_async</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='self'>self</span>.<span class='ident'>inner_mut</span>().<span class='ident'>flush_async_range</span>(<span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
     }
 
@@ -1380,6 +1407,13 @@
             <span class='ident'>offset</span>: <span class='self'>self</span>.<span class='ident'>offset</span>,
             <span class='ident'>len</span>: <span class='self'>self</span>.<span class='ident'>len</span>,
         }
+    }
+}
+
+<span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>MmapViewSync</span> {
+    <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+        <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;MmapViewSync {{ ptr: {:?}, offset: {}, len: {} }}&quot;</span>,
+               <span class='self'>self</span>.<span class='ident'>inner</span>().<span class='ident'>ptr</span>(), <span class='self'>self</span>.<span class='ident'>offset</span>, <span class='self'>self</span>.<span class='ident'>len</span>)
     }
 }
 

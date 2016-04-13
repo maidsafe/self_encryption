@@ -46,7 +46,7 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-145' class='srclink' href='../src/memmap/lib.rs.html#95-97' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-146' class='srclink' href='../src/memmap/lib.rs.html#96-98' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Mmap {
     // some fields omitted
 }</pre><div class='docblock'><p>A memory-mapped buffer.</p>
@@ -93,19 +93,19 @@ length must be greater than zero.</p>
 <div class='docblock'><p>Opens an anonymous memory map with the provided options.</p>
 
 <p>The length must be greater than zero.</p>
-</div><h4 id='method.flush' class='method'><code>fn <a href='#method.flush' class='fnname'>flush</a>(&amp;mut self) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h4 id='method.flush' class='method'><code>fn <a href='#method.flush' class='fnname'>flush</a>(&amp;self) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
 <div class='docblock'><p>Flushes outstanding memory map modifications to disk.</p>
 
 <p>When this returns with a non-error result, all outstanding changes to a
 file-backed memory map are guaranteed to be durably stored. The file&#39;s
 metadata (including last modification timestamp) may not be updated.</p>
-</div><h4 id='method.flush_async' class='method'><code>fn <a href='#method.flush_async' class='fnname'>flush_async</a>(&amp;mut self) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h4 id='method.flush_async' class='method'><code>fn <a href='#method.flush_async' class='fnname'>flush_async</a>(&amp;self) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
 <div class='docblock'><p>Asynchronously flushes outstanding memory map modifications to disk.</p>
 
 <p>This method initiates flushing modified pages to durable storage, but it
 will not wait for the operation to complete before returning. The file&#39;s
 metadata (including last modification timestamp) may not be updated.</p>
-</div><h4 id='method.flush_range' class='method'><code>fn <a href='#method.flush_range' class='fnname'>flush_range</a>(&amp;mut self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h4 id='method.flush_range' class='method'><code>fn <a href='#method.flush_range' class='fnname'>flush_range</a>(&amp;self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
 <div class='docblock'><p>Flushes outstanding memory map modifications in the range to disk.</p>
 
 <p>The offset and length must be in the bounds of the mmap.</p>
@@ -116,7 +116,7 @@ file&#39;s metadata (including last modification timestamp) may not be
 updated. It is not guaranteed the only the changes in the specified
 range are flushed; other outstanding changes to the mmap may be flushed
 as well.</p>
-</div><h4 id='method.flush_async_range' class='method'><code>fn <a href='#method.flush_async_range' class='fnname'>flush_async_range</a>(&amp;mut self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h4 id='method.flush_async_range' class='method'><code>fn <a href='#method.flush_async_range' class='fnname'>flush_async_range</a>(&amp;self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
 <div class='docblock'><p>Asynchronously flushes outstanding memory map modifications in the range
 to disk.</p>
 
@@ -154,7 +154,8 @@ dereferencing the pointer.</p>
 <div class='docblock'><p>Creates a splittable mmap view from the mmap.</p>
 </div><h4 id='method.into_view_sync' class='method'><code>fn <a href='#method.into_view_sync' class='fnname'>into_view_sync</a>(self) -&gt; <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h4>
 <div class='docblock'><p>Creates a thread-safe splittable mmap view from the mmap.</p>
-</div></div></section>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
