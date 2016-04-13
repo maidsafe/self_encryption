@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.3.1]
+- Updated dependencies.
+
 ## [0.3.0]
 - Updated dependencies.
 
