@@ -48,7 +48,6 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::string::String;
-use std::sync::Arc;
 
 use docopt::Docopt;
 use maidsafe_utilities::serialisation;
@@ -116,7 +115,7 @@ impl Storage for DiskBasedStorage {
         data
     }
 
-    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
         let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Err(error) => panic!("Failed to create {:?} - {:?}", path, error),
@@ -141,9 +140,9 @@ fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let my_storage = Arc::new(DiskBasedStorage {
+    let mut storage = DiskBasedStorage {
         storage_path: unwrap_option!(chunk_store_dir.to_str(), "").to_owned(),
-    });
+    };
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
 
@@ -165,7 +164,7 @@ fn main() {
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&data, 0);
             let data_map = se.close();
 
@@ -199,7 +198,7 @@ fn main() {
             let _ = unwrap_result!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
-                let mut se = SelfEncryptor::new(my_storage.clone(), data_map);
+                let mut se = SelfEncryptor::new(&mut storage, data_map);
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap_option!(args.arg_destination.clone(),
                                                                   "")) {
