@@ -13,6 +13,7 @@ branches:
   only:
     - master
 cache:
+  cargo: true
   directories:
     - $HOME/libsodium
     - $HOME/elfutils
