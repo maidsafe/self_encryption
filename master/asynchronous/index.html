@@ -71,6 +71,7 @@ except according to those terms.</p>
 
 <h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
 <p>This is a simple setup for a promise based execution:</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>Promise</span>;
  
@@ -89,6 +90,7 @@ except according to those terms.</p>
 });</pre>
 
 <p>Deferred execution:</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>Promise</span>,<span class='ident'>Deferred</span>,<span class='ident'>ControlFlow</span>};
 
@@ -123,6 +125,7 @@ except according to those terms.</p>
 </pre>
 
 <p>Simple event loop:</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>EventLoop</span>;
 
@@ -142,7 +145,6 @@ except according to those terms.</p>
                              <p>Stores a function and delays its execution until it&#39;s transform to a promise.
 T : Type of value returned
 E : Type of error returned</p>
-
                         </td>
                     </tr>
                 
@@ -151,7 +153,6 @@ E : Type of error returned</p>
                                title='asynchronous::EventLoop'>EventLoop</a></td>
                         <td class='docblock short'>
                              <p>Executes a task in background collecting events from other threads</p>
-
                         </td>
                     </tr>
                 
@@ -160,7 +161,6 @@ E : Type of error returned</p>
                                title='asynchronous::EventLoopHandler'>EventLoopHandler</a></td>
                         <td class='docblock short'>
                              <p>Event Loop wrapper that can be cloned to pass through threads</p>
-
                         </td>
                     </tr>
                 
@@ -171,7 +171,6 @@ E : Type of error returned</p>
                              <p>Stores a result of previous execution tasks.
 T : Type of value returned
 E : Type of error returned</p>
-
                         </td>
                     </tr>
                 </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
@@ -181,7 +180,6 @@ E : Type of error returned</p>
                                title='asynchronous::ControlFlow'>ControlFlow</a></td>
                         <td class='docblock short'>
                              <p>Different possibilities for asynchronous treatment of vectors</p>
-
                         </td>
                     </tr>
                 
@@ -190,7 +188,6 @@ E : Type of error returned</p>
                                title='asynchronous::Emit'>Emit</a></td>
                         <td class='docblock short'>
                              <p>Enum representing type of Emit in loops</p>
-
                         </td>
                     </tr>
                 </table></section>
@@ -236,7 +233,7 @@ E : Type of error returned</p>
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>

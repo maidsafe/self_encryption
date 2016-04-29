@@ -54,11 +54,11 @@
     ParallelCPUS,
 }</pre><div class='docblock'><p>Different possibilities for asynchronous treatment of vectors</p>
 </div><h2 class='variants'>Variants</h2>
-<table><tr><td id='variant.Series'><code>Series</code></td><td><div class='docblock'><p>Executes one after each other. Stops execution if one fails.</p>
-</div></td></tr><tr><td id='variant.Parallel'><code>Parallel</code></td><td><div class='docblock'><p>Executes all tasks at the same time</p>
-</div></td></tr><tr><td id='variant.ParallelLimit'><code>ParallelLimit</code></td><td><div class='docblock'><p>Executes all tasks but only <strong>usize</strong> tasks running at the same time</p>
-</div></td></tr><tr><td id='variant.ParallelCPUS'><code>ParallelCPUS</code></td><td><div class='docblock'><p>Executes all tasks but only <strong>NumberCpus</strong> tasks running at the same time</p>
-</div></td></tr></table></section>
+<table class='variants_table'><tr><td id='variant.Series'><code>Series</code></td><td><div class='docblock'><p>Executes one after each other. Stops execution if one fails.</p>
+</div></td><td></td></tr><tr><td id='variant.Parallel'><code>Parallel</code></td><td><div class='docblock'><p>Executes all tasks at the same time</p>
+</div></td><td></td></tr><tr><td id='variant.ParallelLimit'><code>ParallelLimit</code></td><td><div class='docblock'><p>Executes all tasks but only <strong>usize</strong> tasks running at the same time</p>
+</div></td><td></td></tr><tr><td id='variant.ParallelCPUS'><code>ParallelCPUS</code></td><td><div class='docblock'><p>Executes all tasks but only <strong>NumberCpus</strong> tasks running at the same time</p>
+</div></td><td></td></tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -101,7 +101,7 @@
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>

@@ -52,6 +52,7 @@
 }</pre><div class='docblock'><p>Executes a task in background collecting events from other threads</p>
 </div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;Ev&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt; <span class='where'>where Ev: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static</span></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt;</code></h4>
 <div class='docblock'><p>Creates a new Event Loop and collects all the events into a vector</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>EventLoop</span>;
  
@@ -64,6 +65,7 @@
 });</pre>
 </div><h4 id='method.on' class='method'><code>fn <a href='#method.on' class='fnname'>on</a>&lt;F&gt;(f: F) -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(Ev)</span></code></h4>
 <div class='docblock'><p>Creates a new Event Loop and parses all the events produced</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>EventLoop</span>;
 <span class='kw'>enum</span> <span class='ident'>MiEvents</span> { <span class='ident'>Hello</span>(<span class='ident'>String</span>), <span class='ident'>Goodbye</span>(<span class='ident'>u32</span>)}
@@ -82,6 +84,7 @@
 });</pre>
 </div><h4 id='method.on_managed' class='method'><code>fn <a href='#method.on_managed' class='fnname'>on_managed</a>&lt;F&gt;(f: F) -&gt; <a class='struct' href='../asynchronous/struct.EventLoop.html' title='asynchronous::EventLoop'>EventLoop</a>&lt;Ev&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(Ev) -&gt; <a class='enum' href='../asynchronous/enum.Emit.html' title='asynchronous::Emit'>Emit</a>&lt;Ev&gt;</span></code></h4>
 <div class='docblock'><p>Creates a new Event Loop, parses all the events produced and collects what you want into a vector</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>EventLoop</span>, <span class='ident'>Emit</span>};
 <span class='kw'>enum</span> <span class='ident'>MiEvents</span> { <span class='ident'>Hello</span>(<span class='ident'>String</span>), <span class='ident'>Goodbye</span>(<span class='ident'>u32</span>)}
@@ -104,6 +107,7 @@
 <div class='docblock'><p>Triggers an event &quot;Ev&quot; once. Returns the same event if the event loop is not active.</p>
 </div><h4 id='method.emit_until' class='method'><code>fn <a href='#method.emit_until' class='fnname'>emit_until</a>&lt;F&gt;(&amp;self, f: F) <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>() -&gt; <a class='enum' href='../asynchronous/enum.Emit.html' title='asynchronous::Emit'>Emit</a>&lt;Ev&gt;</span></code></h4>
 <div class='docblock'><p>Triggers an event &quot;Ev&quot; until the return of the &quot;clousure&quot; is None</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>EventLoop</span>, <span class='ident'>Emit</span>};
  
@@ -170,7 +174,7 @@
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>

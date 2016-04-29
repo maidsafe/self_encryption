@@ -26,7 +26,7 @@
     
 
     <nav class="sidebar">
-        <a href='../self_encryption/index.html'><img src='https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png' alt='' width='100'></a>
+        <a href='../self_encryption/index.html'><img src='https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png' alt='logo' width='100'></a>
         <p class='location'><a href='index.html'>self_encryption</a></p><script>window.sidebarCurrent = {name: 'DataMap', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
@@ -46,7 +46,7 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-322' class='srclink' href='../src/self_encryption/datamap.rs.html#84-93' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-322' class='srclink' href='../src/self_encryption/src/datamap.rs.html#84-93' title='goto source code'>[src]</a></span></h1>
 <pre class='rust enum'>pub enum DataMap {
     Chunks(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../self_encryption/struct.ChunkDetails.html' title='self_encryption::ChunkDetails'>ChunkDetails</a>&gt;),
     Content(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;),
@@ -54,12 +54,12 @@
 }</pre><div class='docblock'><p>Holds the information that is required to recover the content of the encrypted file.  Depending
 on the file size, such info can be held as a vector of ChunkDetails, or as raw data.</p>
 </div><h2 class='variants'>Variants</h2>
-<table><tr><td id='variant.Chunks'><code>Chunks</code></td><td><div class='docblock'><p>If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
+<table class='variants_table'><tr><td id='variant.Chunks'><code>Chunks</code></td><td><div class='docblock'><p>If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
 holds the list of the files chunks and corresponding hashes.</p>
-</div></td></tr><tr><td id='variant.Content'><code>Content</code></td><td><div class='docblock'><p>Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
+</div></td><td></td></tr><tr><td id='variant.Content'><code>Content</code></td><td><div class='docblock'><p>Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
 are put in here in their entirety.</p>
-</div></td></tr><tr><td id='variant.None'><code>None</code></td><td><div class='docblock'><p>empty datamap</p>
-</div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.len' class='method'><code>fn <a href='#method.len' class='fnname'>len</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a></code></h4>
+</div></td><td></td></tr><tr><td id='variant.None'><code>None</code></td><td><div class='docblock'><p>empty datamap</p>
+</div></td><td></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.len' class='method'><code>fn <a href='#method.len' class='fnname'>len</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a></code></h4>
 <div class='docblock'><p>Original (pre-encryption) size of file in DataMap.</p>
 </div><h4 id='method.get_chunks' class='method'><code>fn <a href='#method.get_chunks' class='fnname'>get_chunks</a>(&amp;self) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../self_encryption/struct.ChunkDetails.html' title='self_encryption::ChunkDetails'>ChunkDetails</a>&gt;</code></h4>
 <div class='docblock'><p>Returns the list of chunks pre and post encryption hashes if present.</p>
@@ -70,7 +70,7 @@ correct pre-encryption hashes for decryption/encryption.</p>
 <div class='docblock'><p>Whether the content is stored as chunks or as raw data.</p>
 </div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, formatter: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Error.html' title='core::fmt::Error'>Error</a>&gt;</code></h4>
 </div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h4>
-<h4 id='method.clone_from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+<h4 id='method.clone_from' class='method'><span class="since">1.0.0</span><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
 </div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
 </div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
 <h4 id='method.lt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../self_encryption/enum.DataMap.html' title='self_encryption::DataMap'>DataMap</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
@@ -124,7 +124,7 @@ correct pre-encryption hashes for decryption/encryption.</p>
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>

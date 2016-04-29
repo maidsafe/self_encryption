@@ -57,17 +57,17 @@
 }</pre><div class='docblock'><p>Values which indicate the form of flushing to be used when compressing or
 decompressing in-memory data.</p>
 </div><h2 class='variants'>Variants</h2>
-<table><tr><td id='variant.None'><code>None</code></td><td><div class='docblock'><p>A typical parameter for passing to compression/decompression functions,
+<table class='variants_table'><tr><td id='variant.None'><code>None</code></td><td><div class='docblock'><p>A typical parameter for passing to compression/decompression functions,
 this indicates that the underlying stream to decide how much data to
 accumulate before producing output in order to maximize compression.</p>
-</div></td></tr><tr><td id='variant.Sync'><code>Sync</code></td><td><div class='docblock'><p>All pending output is flushed to the output buffer and the output is
+</div></td><td></td></tr><tr><td id='variant.Sync'><code>Sync</code></td><td><div class='docblock'><p>All pending output is flushed to the output buffer and the output is
 aligned on a byte boundary so that the decompressor can get all input
 data available so far.</p>
 
 <p>Flushing may degrade comperssion for some compression algorithms and so
 it should only be used when necessary. This will complete the current
 deflate block and follow it with an empty stored block.</p>
-</div></td></tr><tr><td id='variant.Partial'><code>Partial</code></td><td><div class='docblock'><p>All pending output is flushed to the output buffer, but the output is
+</div></td><td></td></tr><tr><td id='variant.Partial'><code>Partial</code></td><td><div class='docblock'><p>All pending output is flushed to the output buffer, but the output is
 not aligned to a byte boundary.</p>
 
 <p>All of the input data so far will be available to the decompressor (as
@@ -75,7 +75,7 @@ with <code>Flush::Sync</code>. This completes the current deflate block and foll
 it with an empty fixed codes block that is 10 bites long, and it assures
 that enough bytes are output in order for the decompessor to finish the
 block before the empty fixed code block.</p>
-</div></td></tr><tr><td id='variant.Block'><code>Block</code></td><td><div class='docblock'><p>A deflate block is completed and emitted, as for <code>Flush::Sync</code>, but the
+</div></td><td></td></tr><tr><td id='variant.Block'><code>Block</code></td><td><div class='docblock'><p>A deflate block is completed and emitted, as for <code>Flush::Sync</code>, but the
 output is not aligned on a byte boundary and up to seven vits of the
 current block are held to be written as the next byte after the next
 deflate block is completed.</p>
@@ -85,16 +85,16 @@ point in order to complete decompression of the data provided so far to
 the compressor, it may need to wait for the next block to be emitted.
 This is for advanced applications that need to control the emission of
 deflate blocks.</p>
-</div></td></tr><tr><td id='variant.Full'><code>Full</code></td><td><div class='docblock'><p>All output is flushed as with <code>Flush::Sync</code> and the compression state is
+</div></td><td></td></tr><tr><td id='variant.Full'><code>Full</code></td><td><div class='docblock'><p>All output is flushed as with <code>Flush::Sync</code> and the compression state is
 reset so decompression can restart from this point if previous
 compressed data has been damaged or if random access is desired.</p>
 
 <p>Using this option too often can seriously degrade compression.</p>
-</div></td></tr><tr><td id='variant.Finish'><code>Finish</code></td><td><div class='docblock'><p>Pending input is processed and pending output is flushed.</p>
+</div></td><td></td></tr><tr><td id='variant.Finish'><code>Finish</code></td><td><div class='docblock'><p>Pending input is processed and pending output is flushed.</p>
 
 <p>The return value may indicate that the stream is not yet done and more
 data has yet to be processed.</p>
-</div></td></tr></table></section>
+</div></td><td></td></tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -137,7 +137,7 @@ data has yet to be processed.</p>
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>

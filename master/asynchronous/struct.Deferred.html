@@ -54,6 +54,7 @@ T : Type of value returned
 E : Type of error returned</p>
 </div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;T, E&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;T, E&gt; <span class='where'>where T: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static, E: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static</span></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>&lt;F&gt;(f: F) -&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;T, E&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>() -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;</span></code></h4>
 <div class='docblock'><p>Create a new task in deferred.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>let</span> <span class='ident'>deferred</span> <span class='op'>=</span> <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='comment'>// Do something  </span>
@@ -62,6 +63,7 @@ E : Type of error returned</p>
 <span class='comment'>// At this point &quot;deferred&quot; is not executed</span></pre>
 </div><h4 id='method.sync' class='method'><code>fn <a href='#method.sync' class='fnname'>sync</a>(self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;</code></h4>
 <div class='docblock'><p>Syncronizes the execution with the caller, and returns its value.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>;
  
@@ -79,6 +81,7 @@ E : Type of error returned</p>
 </div><h4 id='method.then' class='method'><code>fn <a href='#method.then' class='fnname'>then</a>&lt;TT, EE, FT, FE&gt;(self, ft: FT, fe: FE) -&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;TT, EE&gt; <span class='where'>where TT: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static, EE: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static, FT: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(T) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;TT, EE&gt;, FE: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(E) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;TT, EE&gt;</span></code></h4>
 <div class='docblock'><p>Executes only one of the two functions received depending on the result of the previous task deferred (Ok or Err).
 Returns a new Deferred</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='kw'>if</span> <span class='boolval'>false</span> { <span class='prelude-val'>Ok</span>(<span class='number'>1.23</span>) } <span class='kw'>else</span> { <span class='prelude-val'>Err</span>(<span class='string'>&quot;Final error&quot;</span>)}
@@ -93,6 +96,7 @@ Returns a new Deferred</p>
 <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>r</span>, <span class='prelude-val'>Ok</span>(<span class='number'>35</span>));</pre>
 </div><h4 id='method.chain' class='method'><code>fn <a href='#method.chain' class='fnname'>chain</a>&lt;TT, EE, FF&gt;(self, f: FF) -&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;TT, EE&gt; <span class='where'>where TT: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static, EE: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static, FF: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(<a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;TT, EE&gt;</span></code></h4>
 <div class='docblock'><p>The same functionality as <strong>then</strong>, but wraps the result in only one function</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='kw'>if</span> <span class='boolval'>false</span> { <span class='prelude-val'>Ok</span>(<span class='number'>1.23</span>) } <span class='kw'>else</span> { <span class='prelude-val'>Err</span>(<span class='string'>&quot;Final error&quot;</span>)}
@@ -112,6 +116,7 @@ Returns a new Deferred</p>
 </div><h4 id='method.success' class='method'><code>fn <a href='#method.success' class='fnname'>success</a>&lt;TT, F&gt;(self, f: F) -&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;TT, E&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(T) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;TT, E&gt;, TT: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static</span></code></h4>
 <div class='docblock'><p>Executes a new task if the result of the previous promise is Ok. It may return a new type in a correct result (Ok),
 but it must return the same type of error of its previous promise.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='prelude-val'>Ok</span>(<span class='number'>1.23</span>)
@@ -125,6 +130,7 @@ but it must return the same type of error of its previous promise.</p>
 </div><h4 id='method.fail' class='method'><code>fn <a href='#method.fail' class='fnname'>fail</a>&lt;F&gt;(self, f: F) -&gt; <a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;T, E&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(E) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;</span></code></h4>
 <div class='docblock'><p>Executes a new task if the result of the previous promise is Err. It may return a new type in a correct result (Ok),
 but it must return the same type of error of its previous promise.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='prelude-val'>Err</span>(<span class='number'>32</span>)
@@ -138,6 +144,7 @@ but it must return the same type of error of its previous promise.</p>
 </div><h4 id='method.finally' class='method'><code>fn <a href='#method.finally' class='fnname'>finally</a>&lt;F&gt;(self, f: F) <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(<a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;)</span></code></h4>
 <div class='docblock'><p>Executes one function with the result of the previous deferred.
 It doesn&#39;t return anything and it&#39;s completly asynchronous.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='ident'>std</span>::<span class='ident'>thread</span>::<span class='ident'>sleep_ms</span>(<span class='number'>100</span>);
@@ -151,6 +158,7 @@ It doesn&#39;t return anything and it&#39;s completly asynchronous.</p>
 </div><h4 id='method.finally_sync' class='method'><code>fn <a href='#method.finally_sync' class='fnname'>finally_sync</a>&lt;F&gt;(self, f: F) <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + 'static + <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(<a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;)</span></code></h4>
 <div class='docblock'><p>Executes one function with the result of the previous deferred.
 It doesn&#39;t return anything, but it&#39;s synchronized with the caller</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::<span class='ident'>Promise</span>;
  
@@ -164,6 +172,7 @@ It doesn&#39;t return anything, but it&#39;s synchronized with the caller</p>
 <span class='kw'>let</span> <span class='ident'>a</span> <span class='op'>=</span> <span class='number'>2</span> <span class='op'>+</span> <span class='number'>3</span>;  <span class='comment'>// This line is executed after the above Promise</span></pre>
 </div><h4 id='method.to_promise' class='method'><code>fn <a href='#method.to_promise' class='fnname'>to_promise</a>(self) -&gt; <a class='struct' href='../asynchronous/struct.Promise.html' title='asynchronous::Promise'>Promise</a>&lt;T, E&gt;</code></h4>
 <div class='docblock'><p>Executes the task stored and returns a Promise</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>let</span> <span class='ident'>deferred</span> <span class='op'>=</span> <span class='ident'>asynchronous</span>::<span class='ident'>Deferred</span>::<span class='ident'>new</span>(<span class='op'>||</span> {
    <span class='comment'>// Do something  </span>
@@ -175,6 +184,7 @@ It doesn&#39;t return anything, but it&#39;s synchronized with the caller</p>
 </div><h4 id='method.vec_to_promise' class='method'><code>fn <a href='#method.vec_to_promise' class='fnname'>vec_to_promise</a>(vector: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../asynchronous/struct.Deferred.html' title='asynchronous::Deferred'>Deferred</a>&lt;T, E&gt;&gt;, control: <a class='enum' href='../asynchronous/enum.ControlFlow.html' title='asynchronous::ControlFlow'>ControlFlow</a>) -&gt; <a class='struct' href='../asynchronous/struct.Promise.html' title='asynchronous::Promise'>Promise</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;T&gt;, <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;T, E&gt;&gt;&gt;</code></h4>
 <div class='docblock'><p>Executes a vector of tasks and returns a Promise with a vector of values in case that all tasks ended ok.
 If there&#39;s one or more tasks with error, the promise fails and returns a vector with all the Results.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>Deferred</span>, <span class='ident'>ControlFlow</span>};
  
@@ -188,6 +198,7 @@ If there&#39;s one or more tasks with error, the promise fails and returns a vec
 If the <strong>wait</strong> parameter is <strong>true</strong>, the promise waits for all tasks that are running at that moment.
 If it&#39;s <strong>false</strong>, the promise returns once reaches the <strong>num_first</strong> tasks with Ok.
 If it&#39;s not possible achieve this number, the promise fails and returns a vector with all the Results.</p>
+
 <pre class='rust rust-example-rendered'>
 <span class='kw'>use</span> <span class='ident'>asynchronous</span>::{<span class='ident'>Deferred</span>, <span class='ident'>ControlFlow</span>};    
  
@@ -241,7 +252,7 @@ If it&#39;s not possible achieve this number, the promise fails and returns a ve
 
                 <p>
                     Search functions by type signature (e.g.
-                    <code>vec -> usize</code>)
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
                 </p>
             </div>
         </div>
