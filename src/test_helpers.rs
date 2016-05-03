@@ -17,16 +17,11 @@
 
 #![doc(hidden)]
 
-use rand::random;
-use std::sync::{Arc, Mutex};
+use rand::{self, Rng};
 use super::Storage;
 
-pub fn random_bytes(length: usize) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(length);
-    for _ in 0..length {
-        bytes.push(random::<u8>());
-    }
-    bytes
+pub fn random_bytes(size: usize) -> Vec<u8> {
+    rand::thread_rng().gen_iter().take(size).collect()
 }
 
 struct Entry {
@@ -35,17 +30,16 @@ struct Entry {
 }
 
 pub struct SimpleStorage {
-    entries: Arc<Mutex<Vec<Entry>>>,
+    entries: Vec<Entry>,
 }
 
 impl SimpleStorage {
     pub fn new() -> SimpleStorage {
-        SimpleStorage { entries: Arc::new(Mutex::new(Vec::new())) }
+        SimpleStorage { entries: vec![] }
     }
 
     pub fn has_chunk(&self, name: &[u8]) -> bool {
-        let lock = unwrap_result!(self.entries.lock());
-        for entry in lock.iter() {
+        for entry in &self.entries {
             if entry.name == name {
                 return true;
             }
@@ -54,15 +48,13 @@ impl SimpleStorage {
     }
 
     pub fn num_entries(&self) -> usize {
-        let lock = unwrap_result!(self.entries.lock());
-        lock.len()
+        self.entries.len()
     }
 }
 
 impl Storage for SimpleStorage {
     fn get(&self, name: &[u8]) -> Vec<u8> {
-        let lock = unwrap_result!(self.entries.lock());
-        for entry in lock.iter() {
+        for entry in &self.entries {
             if entry.name == name {
                 return entry.data.to_vec();
             }
@@ -70,9 +62,8 @@ impl Storage for SimpleStorage {
         vec![]
     }
 
-    fn put(&self, name: Vec<u8>, data: Vec<u8>) {
-        let mut lock = unwrap_result!(self.entries.lock());
-        lock.push(Entry {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+        self.entries.push(Entry {
             name: name,
             data: data,
         })

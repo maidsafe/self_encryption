@@ -41,7 +41,6 @@ extern crate rand;
 extern crate self_encryption;
 
 use rand::{Rng, thread_rng};
-use std::sync::Arc;
 use self_encryption::{DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
 use self_encryption::test_helpers::{random_bytes, SimpleStorage};
 
@@ -52,10 +51,10 @@ fn new_read() {
     let read_size: usize = 4096;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let original = random_bytes(content_len);
     {
-        let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+        let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
         se.write(&original, 0);
         {
             let mut decrypted = se.read(read_position as u64, read_size as u64);
@@ -99,7 +98,7 @@ fn new_read() {
 #[test]
 fn write_random_sizes_at_random_positions() {
     let mut rng = thread_rng();
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
@@ -137,7 +136,7 @@ fn write_random_sizes_at_random_positions() {
             let post_position = overlap.0 as usize + overlap.1.len();
             let mut wtotal = 0;
 
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             for element in &broken_data {
                 se.write(element.1, element.0 as u64);
                 wtotal += element.1.len();
@@ -161,7 +160,7 @@ fn write_random_sizes_at_random_positions() {
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
 fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let parts = 20usize;
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
     let mut rng = thread_rng();
@@ -170,7 +169,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     let mut original = vec![0u8; DATA_SIZE as usize];
 
     {
-        let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map);
         for _ in 0..parts {
             // Get random values for the piece size and intended offset
             let piece_size = rng.gen_range(1, MAX_CHUNK_SIZE + 1);
@@ -203,7 +202,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         data_map = self_encryptor.close();
     }
 
-    let mut self_encryptor = SelfEncryptor::new(my_storage.clone(), data_map);
+    let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map);
     let decrypted = self_encryptor.read(0u64, DATA_SIZE as u64);
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
@@ -228,11 +227,11 @@ fn cross_platform_check() {
     chars1[0] = 1;
     chars2[0] = 2;
 
-    let storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let mut data_map = DataMap::None;
 
     {
-        let mut self_encryptor = SelfEncryptor::new(storage.clone(), data_map);
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map);
         self_encryptor.write(&chars0[..], 0);
         self_encryptor.write(&chars1[..], chars0.len() as u64);
         self_encryptor.write(&chars2[..], chars0.len() as u64 + chars1.len() as u64);

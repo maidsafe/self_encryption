@@ -41,21 +41,20 @@ extern crate test;
 use test::Bencher;
 use self_encryption::{DataMap, SelfEncryptor};
 use self_encryption::test_helpers::{random_bytes, SimpleStorage};
-use std::sync::Arc;
 
 #[bench]
 fn write_then_read_200_bytes(b: &mut Bencher) {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 200;
     b.iter(|| {
         let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&the_bytes, 0);
             data_map = se.close();
         }
-        let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut new_se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     });
@@ -64,17 +63,17 @@ fn write_then_read_200_bytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_1_kilobyte(b: &mut Bencher) {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 1024;
     b.iter(|| {
         let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&the_bytes, 0);
             data_map = se.close();
         }
-        let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut new_se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     });
@@ -83,17 +82,17 @@ fn write_then_read_1_kilobyte(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_1_megabyte(b: &mut Bencher) {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&the_bytes, 0);
             data_map = se.close();
         }
-        let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut new_se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     });
@@ -102,17 +101,17 @@ fn write_then_read_1_megabyte(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_3_megabytes(b: &mut Bencher) {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 3 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&the_bytes, 0);
             data_map = se.close();
         }
-        let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut new_se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     });
@@ -121,17 +120,17 @@ fn write_then_read_3_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_10_megabytes(b: &mut Bencher) {
-    let my_storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 10 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
         let the_bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(my_storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&the_bytes, 0);
             data_map = se.close();
         }
-        let mut new_se = SelfEncryptor::new(my_storage.clone(), data_map);
+        let mut new_se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = new_se.read(0, bytes_len);
         assert_eq!(fetched, the_bytes);
     });
@@ -140,17 +139,17 @@ fn write_then_read_10_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_100_megabytes(b: &mut Bencher) {
-    let storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let bytes_len = 100 * 1024 * 1024;
     b.iter(|| {
         let data_map: DataMap;
         let bytes = random_bytes(bytes_len as usize);
         {
-            let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
             se.write(&bytes, 0);
             data_map = se.close();
         }
-        let mut se = SelfEncryptor::new(storage.clone(), data_map);
+        let mut se = SelfEncryptor::new(&mut storage, data_map);
         let fetched = se.read(0, bytes_len);
         assert_eq!(fetched, bytes);
     });
@@ -159,7 +158,7 @@ fn write_then_read_100_megabytes(b: &mut Bencher) {
 
 #[bench]
 fn write_then_read_range(b: &mut Bencher) {
-    let storage = Arc::new(SimpleStorage::new());
+    let mut storage = SimpleStorage::new();
     let string_range = vec![512 * 1024,
                             1 * 1024 * 1024,
                             2 * 1024 * 1024,
@@ -172,11 +171,11 @@ fn write_then_read_range(b: &mut Bencher) {
             let data_map: DataMap;
             let the_bytes = random_bytes(bytes_len as usize);
             {
-                let mut se = SelfEncryptor::new(storage.clone(), DataMap::None);
+                let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
                 se.write(&the_bytes, 0);
                 data_map = se.close();
             }
-            let mut new_se = SelfEncryptor::new(storage.clone(), data_map);
+            let mut new_se = SelfEncryptor::new(&mut storage, data_map);
             let fetched = new_se.read(0, bytes_len);
             assert_eq!(fetched, the_bytes);
         });
