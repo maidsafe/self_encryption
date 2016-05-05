@@ -10,8 +10,8 @@ repository = "https://github.com/maidsafe/self_encryption"
 version = "0.3.1"
 
 [dependencies]
+brotli2 = "~0.1.0"
 clippy = {version = "~0.0.64", optional = true}
-flate2 = "~0.2.13"
 maidsafe_utilities = "~0.5.4"
 memmap = "~0.3.0"
 rand = "~0.3.14"
