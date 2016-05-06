@@ -39,53 +39,99 @@ use test::Bencher;
 use self_encryption::{DataMap, SelfEncryptor};
 use self_encryption::test_helpers::{random_bytes, SimpleStorage};
 
-fn write_then_read(bencher: &mut Bencher, bytes_len: u64) {
+fn write(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = SimpleStorage::new();
     let bytes = random_bytes(bytes_len as usize);
     bencher.iter(|| {
-        let data_map: DataMap;
-        {
-            let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None);
-            self_encryptor.write(&bytes, 0);
-            data_map = self_encryptor.close();
-        }
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map);
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None);
+        self_encryptor.write(&bytes, 0);
+        let _ = self_encryptor.close();
+    });
+    bencher.bytes = bytes_len;
+}
+
+fn read(bencher: &mut Bencher, bytes_len: u64) {
+    let mut storage = SimpleStorage::new();
+    let bytes = random_bytes(bytes_len as usize);
+    let data_map: DataMap;
+    {
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None);
+        self_encryptor.write(&bytes, 0);
+        data_map = self_encryptor.close();
+    }
+    bencher.iter(|| {
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone());
         assert!(self_encryptor.read(0, bytes_len) == bytes);
     });
-    bencher.bytes = 2 * bytes_len;
+    bencher.bytes = bytes_len;
 }
 
 #[bench]
-fn write_then_read_200_bytes(bencher: &mut Bencher) {
-    write_then_read(bencher, 200)
+fn write_200_bytes(bencher: &mut Bencher) {
+    write(bencher, 200)
 }
 
 #[bench]
-fn write_then_read_1_kilobyte(bencher: &mut Bencher) {
-    write_then_read(bencher, 1024)
+fn write_1_kilobyte(bencher: &mut Bencher) {
+    write(bencher, 1024)
 }
 
 #[bench]
-fn write_then_read_512_kilobytes(bencher: &mut Bencher) {
-    write_then_read(bencher, 512 * 1024)
+fn write_512_kilobytes(bencher: &mut Bencher) {
+    write(bencher, 512 * 1024)
 }
 
 #[bench]
-fn write_then_read_1_megabyte(bencher: &mut Bencher) {
-    write_then_read(bencher, 1024 * 1024)
+fn write_1_megabyte(bencher: &mut Bencher) {
+    write(bencher, 1024 * 1024)
 }
 
 #[bench]
-fn write_then_read_3_megabytes(bencher: &mut Bencher) {
-    write_then_read(bencher, 3 * 1024 * 1024)
+fn write_3_megabytes(bencher: &mut Bencher) {
+    write(bencher, 3 * 1024 * 1024)
 }
 
 #[bench]
-fn write_then_read_10_megabytes(bencher: &mut Bencher) {
-    write_then_read(bencher, 10 * 1024 * 1024)
+fn write_10_megabytes(bencher: &mut Bencher) {
+    write(bencher, 10 * 1024 * 1024)
 }
 
 #[bench]
-fn write_then_read_100_megabytes(bencher: &mut Bencher) {
-    write_then_read(bencher, 100 * 1024 * 1024)
+fn write_100_megabytes(bencher: &mut Bencher) {
+    write(bencher, 100 * 1024 * 1024)
+}
+
+#[bench]
+fn read_200_bytes(bencher: &mut Bencher) {
+    read(bencher, 200)
+}
+
+#[bench]
+fn read_1_kilobyte(bencher: &mut Bencher) {
+    read(bencher, 1024)
+}
+
+#[bench]
+fn read_512_kilobytes(bencher: &mut Bencher) {
+    read(bencher, 512 * 1024)
+}
+
+#[bench]
+fn read_1_megabyte(bencher: &mut Bencher) {
+    read(bencher, 1024 * 1024)
+}
+
+#[bench]
+fn read_3_megabytes(bencher: &mut Bencher) {
+    read(bencher, 3 * 1024 * 1024)
+}
+
+#[bench]
+fn read_10_megabytes(bencher: &mut Bencher) {
+    read(bencher, 10 * 1024 * 1024)
+}
+
+#[bench]
+fn read_100_megabytes(bencher: &mut Bencher) {
+    read(bencher, 100 * 1024 * 1024)
 }
