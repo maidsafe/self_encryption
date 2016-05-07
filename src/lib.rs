@@ -111,7 +111,7 @@
 #![cfg_attr(feature="clippy", deny(clippy, clippy_pedantic))]
 #![cfg_attr(feature="clippy", allow(use_debug))]
 
-extern crate flate2;
+extern crate brotli2;
 #[macro_use]
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
 extern crate maidsafe_utilities;
@@ -132,10 +132,8 @@ use std::iter::repeat;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::sync::{Once, ONCE_INIT};
 
+use brotli2::stream::{self, CompressParams, Status};
 use encryption::{IV_SIZE, Iv, KEY_SIZE, Key, decrypt, encrypt};
-use flate2::Compression;
-use flate2::read::DeflateDecoder;
-use flate2::write::DeflateEncoder;
 use memmap::{Mmap, Protection};
 use sodiumoxide::crypto::hash::sha512;
 
@@ -671,21 +669,17 @@ impl<'a> SelfEncryptor<'a> {
         let content = self.storage.get(name);
         let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
 
-        // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
         let xor_result = xor(&content, &pad);
         match decrypt(&xor_result, &key, &iv) {
             Ok(decrypted) => {
-                let mut chunk = Vec::new();
-                let mut decoder = DeflateDecoder::new(&decrypted[..]);
-                match decoder.read_to_end(&mut chunk) {
-                    Ok(size) => {
-                        if size > 0 {
-                            return Ok(chunk);
-                        }
-                        Err("Decompression failure".to_owned())
+                if let Ok(decompressed_size) = stream::decompressed_size(&decrypted) {
+                    let mut chunk = vec![0u8; decompressed_size];
+                    if let Ok(Status::Finished) = stream::decompress_buf(&decrypted[..],
+                                                                         &mut &mut chunk[..]) {
+                        return Ok(chunk);
                     }
-                    Err(error) => Err(error.description().to_owned()),
                 }
+                Err("Decompression failure".to_owned())
             }
             _ => Err(format!("Failed decrypting chunk {}", chunk_number)),
         }
@@ -695,17 +689,11 @@ impl<'a> SelfEncryptor<'a> {
 /// Encrypts a chunk of data.
 fn encrypt_chunk(content: Vec<u8>, pki: (Pad, Key, Iv)) -> Result<Vec<u8>, String> {
     let (pad, key, iv) = pki;
-    // [TODO]: work out passing functors properly - 2015-03-02 07:00pm
-    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::Default);
-    match encoder.write_all(&content[..]) {
-        Ok(()) => {
-            match encoder.finish() {
-                Ok(compressed) => {
-                    let encrypted = encrypt(&compressed, &key, &iv);
-                    Ok(xor(&encrypted, &pad))
-                }
-                Err(error) => Err(error.description().to_owned()),
-            }
+    let mut compressed = vec![];
+    match stream::compress_vec(&CompressParams::new().quality(6), &content, &mut compressed) {
+        Ok(_) => {
+            let encrypted = encrypt(&compressed, &key, &iv);
+            Ok(xor(&encrypted, &pad))
         }
         Err(error) => Err(error.description().to_owned()),
     }
