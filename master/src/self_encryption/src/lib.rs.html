@@ -1854,18 +1854,6 @@
 <span id="1811">1811</span>
 <span id="1812">1812</span>
 <span id="1813">1813</span>
-<span id="1814">1814</span>
-<span id="1815">1815</span>
-<span id="1816">1816</span>
-<span id="1817">1817</span>
-<span id="1818">1818</span>
-<span id="1819">1819</span>
-<span id="1820">1820</span>
-<span id="1821">1821</span>
-<span id="1822">1822</span>
-<span id="1823">1823</span>
-<span id="1824">1824</span>
-<span id="1825">1825</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -1980,7 +1968,7 @@
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>deny</span>(<span class='ident'>clippy</span>, <span class='ident'>clippy_pedantic</span>))]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>allow</span>(<span class='ident'>use_debug</span>))]</span>
 
-<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>flate2</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>brotli2</span>;
 <span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
 <span class='attribute'>#[<span class='ident'>allow</span>(<span class='ident'>unused_extern_crates</span>)]</span>  <span class='comment'>// Only using macros from maidsafe_utilites</span>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>maidsafe_utilities</span>;
@@ -2001,10 +1989,8 @@
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>ops</span>::{<span class='ident'>Deref</span>, <span class='ident'>DerefMut</span>, <span class='ident'>Index</span>, <span class='ident'>IndexMut</span>};
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::{<span class='ident'>Once</span>, <span class='ident'>ONCE_INIT</span>};
 
+<span class='kw'>use</span> <span class='ident'>brotli2</span>::<span class='ident'>stream</span>::{<span class='self'>self</span>, <span class='ident'>CompressParams</span>, <span class='ident'>Status</span>};
 <span class='kw'>use</span> <span class='ident'>encryption</span>::{<span class='ident'>IV_SIZE</span>, <span class='ident'>Iv</span>, <span class='ident'>KEY_SIZE</span>, <span class='ident'>Key</span>, <span class='ident'>decrypt</span>, <span class='ident'>encrypt</span>};
-<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>Compression</span>;
-<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>read</span>::<span class='ident'>DeflateDecoder</span>;
-<span class='kw'>use</span> <span class='ident'>flate2</span>::<span class='ident'>write</span>::<span class='ident'>DeflateEncoder</span>;
 <span class='kw'>use</span> <span class='ident'>memmap</span>::{<span class='ident'>Mmap</span>, <span class='ident'>Protection</span>};
 <span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha512</span>;
 
@@ -2540,21 +2526,17 @@
         <span class='kw'>let</span> <span class='ident'>content</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>storage</span>.<span class='ident'>get</span>(<span class='ident'>name</span>);
         <span class='kw'>let</span> (<span class='ident'>pad</span>, <span class='ident'>key</span>, <span class='ident'>iv</span>) <span class='op'>=</span> <span class='ident'>get_pad_key_and_iv</span>(<span class='ident'>chunk_number</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>sorted_map</span>, <span class='self'>self</span>.<span class='ident'>map_size</span>);
 
-        <span class='comment'>// [TODO]: work out passing functors properly - 2015-03-02 07:00pm</span>
         <span class='kw'>let</span> <span class='ident'>xor_result</span> <span class='op'>=</span> <span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>content</span>, <span class='kw-2'>&amp;</span><span class='ident'>pad</span>);
         <span class='kw'>match</span> <span class='ident'>decrypt</span>(<span class='kw-2'>&amp;</span><span class='ident'>xor_result</span>, <span class='kw-2'>&amp;</span><span class='ident'>key</span>, <span class='kw-2'>&amp;</span><span class='ident'>iv</span>) {
             <span class='prelude-val'>Ok</span>(<span class='ident'>decrypted</span>) <span class='op'>=&gt;</span> {
-                <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>chunk</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
-                <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>decoder</span> <span class='op'>=</span> <span class='ident'>DeflateDecoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='ident'>decrypted</span>[..]);
-                <span class='kw'>match</span> <span class='ident'>decoder</span>.<span class='ident'>read_to_end</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>chunk</span>) {
-                    <span class='prelude-val'>Ok</span>(<span class='ident'>size</span>) <span class='op'>=&gt;</span> {
-                        <span class='kw'>if</span> <span class='ident'>size</span> <span class='op'>&gt;</span> <span class='number'>0</span> {
-                            <span class='kw'>return</span> <span class='prelude-val'>Ok</span>(<span class='ident'>chunk</span>);
-                        }
-                        <span class='prelude-val'>Err</span>(<span class='string'>&quot;Decompression failure&quot;</span>.<span class='ident'>to_owned</span>())
+                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Ok</span>(<span class='ident'>decompressed_size</span>) <span class='op'>=</span> <span class='ident'>stream</span>::<span class='ident'>decompressed_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>decrypted</span>) {
+                    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>chunk</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>0u8</span>; <span class='ident'>decompressed_size</span>];
+                    <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Ok</span>(<span class='ident'>Status</span>::<span class='ident'>Finished</span>) <span class='op'>=</span> <span class='ident'>stream</span>::<span class='ident'>decompress_buf</span>(<span class='kw-2'>&amp;</span><span class='ident'>decrypted</span>[..],
+                                                                         <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>chunk</span>[..]) {
+                        <span class='kw'>return</span> <span class='prelude-val'>Ok</span>(<span class='ident'>chunk</span>);
                     }
-                    <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_owned</span>()),
                 }
+                <span class='prelude-val'>Err</span>(<span class='string'>&quot;Decompression failure&quot;</span>.<span class='ident'>to_owned</span>())
             }
             _ <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;Failed decrypting chunk {}&quot;</span>, <span class='ident'>chunk_number</span>)),
         }
@@ -2564,17 +2546,11 @@
 <span class='doccomment'>/// Encrypts a chunk of data.</span>
 <span class='kw'>fn</span> <span class='ident'>encrypt_chunk</span>(<span class='ident'>content</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>pki</span>: (<span class='ident'>Pad</span>, <span class='ident'>Key</span>, <span class='ident'>Iv</span>)) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>, <span class='ident'>String</span><span class='op'>&gt;</span> {
     <span class='kw'>let</span> (<span class='ident'>pad</span>, <span class='ident'>key</span>, <span class='ident'>iv</span>) <span class='op'>=</span> <span class='ident'>pki</span>;
-    <span class='comment'>// [TODO]: work out passing functors properly - 2015-03-02 07:00pm</span>
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span> <span class='op'>=</span> <span class='ident'>DeflateEncoder</span>::<span class='ident'>new</span>(<span class='ident'>Vec</span>::<span class='ident'>new</span>(), <span class='ident'>Compression</span>::<span class='ident'>Default</span>);
-    <span class='kw'>match</span> <span class='ident'>encoder</span>.<span class='ident'>write_all</span>(<span class='kw-2'>&amp;</span><span class='ident'>content</span>[..]) {
-        <span class='prelude-val'>Ok</span>(()) <span class='op'>=&gt;</span> {
-            <span class='kw'>match</span> <span class='ident'>encoder</span>.<span class='ident'>finish</span>() {
-                <span class='prelude-val'>Ok</span>(<span class='ident'>compressed</span>) <span class='op'>=&gt;</span> {
-                    <span class='kw'>let</span> <span class='ident'>encrypted</span> <span class='op'>=</span> <span class='ident'>encrypt</span>(<span class='kw-2'>&amp;</span><span class='ident'>compressed</span>, <span class='kw-2'>&amp;</span><span class='ident'>key</span>, <span class='kw-2'>&amp;</span><span class='ident'>iv</span>);
-                    <span class='prelude-val'>Ok</span>(<span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>encrypted</span>, <span class='kw-2'>&amp;</span><span class='ident'>pad</span>))
-                }
-                <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_owned</span>()),
-            }
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>compressed</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[];
+    <span class='kw'>match</span> <span class='ident'>stream</span>::<span class='ident'>compress_vec</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>().<span class='ident'>quality</span>(<span class='number'>6</span>), <span class='kw-2'>&amp;</span><span class='ident'>content</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>compressed</span>) {
+        <span class='prelude-val'>Ok</span>(_) <span class='op'>=&gt;</span> {
+            <span class='kw'>let</span> <span class='ident'>encrypted</span> <span class='op'>=</span> <span class='ident'>encrypt</span>(<span class='kw-2'>&amp;</span><span class='ident'>compressed</span>, <span class='kw-2'>&amp;</span><span class='ident'>key</span>, <span class='kw-2'>&amp;</span><span class='ident'>iv</span>);
+            <span class='prelude-val'>Ok</span>(<span class='ident'>xor</span>(<span class='kw-2'>&amp;</span><span class='ident'>encrypted</span>, <span class='kw-2'>&amp;</span><span class='ident'>pad</span>))
         }
         <span class='prelude-val'>Err</span>(<span class='ident'>error</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>error</span>.<span class='ident'>description</span>().<span class='ident'>to_owned</span>()),
     }
