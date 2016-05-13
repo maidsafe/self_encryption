@@ -666,20 +666,20 @@ impl<'a> SelfEncryptor<'a> {
     /// Decrypts a chunk of data.
     fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, String> {
         let name = &self.sorted_map[chunk_number as usize].hash;
+        let decompressed_size = self.sorted_map[chunk_number as usize].source_size as usize;
         let content = self.storage.get(name);
         let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
 
         let xor_result = xor(&content, &pad);
         match decrypt(&xor_result, &key, &iv) {
             Ok(decrypted) => {
-                if let Ok(decompressed_size) = stream::decompressed_size(&decrypted) {
-                    let mut chunk = vec![0u8; decompressed_size];
-                    if let Ok(Status::Finished) = stream::decompress_buf(&decrypted[..],
-                                                                         &mut &mut chunk[..]) {
-                        return Ok(chunk);
-                    }
+                let mut chunk = vec![0u8; decompressed_size];
+                if let Ok(Status::Finished) = stream::decompress_buf(&decrypted[..],
+                                                                     &mut &mut chunk[..]) {
+                    Ok(chunk)
+                } else {
+                    Err("Decompression failure".to_owned())
                 }
-                Err("Decompression failure".to_owned())
             }
             _ => Err(format!("Failed decrypting chunk {}", chunk_number)),
         }
