@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-88ac128001ac3a9a/serde-0.7.4/src/de/mod.rs`.">
+    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-88ac128001ac3a9a/serde-0.7.5/src/de/mod.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>mod.rs.html -- source</title>
@@ -915,6 +915,12 @@
 <span id="872">872</span>
 <span id="873">873</span>
 <span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Generic deserialization framework.</span>
 
@@ -963,6 +969,12 @@
     <span class='doccomment'>/// raised when a `deserialize` struct type did not receive a field.</span>
     <span class='kw'>fn</span> <span class='ident'>missing_field</span>(<span class='ident'>field</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='kw'>Self</span> {
         <span class='ident'>Error</span>::<span class='ident'>custom</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;Missing field `{}`&quot;</span>, <span class='ident'>field</span>))
+    }
+
+    <span class='doccomment'>/// Raised when a `Deserialize` struct type received more than one of the</span>
+    <span class='doccomment'>/// same struct field.</span>
+    <span class='kw'>fn</span> <span class='ident'>duplicate_field</span>(<span class='ident'>field</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='kw'>Self</span> {
+        <span class='ident'>Error</span>::<span class='ident'>custom</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;Duplicate field `{}`&quot;</span>, <span class='ident'>field</span>))
     }
 }
 
