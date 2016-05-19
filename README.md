@@ -2,10 +2,6 @@
 
 [![](https://img.shields.io/badge/Project%20SAFE-Approved-green.svg)](http://maidsafe.net/applications) [![](https://img.shields.io/badge/License-GPL3-green.svg)](https://github.com/maidsafe/self_encryption/blob/master/COPYING)
 
-**Primary Maintainer:**     Brian Smith (brian.smith@maidsafe.net)
-
-**Secondary Maintainer:**   Qi Ma (qi.ma@maidsafe.net)
-
 Self encrypting files (convergent encryption plus obfuscation)
 
 |Crate|Linux/OS X|Windows|Coverage|Issues|
