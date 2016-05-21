@@ -31,21 +31,26 @@
 
 #![feature(test)]
 
-#[macro_use]
+extern crate rand;
 extern crate self_encryption;
 extern crate test;
 
+use rand::Rng;
 use test::Bencher;
 use self_encryption::{DataMap, SelfEncryptor};
-use self_encryption::test_helpers::{random_bytes, SimpleStorage};
+use self_encryption::test_helpers::SimpleStorage;
+
+fn random_bytes(size: usize) -> Vec<u8> {
+    rand::thread_rng().gen_iter().take(size).collect()
+}
 
 fn write(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = SimpleStorage::new();
     let bytes = random_bytes(bytes_len as usize);
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None);
-        self_encryptor.write(&bytes, 0);
-        let _ = self_encryptor.close();
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None).expect("");
+        self_encryptor.write(&bytes, 0).expect("");
+        let _ = self_encryptor.close().expect("");
     });
     bencher.bytes = bytes_len;
 }
@@ -55,13 +60,13 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
     let bytes = random_bytes(bytes_len as usize);
     let data_map: DataMap;
     {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None);
-        self_encryptor.write(&bytes, 0);
-        data_map = self_encryptor.close();
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None).expect("");
+        self_encryptor.write(&bytes, 0).expect("");
+        data_map = self_encryptor.close().expect("");
     }
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone());
-        assert!(self_encryptor.read(0, bytes_len) == bytes);
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone()).expect("");
+        assert!(self_encryptor.read(0, bytes_len).expect("") == bytes);
     });
     bencher.bytes = bytes_len;
 }

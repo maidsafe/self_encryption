@@ -15,31 +15,51 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-//! A file **content** self encryptor
+//! A file **content** self-encryptor.
 //!
-//! This library will provide convergent encryption on file based data and produce a `DataMap` type
-//! and several chunks of data. Each chunk is max 1Mb in size and has a name. This name is the
-//! `Sha512` of the content, this allows the chunks to be confirmed. If size and hash
-//! checks are utilised, a high degree of certainty in the validity of the data can be expected.
+//! This library provides convergent encryption on file-based data and produce a `DataMap` type and
+//! several chunks of data. Each chunk is up to 1MB in size and has a name.  This name is the SHA512
+//! hash of the content, which allows the chunks to be self-validating.  If size and hash checks are
+//! utilised, a high degree of certainty in the validity of the data can be expected.
 //!
-//! [Project github page](https://github.com/dirvine/self_encryption)
+//! [Project GitHub page](https://github.com/maidsafe/self_encryption).
 //!
 //! # Use
 //!
-//! To use this lib you must implement a trait with two functions, these are to allow `get_chunk`
-//! and `put_chunk` from storage. This must be set up by implementing the Storage trait (see below);
+//! To use this library you must implement a storage trait (a key/value store) and associated
+//! storage error trait.  These provide a place for encrypted chunks to be put to and got from by
+//! the `SelfEncryptor`.
 //!
-//! The trait can allow chunks to be stored in a key value store, disk, vector (as per example
-//! below), or a network based DHT.
+//! The storage trait should be flexible enough to allow implementation as an in-memory map, a
+//! disk-based database, or a network-based DHT for example.
 //!
 //! # Examples
 //!
-//! This is a simple setup for a memory based chunk store. A working implementation can be found
-//! in the test crate of this project.
+//! This is a simple setup for a memory-based chunk store.  A working implementation can be found
+//! in the "examples" folder of this project.
 //!
 //! ```
 //! # #![allow(dead_code)]
-//! extern crate self_encryption;
+//! use std::error::Error;
+//! use std::fmt::{self, Display, Formatter};
+//! use self_encryption::{Storage, StorageError};
+//!
+//! #[derive(Debug, Clone)]
+//! struct SimpleStorageError {}
+//!
+//! impl Display for SimpleStorageError {
+//!    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+//!        write!(formatter, "Failed to get data from SimpleStorage")
+//!    }
+//! }
+//!
+//! impl Error for SimpleStorageError {
+//!     fn description(&self) -> &str {
+//!         "SimpleStorage::get() error"
+//!     }
+//! }
+//!
+//! impl StorageError for SimpleStorageError {}
 //!
 //! struct Entry {
 //!     name: Vec<u8>,
@@ -56,36 +76,47 @@
 //!     }
 //! }
 //!
-//! impl self_encryption::Storage for SimpleStorage {
-//!     fn get(&self, name: &[u8]) -> Vec<u8> {
-//!         for entry in &self.entries {
-//!             if entry.name == name {
-//!                 return entry.data.to_vec();
-//!             }
-//!         }
-//!         vec![]
-//!     }
+//! impl Storage<SimpleStorageError> for SimpleStorage {
+//!    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
+//!        match self.entries.iter().find(|ref entry| entry.name == name) {
+//!            Some(entry) => Ok(entry.data.clone()),
+//!            None => Err(SimpleStorageError {}),
+//!        }
+//!    }
 //!
-//!     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-//!         self.entries.push(Entry {
-//!             name: name,
-//!             data: data,
-//!         })
-//!     }
+//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
+//!        Ok(self.entries.push(Entry {
+//!            name: name,
+//!            data: data,
+//!        }))
+//!    }
 //! }
 //! ```
 //!
-//! Use of this setup would be to implement a self encryptor e.g. `let mut se =
-//! SelfEncryptor::new(storage, datamap::DataMap::None);`
+//! Using this `SimpleStorage`, a self-encryptor can be created and written to/read from:
 //!
-//! Then call write (and read after write)…etc… on the encryptor. The `close()` method will
-//! return a `DataMap`. This can be passed to create a new encryptor to access the content
-//! `let data_map = se.close();`
+//! ```
+//! use self_encryption::{DataMap, SelfEncryptor};
+//! # use self_encryption::test_helpers::SimpleStorage;
 //!
-//! This is then used to open the data content in future sessions; e.g. `let mut self_encryptor =
-//! SelfEncryptor::new(storage, data_map);` where the `data_map` is the object returned
-//! from the `close()` call of previous use of this file content via the self_encryptor. Storage of
-//! the `DataMap` is out with the scope of this library and must be implemented by the user.
+//! let mut storage = SimpleStorage::new();
+//! let mut encryptor = SelfEncryptor::new(&mut storage, DataMap::None).unwrap();
+//! let data = vec![0, 1, 2, 3, 4, 5];
+//! let mut offset = 0;
+//!
+//! encryptor.write(&data, offset).unwrap();
+//!
+//! offset = 2;
+//! let length = 3;
+//! assert_eq!(encryptor.read(offset, length).unwrap(), vec![2, 3, 4]);
+//!
+//! let data_map = encryptor.close().unwrap();
+//! assert_eq!(data_map.len(), 6);
+//! ```
+//!
+//! The `close()` function returns a `DataMap` which can be used when creating a new encryptor to
+//! access the content previously written.  Storage of the `DataMap` is outwith the scope of this
+//! library and must be implemented by the user.
 
 #![doc(html_logo_url =
            "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
@@ -112,28 +143,31 @@
 #![cfg_attr(feature="clippy", allow(use_debug))]
 
 extern crate brotli2;
+#[cfg(test)]
 #[macro_use]
-#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
 extern crate maidsafe_utilities;
 extern crate memmap;
+#[cfg(test)]
 extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
 
 mod datamap;
 mod encryption;
+mod error;
 mod self_encryptor;
 mod sequencer;
 mod storage;
 pub mod test_helpers;
 
-pub use datamap::{DataMap, ChunkDetails};
+pub use datamap::{ChunkDetails, DataMap};
+pub use error::SelfEncryptionError;
 pub use self_encryptor::SelfEncryptor;
-pub use storage::Storage;
+pub use storage::{Storage, StorageError};
 
-/// MAX_MEMORY_MAP_SIZE defined as 1GB.
-pub const MAX_MEMORY_MAP_SIZE: usize = 1 << 30;
-/// MAX_CHUNK_SIZE defined as 1MB.
+/// The maximum size of file which can be self-encrypted, defined as 1GB.
+pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
+/// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
 pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
-/// MIN_CHUNK_SIZE defined as 1KB.
+/// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.
 pub const MIN_CHUNK_SIZE: u32 = 1024;

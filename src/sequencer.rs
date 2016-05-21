@@ -15,13 +15,15 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use std::io::{self, ErrorKind, Write};
+use std::io::Error as IoError;
+use std::io::ErrorKind as IoErrorKind;
+use std::io::Write;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use memmap::{Mmap, Protection};
-use super::MAX_MEMORY_MAP_SIZE;
+use super::MAX_FILE_SIZE;
 
-pub const MAX_IN_MEMORY_SIZE: usize = 50 * (1 << 20);
+pub const MAX_IN_MEMORY_SIZE: usize = 50 * 1024 * 1024;
 
 /// Optionally create a sequence of bytes via a vector or memory map.
 pub struct Sequencer {
@@ -40,10 +42,10 @@ impl Sequencer {
     }
 
     /// Initialise as a memory map
-    pub fn new_as_mmap() -> io::Result<Sequencer> {
+    pub fn new_as_mmap() -> Result<Sequencer, IoError> {
         Ok(Sequencer {
             vector: None,
-            mmap: Some(try!(Mmap::anonymous(MAX_MEMORY_MAP_SIZE, Protection::ReadWrite))),
+            mmap: Some(try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite))),
         })
     }
 
@@ -87,21 +89,20 @@ impl Sequencer {
 
     #[allow(unsafe_code)]
     /// Create a memory map if we haven't already done so.
-    pub fn create_mapping(&mut self) -> io::Result<()> {
+    pub fn create_mapping(&mut self) -> Result<(), IoError> {
         if self.mmap.is_some() {
             return Ok(());
         }
         match self.vector {
             Some(ref mut vector) => {
-                let mut mmap = match Mmap::anonymous(MAX_MEMORY_MAP_SIZE, Protection::ReadWrite) {
-                    Ok(mmap) => mmap,
-                    Err(error) => return Err(error),
-                };
+                let mut mmap = try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite));
                 let _ = unsafe { mmap.as_mut_slice() }.write_all(&vector[..]);
-                vector.clear();
                 self.mmap = Some(mmap);
             }
-            None => return Err(io::Error::new(ErrorKind::WriteZero, "Failed to create mapping")),
+            None => {
+                return Err(IoError::new(IoErrorKind::WriteZero,
+                                        "Failed to create mapping from uninitialised vector."))
+            }
         };
 
         if self.mmap.is_some() {
