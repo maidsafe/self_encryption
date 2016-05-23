@@ -152,7 +152,7 @@ extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
 
-mod datamap;
+mod data_map;
 mod encryption;
 mod error;
 mod self_encryptor;
@@ -160,7 +160,7 @@ mod sequencer;
 mod storage;
 pub mod test_helpers;
 
-pub use datamap::{ChunkDetails, DataMap};
+pub use data_map::{ChunkDetails, DataMap};
 pub use error::SelfEncryptionError;
 pub use self_encryptor::SelfEncryptor;
 pub use storage::{Storage, StorageError};

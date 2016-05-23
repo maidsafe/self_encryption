@@ -22,7 +22,7 @@ use std::marker::PhantomData;
 use std::sync::{Once, ONCE_INIT};
 
 use brotli2::stream::{self, CompressParams, Status};
-use datamap::{DataMap, ChunkDetails};
+use data_map::{DataMap, ChunkDetails};
 use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use sodiumoxide;
@@ -64,9 +64,9 @@ impl Chunk {
 /// level mechanism to read and write *content*.  This library has no knowledge of file metadata.
 pub struct SelfEncryptor<'a, E: StorageError, S: 'a + Storage<E>> {
     storage: &'a mut S,
-    sorted_map: Vec<ChunkDetails>, // the original datamap, sorted
+    sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
     chunks: Vec<Chunk>, // this is sorted as well
-    map_size: u64, // original file size of the datamap
+    map_size: u64, // original file size of the data_map
     sequencer: Sequencer,
     file_size: u64,
     phantom: PhantomData<E>, // to allow `E` to be used
@@ -77,10 +77,10 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
     /// not previously been self-encrypted, use `DataMap::None`.
     pub fn new(storage: &'a mut S,
-               datamap: DataMap)
+               data_map: DataMap)
                -> Result<SelfEncryptor<'a, E, S>, SelfEncryptionError<E>> {
         initialise_sodiumoxide();
-        let file_size = datamap.len();
+        let file_size = data_map.len();
         let mut sequencer;
 
         if file_size <= MAX_IN_MEMORY_SIZE as u64 {
@@ -92,7 +92,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let sorted_map;
         let chunks;
         let map_size;
-        match datamap {
+        match data_map {
             DataMap::Content(ref content) => {
                 sequencer.init(content);
                 sorted_map = vec![];
@@ -100,7 +100,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 map_size = 0;
             }
             DataMap::Chunks(_) => {
-                sorted_map = datamap.get_sorted_chunks();
+                sorted_map = data_map.get_sorted_chunks();
                 let c = Chunk {
                     status: ChunkStatus::AlreadyEncrypted,
                     in_sequencer: false,
@@ -1152,7 +1152,7 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("datamap should be DataMap::Chunks"),
+            _ => panic!("data_map should be DataMap::Chunks"),
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
         let fetched = se.read(0, bytes_len as u64 - 24).expect("");
@@ -1160,7 +1160,7 @@ mod tests {
     }
 
     #[test]
-    fn truncate_from_datamap() {
+    fn truncate_from_data_map() {
         let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let bytes = random_bytes(bytes_len as usize);
@@ -1173,7 +1173,7 @@ mod tests {
         }
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             se.truncate(bytes_len as u64 - 24).expect("");
             data_map2 = se.close().expect("");
@@ -1187,7 +1187,7 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("datamap should be DataMap::Chunks"),
+            _ => panic!("data_map should be DataMap::Chunks"),
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map2).expect("");
         let fetched = se.read(0, bytes_len as u64 - 24).expect("");
@@ -1195,7 +1195,7 @@ mod tests {
     }
 
     #[test]
-    fn truncate_from_datamap2() {
+    fn truncate_from_data_map2() {
         let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let bytes = random_bytes(bytes_len as usize);
@@ -1208,7 +1208,7 @@ mod tests {
         }
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             se.truncate(bytes_len as u64 - 1).expect("");
             se.truncate(bytes_len as u64).expect("");
@@ -1223,7 +1223,7 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("datamap should be DataMap::Chunks"),
+            _ => panic!("data_map should be DataMap::Chunks"),
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map2).expect("");
         let fetched = se.read(0, bytes_len as u64).expect("");
@@ -1233,7 +1233,7 @@ mod tests {
     }
 
     #[test]
-    fn truncate_to_extend_from_datamap() {
+    fn truncate_to_extend_from_data_map() {
         let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3 - 24;
         let bytes = random_bytes(bytes_len as usize);
@@ -1246,7 +1246,7 @@ mod tests {
         }
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             se.truncate(bytes_len as u64 + 24).expect("");
             data_map2 = se.close().expect("");
@@ -1260,7 +1260,7 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("datamap should be DataMap::Chunks"),
+            _ => panic!("data_map should be DataMap::Chunks"),
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map2).expect("");
         let fetched = se.read(0, bytes_len as u64 + 24).expect("");
@@ -1298,7 +1298,7 @@ mod tests {
     }
 
     #[test]
-    fn write_starting_with_existing_datamap() {
+    fn write_starting_with_existing_data_map() {
         let mut storage = SimpleStorage::new();
         let part1_len = MIN_CHUNK_SIZE * 3;
         let part1_bytes = random_bytes(part1_len as usize);
@@ -1314,7 +1314,7 @@ mod tests {
         let full_len = part1_len + part2_len;
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             se.write(&part2_bytes, part1_len as u64).expect("");
             // check_file_size(&se, full_len);
@@ -1329,7 +1329,7 @@ mod tests {
     }
 
     #[test]
-    fn write_starting_with_existing_datamap2() {
+    fn write_starting_with_existing_data_map2() {
         let mut storage = SimpleStorage::new();
         let part1_len = MAX_CHUNK_SIZE * 3 - 24;
         let part1_bytes = random_bytes(part1_len as usize);
@@ -1345,7 +1345,7 @@ mod tests {
         let full_len = part1_len + part2_len;
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             se.write(&part2_bytes, part1_len as u64).expect("");
             data_map2 = se.close().expect("");
@@ -1359,7 +1359,7 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("datamap should be DataMap::Chunks"),
+            _ => panic!("data_map should be DataMap::Chunks"),
         }
 
         let mut se = SelfEncryptor::new(&mut storage, data_map2).expect("");
@@ -1369,7 +1369,7 @@ mod tests {
     }
 
     #[test]
-    fn overwrite_starting_with_existing_datamap() {
+    fn overwrite_starting_with_existing_data_map() {
         let mut storage = SimpleStorage::new();
         let part1_len = MAX_CHUNK_SIZE * 4;
         let part1_bytes = random_bytes(part1_len as usize);
@@ -1384,7 +1384,7 @@ mod tests {
         let part2_bytes = random_bytes(part2_len);
         let data_map2: DataMap;
         {
-            // Start with an existing datamap.
+            // Start with an existing data_map.
             let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
             // Overwrite. This and next two chunks will have to be re-encrypted.
             se.write(&part2_bytes, 2).expect("");
@@ -1409,8 +1409,8 @@ mod tests {
         self_encryptor.close().expect("")
     }
 
-    fn check_vector_data_map(storage: &mut SimpleStorage, vec_len: usize, datamap: &DataMap) {
-        let mut self_encryptor = SelfEncryptor::new(storage, datamap.clone()).expect("");
+    fn check_vector_data_map(storage: &mut SimpleStorage, vec_len: usize, data_map: &DataMap) {
+        let mut self_encryptor = SelfEncryptor::new(storage, data_map.clone()).expect("");
         let length = self_encryptor.len();
         let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length).expect("");
         let data: Vec<usize> = serialisation::deserialise(&data_to_deserialise)
@@ -1425,8 +1425,8 @@ mod tests {
     fn serialised_vectors() {
         for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000] {
             let mut storage = SimpleStorage::new();
-            let datamap: DataMap = create_vector_data_map(&mut storage, vec_len);
-            check_vector_data_map(&mut storage, vec_len, &datamap);
+            let data_map: DataMap = create_vector_data_map(&mut storage, vec_len);
+            check_vector_data_map(&mut storage, vec_len, &data_map);
         }
     }
 
