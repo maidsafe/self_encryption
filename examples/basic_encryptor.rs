@@ -178,9 +178,10 @@ fn main() {
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None).expect("");
-            se.write(&data, 0).expect("");
-            let data_map = se.close().expect("");
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+                .expect("Encryptor construction shouldn't fail.");
+            se.write(&data, 0).expect("Writing to encryptor shouldn't fail.");
+            let data_map = se.close().expect("Closing encryptor shouldn't fail.");
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
@@ -212,11 +213,13 @@ fn main() {
             let _ = unwrap_result!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
-                let mut se = SelfEncryptor::new(&mut storage, data_map).expect("");
+                let mut se = SelfEncryptor::new(&mut storage, data_map)
+                    .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap_option!(args.arg_destination.clone(),
                                                                   "")) {
-                    let content = se.read(0, length).expect("");
+                    let content = se.read(0, length)
+                        .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {

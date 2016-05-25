@@ -48,9 +48,10 @@ fn write(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = SimpleStorage::new();
     let bytes = random_bytes(bytes_len as usize);
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None).expect("");
-        self_encryptor.write(&bytes, 0).expect("");
-        let _ = self_encryptor.close().expect("");
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None)
+            .expect("Encryptor construction shouldn't fail.");
+        self_encryptor.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let _ = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
     });
     bencher.bytes = bytes_len;
 }
@@ -60,13 +61,16 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
     let bytes = random_bytes(bytes_len as usize);
     let data_map: DataMap;
     {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None).expect("");
-        self_encryptor.write(&bytes, 0).expect("");
-        data_map = self_encryptor.close().expect("");
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None)
+            .expect("Encryptor construction shouldn't fail.");
+        self_encryptor.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        data_map = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
     }
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone()).expect("");
-        assert!(self_encryptor.read(0, bytes_len).expect("") == bytes);
+        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone())
+            .expect("Encryptor construction shouldn't fail.");
+        assert!(self_encryptor.read(0, bytes_len)
+            .expect("Reading from encryptor shouldn't fail.") == bytes);
     });
     bencher.bytes = bytes_len;
 }

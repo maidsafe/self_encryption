@@ -144,7 +144,6 @@
 
 extern crate brotli2;
 #[cfg(test)]
-#[macro_use]
 extern crate maidsafe_utilities;
 extern crate memmap;
 #[cfg(test)]

@@ -15,7 +15,7 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Error, Formatter, Write};
 
 /// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
 /// chunk.
@@ -33,7 +33,6 @@ pub struct ChunkDetails {
 }
 
 fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
-    use std::fmt::Write;
     let input_ref = input.as_ref();
     if input_ref.is_empty() {
         return "<empty>".to_owned();
@@ -41,7 +40,7 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     if input_ref.len() <= 6 {
         let mut ret = String::new();
         for byte in input_ref.iter() {
-            write!(ret, "{:02x}", byte).expect("");
+            write!(ret, "{:02x}", byte).unwrap_or(());
         }
         return ret;
     }
