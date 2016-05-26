@@ -26,10 +26,10 @@ use data_map::{DataMap, ChunkDetails};
 use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use sodiumoxide;
-use sodiumoxide::crypto::hash::sha512;
+use sodiumoxide::crypto::hash::sha256;
 use super::{SelfEncryptionError, Storage, StorageError, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 
-const HASH_SIZE: usize = sha512::DIGESTBYTES;
+const HASH_SIZE: usize = sha256::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 struct Pad(pub [u8; PAD_SIZE]);
@@ -205,7 +205,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                     *tmp_byte = self.sequencer[index + pos as usize];
                 }
 
-                let sha512::Digest(name) = sha512::hash(&tmp[..]);
+                let sha256::Digest(name) = sha256::hash(&tmp[..]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -228,7 +228,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
                 let content = try!(encrypt_chunk(tmp, pki));
-                let sha512::Digest(name) = sha512::hash(&content);
+                let sha256::Digest(name) = sha256::hash(&content);
                 try!(self.storage.put(name.to_vec(), content));
                 new_map[i].hash = name.to_vec();
             }
@@ -416,8 +416,7 @@ fn get_pad_key_and_iv(chunk_number: u32,
 
     let mut pad = [0u8; PAD_SIZE];
     for (i, &element) in vec.iter()
-        .chain(&n_1_vec[(KEY_SIZE + IV_SIZE)..HASH_SIZE])
-        .chain(&n_2_vec[..])
+        .chain(&n_2_vec[0..(KEY_SIZE - IV_SIZE)])
         .enumerate() {
         pad[i] = element;
     }
@@ -428,7 +427,7 @@ fn get_pad_key_and_iv(chunk_number: u32,
     }
 
     let mut iv = [0u8; IV_SIZE];
-    for (i, &element) in n_1_vec[KEY_SIZE..(KEY_SIZE + IV_SIZE)].iter().enumerate() {
+    for (i, &element) in n_2_vec[(KEY_SIZE - IV_SIZE)..].iter().enumerate() {
         iv[i] = element;
     }
 
