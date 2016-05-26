@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["SelfEncryptor","This is the encryption object and all file handling should be done using this object as the low level mechanism to read and write *content*.  This library has no knowledge of file metadata."]]});

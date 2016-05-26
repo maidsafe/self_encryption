@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["SelfEncryptionError","Errors which can arise during self-encryption or -decryption."]]});
