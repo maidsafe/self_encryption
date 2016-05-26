@@ -42,20 +42,19 @@ extern crate maidsafe_utilities;
 extern crate rustc_serialize;
 extern crate self_encryption;
 
-use std::{env, fmt};
-use std::error::Error;
+use std::env;
+use std::error::Error as StdError;
+use std::fmt::{self, Display, Formatter};
 use std::fs::{self, File};
-use std::io::prelude::*;
+use std::io::Error as IoError;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 
 use docopt::Docopt;
 use maidsafe_utilities::serialisation;
-use self_encryption::{DataMap, SelfEncryptor, Storage};
+use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
 
-// basic_encryptor -e filename
-// basic_encryptor -d datamap destination
-// basic_encryptor -h | --help
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static USAGE: &'static str = "
 Usage: basic_encryptor -h
@@ -90,6 +89,31 @@ fn file_name(name: &[u8]) -> String {
     string
 }
 
+#[derive(Debug)]
+struct DiskBasedStorageError {
+    io_error: IoError,
+}
+
+impl Display for DiskBasedStorageError {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "I/O error getting/putting: {}", self.io_error)
+    }
+}
+
+impl StdError for DiskBasedStorageError {
+    fn description(&self) -> &str {
+        "DiskBasedStorage Error"
+    }
+}
+
+impl From<IoError> for DiskBasedStorageError {
+    fn from(error: IoError) -> DiskBasedStorageError {
+        DiskBasedStorageError { io_error: error }
+    }
+}
+
+impl StorageError for DiskBasedStorageError {}
+
 struct DiskBasedStorage {
     pub storage_path: String,
 }
@@ -102,37 +126,28 @@ impl DiskBasedStorage {
     }
 }
 
-impl Storage for DiskBasedStorage {
-    fn get(&self, name: &[u8]) -> Vec<u8> {
+impl Storage<DiskBasedStorageError> for DiskBasedStorage {
+    fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
         let path = self.calculate_path(name);
-        let display = path.display();
-        let mut file = match File::open(&path) {
-            Err(error) => panic!("Failed to open chunk at {} - {:?}", display, error),
-            Ok(f) => f,
-        };
+        let mut file = try!(File::open(&path));
         let mut data = Vec::new();
-        let _ = unwrap_result!(file.read_to_end(&mut data));
-        data
+        let _ = try!(file.read_to_end(&mut data));
+        Ok(data)
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), DiskBasedStorageError> {
         let path = self.calculate_path(&name);
-        let mut file = match File::create(&path) {
-            Err(error) => panic!("Failed to create {:?} - {:?}", path, error),
-            Ok(f) => f,
-        };
-
-        match file.write_all(&data[..]) {
-            Err(error) => panic!("Failed to write chunk at {:?} - {:?}", path, error),
-            Ok(_) => println!("Chunk written to {:?}", path),
-        };
+        let mut file = try!(File::create(&path));
+        try!(file.write_all(&data[..]));
+        println!("Chunk written to {:?}", path);
+        Ok(())
     }
 }
 
 fn main() {
     let args: Args = Docopt::new(USAGE)
-                         .and_then(|d| d.decode())
-                         .unwrap_or_else(|e| e.exit());
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit());
     if args.flag_help {
         println!("{:?}", args)
     }
@@ -140,9 +155,8 @@ fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let mut storage = DiskBasedStorage {
-        storage_path: unwrap_option!(chunk_store_dir.to_str(), "").to_owned(),
-    };
+    let mut storage =
+        DiskBasedStorage { storage_path: unwrap_option!(chunk_store_dir.to_str(), "").to_owned() };
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
 
@@ -150,7 +164,7 @@ fn main() {
         if let Ok(mut file) = File::open(unwrap_option!(args.arg_target.clone(), "")) {
             match file.metadata() {
                 Ok(metadata) => {
-                    if metadata.len() > self_encryption::MAX_MEMORY_MAP_SIZE as u64 {
+                    if metadata.len() > self_encryption::MAX_FILE_SIZE as u64 {
                         return println!("File size too large {} is greater than 1GB",
                                         metadata.len());
                     }
@@ -164,9 +178,10 @@ fn main() {
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None);
-            se.write(&data, 0);
-            let data_map = se.close();
+            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+                .expect("Encryptor construction shouldn't fail.");
+            se.write(&data, 0).expect("Writing to encryptor shouldn't fail.");
+            let data_map = se.close().expect("Closing encryptor shouldn't fail.");
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
@@ -198,11 +213,13 @@ fn main() {
             let _ = unwrap_result!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
-                let mut se = SelfEncryptor::new(&mut storage, data_map);
+                let mut se = SelfEncryptor::new(&mut storage, data_map)
+                    .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap_option!(args.arg_destination.clone(),
                                                                   "")) {
-                    let content = se.read(0, length);
+                    let content = se.read(0, length)
+                        .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {

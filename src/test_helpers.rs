@@ -17,17 +17,36 @@
 
 #![doc(hidden)]
 
-use rand::{self, Rng};
-use super::Storage;
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
 
-pub fn random_bytes(size: usize) -> Vec<u8> {
-    rand::thread_rng().gen_iter().take(size).collect()
+use super::{Storage, StorageError};
+
+#[derive(Debug, Clone)]
+pub struct SimpleStorageError {}
+
+impl Display for SimpleStorageError {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "Failed to get data from SimpleStorage")
+    }
 }
+
+impl Error for SimpleStorageError {
+    fn description(&self) -> &str {
+        "SimpleStorage::get() error"
+    }
+}
+
+impl StorageError for SimpleStorageError {}
+
+
 
 struct Entry {
     name: Vec<u8>,
     data: Vec<u8>,
 }
+
+
 
 pub struct SimpleStorage {
     entries: Vec<Entry>,
@@ -39,12 +58,7 @@ impl SimpleStorage {
     }
 
     pub fn has_chunk(&self, name: &[u8]) -> bool {
-        for entry in &self.entries {
-            if entry.name == name {
-                return true;
-            }
-        }
-        false
+        self.entries.iter().find(|ref entry| entry.name == name).is_some()
     }
 
     pub fn num_entries(&self) -> usize {
@@ -52,20 +66,18 @@ impl SimpleStorage {
     }
 }
 
-impl Storage for SimpleStorage {
-    fn get(&self, name: &[u8]) -> Vec<u8> {
-        for entry in &self.entries {
-            if entry.name == name {
-                return entry.data.to_vec();
-            }
+impl Storage<SimpleStorageError> for SimpleStorage {
+    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
+        match self.entries.iter().find(|ref entry| entry.name == name) {
+            Some(entry) => Ok(entry.data.clone()),
+            None => Err(SimpleStorageError {}),
         }
-        vec![]
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) {
-        self.entries.push(Entry {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
+        Ok(self.entries.push(Entry {
             name: name,
             data: data,
-        })
+        }))
     }
 }

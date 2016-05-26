@@ -11,8 +11,7 @@ version = "0.3.1"
 
 [dependencies]
 brotli2 = "~0.1.0"
-clippy = {version = "~0.0.64", optional = true}
-maidsafe_utilities = "~0.5.4"
+clippy = {version = "~0.0.69", optional = true}
 memmap = "~0.3.0"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.19"
@@ -20,6 +19,7 @@ sodiumoxide = "~0.0.10"
 
 [dev-dependencies]
 docopt = "~0.6.80"
+maidsafe_utilities = "~0.6.0"
 
 [[example]]
 name = "basic_encryptor"

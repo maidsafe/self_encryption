@@ -15,21 +15,19 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-// TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
+use std::error::Error;
 
-use sodiumoxide::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
+/// Trait inherited from `std::error::Error` representing errors which can be returned by the
+/// `Storage` object.
+pub trait StorageError: Error {}
 
-pub use sodiumoxide::crypto::secretbox::Key;
-pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
-pub type DecryptionError = ();
-
-pub const KEY_SIZE: usize = KEYBYTES;
-pub const IV_SIZE: usize = NONCEBYTES;
-
-pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
-    secretbox::seal(data, iv, key)
-}
-
-pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, DecryptionError> {
-    secretbox::open(encrypted_data, iv, key)
+/// Trait which must be implemented by storage objects to be used in self-encryption.  Data is
+/// passed to the storage object encrypted with `name` being the SHA512 hash of `data`.  `Storage`
+/// could be implemented as an in-memory `HashMap` or a disk-based container for example.
+pub trait Storage<E: StorageError> {
+    /// Retrieve data previously `put` under `name`.  If the data does not exist, an error should be
+    /// returned.
+    fn get(&self, name: &[u8]) -> Result<Vec<u8>, E>;
+    /// Store `data` under `name`.
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), E>;
 }

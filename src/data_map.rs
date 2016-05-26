@@ -15,24 +15,24 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Error, Formatter, Write};
 
-/// Struct holds pre and post encryption hashes as well as original chunk size.
+/// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
+/// chunk.
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
     pub chunk_num: u32,
-    /// Post encryption hash of chunk
+    /// Post-encryption hash of chunk
     pub hash: Vec<u8>,
-    /// Pre encryption hash of chunk
+    /// Pre-encryption hash of chunk
     pub pre_hash: Vec<u8>,
-    /// size before encryption (compression alters this as well as any possible padding depending
+    /// Size before encryption (compression alters this as well as any possible padding depending
     /// on cipher used)
     pub source_size: u64,
 }
 
 fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
-    use std::fmt::Write;
     let input_ref = input.as_ref();
     if input_ref.is_empty() {
         return "<empty>".to_owned();
@@ -40,7 +40,7 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     if input_ref.len() <= 6 {
         let mut ret = String::new();
         for byte in input_ref.iter() {
-            unwrap_result!(write!(ret, "{:02x}", byte));
+            write!(ret, "{:02x}", byte).unwrap_or(());
         }
         return ret;
     }
@@ -79,7 +79,7 @@ impl Debug for ChunkDetails {
 }
 
 /// Holds the information that is required to recover the content of the encrypted file.  Depending
-/// on the file size, such info can be held as a vector of ChunkDetails, or as raw data.
+/// on the file size, this is held as a vector of `ChunkDetails`, or as raw data.
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
