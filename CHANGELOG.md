@@ -1,5 +1,10 @@
 # Self-Encryption - Change Log
 
+## [0.4.0]
+- Remove asynchronous code.
+- Replace Deflate compression with Brotli.
+- Use `Result`s instead of panic.
+
 ## [0.3.1]
 - Fix truncate, flagging first two chunks for encryption, and add new test.
 - Updates contributor agreement.
