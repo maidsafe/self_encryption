@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.5.0]
+- Use SHA256 instead of SHA512.
+
 ## [0.4.0]
 - Remove asynchronous code.
 - Replace Deflate compression with Brotli.
