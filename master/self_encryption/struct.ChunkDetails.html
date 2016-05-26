@@ -46,22 +46,23 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-60' class='srclink' href='../src/self_encryption/src/datamap.rs.html#22-32' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-11' class='srclink' href='../src/self_encryption/src/data_map.rs.html#23-33' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct ChunkDetails {
     pub chunk_num: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub hash: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
     pub pre_hash: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
     pub source_size: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>,
-}</pre><div class='docblock'><p>Struct holds pre and post encryption hashes as well as original chunk size.</p>
+}</pre><div class='docblock'><p>Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
+chunk.</p>
 </div><h2 class='fields'>Fields</h2>
 <table><tr class='stab '>
                                   <td id='structfield.chunk_num'><code>chunk_num</code></td><td><div class='docblock'><p>Index number (starts at 0)</p>
 </div></td></tr><tr class='stab '>
-                                  <td id='structfield.hash'><code>hash</code></td><td><div class='docblock'><p>Post encryption hash of chunk</p>
+                                  <td id='structfield.hash'><code>hash</code></td><td><div class='docblock'><p>Post-encryption hash of chunk</p>
 </div></td></tr><tr class='stab '>
-                                  <td id='structfield.pre_hash'><code>pre_hash</code></td><td><div class='docblock'><p>Pre encryption hash of chunk</p>
+                                  <td id='structfield.pre_hash'><code>pre_hash</code></td><td><div class='docblock'><p>Pre-encryption hash of chunk</p>
 </div></td></tr><tr class='stab '>
-                                  <td id='structfield.source_size'><code>source_size</code></td><td><div class='docblock'><p>size before encryption (compression alters this as well as any possible padding depending
+                                  <td id='structfield.source_size'><code>source_size</code></td><td><div class='docblock'><p>Size before encryption (compression alters this as well as any possible padding depending
 on cipher used)</p>
 </div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../self_encryption/struct.ChunkDetails.html' title='self_encryption::ChunkDetails'>ChunkDetails</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; <a class='struct' href='../self_encryption/struct.ChunkDetails.html' title='self_encryption::ChunkDetails'>ChunkDetails</a></code></h4>
 <div class='docblock'><p>Holds information required for successful recovery of a chunk, as well as for the

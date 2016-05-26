@@ -46,13 +46,13 @@
             <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                 [<span class='inner'>&#x2212;</span>]
             </a>
-        </span><a id='src-261' class='srclink' href='../src/self_encryption/src/datamap.rs.html#84-93' title='goto source code'>[src]</a></span></h1>
+        </span><a id='src-198' class='srclink' href='../src/self_encryption/src/data_map.rs.html#84-93' title='goto source code'>[src]</a></span></h1>
 <pre class='rust enum'>pub enum DataMap {
     Chunks(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../self_encryption/struct.ChunkDetails.html' title='self_encryption::ChunkDetails'>ChunkDetails</a>&gt;),
     Content(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;),
     None,
 }</pre><div class='docblock'><p>Holds the information that is required to recover the content of the encrypted file.  Depending
-on the file size, such info can be held as a vector of ChunkDetails, or as raw data.</p>
+on the file size, this is held as a vector of <code>ChunkDetails</code>, or as raw data.</p>
 </div><h2 class='variants'>Variants</h2>
 <table class='variants_table'><tr><td id='variant.Chunks'><code>Chunks</code></td><td><div class='docblock'><p>If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
 holds the list of the files chunks and corresponding hashes.</p>
