@@ -1,6 +1,6 @@
 # self_encryption
 
-[![](https://img.shields.io/badge/Project%20SAFE-Approved-green.svg)](http://maidsafe.net/applications) [![](https://img.shields.io/badge/License-GPL3-green.svg)](https://github.com/maidsafe/self_encryption/blob/master/COPYING)
+**Maintainer:** Spandan Sharma (spandan.sharma@maidsafe.net)
 
 Self encrypting files (convergent encryption plus obfuscation)
 
@@ -8,7 +8,7 @@ Self encrypting files (convergent encryption plus obfuscation)
 |:---:|:--------:|:-----:|:------:|:----:|
 |[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Build Status](https://travis-ci.org/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.org/maidsafe/self_encryption)|[![Build status](https://ci.appveyor.com/api/projects/status/htljxqrosx1i237s/branch/master?svg=true)](https://ci.appveyor.com/project/MaidSafe-QA/self-encryption/branch/master)|[![Coverage Status](https://coveralls.io/repos/maidsafe/self_encryption/badge.svg)](https://coveralls.io/r/maidsafe/self_encryption)|[![Stories in Ready](https://badge.waffle.io/maidsafe/self_encryption.png?label=ready&title=Ready)](https://waffle.io/maidsafe/self_encryption)|
 
-| [API Documentation - master branch](http://maidsafe.net/self_encryption/master) | [SAFE Network System Documentation](http://systemdocs.maidsafe.net) | [MaidSafe website](http://maidsafe.net) | [SAFE Network Forum](https://forum.safenetwork.io) |
+| [API Documentation - master branch](http://docs.maidsafe.net/self_encryption/master) | [MaidSafe website](http://maidsafe.net) | [SAFE Network Forum](https://forum.safenetwork.io) |
 |:------:|:-------:|:-------:|:-------:|
 
 ## Overview
@@ -66,3 +66,19 @@ This library splits a file into encrypted chunks and also produces a data map fo
  - `cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>`
 
   This will restore the original file to the given destination path.
+
+## License
+
+Licensed under either of
+
+* the MaidSafe.net Commercial License, version 1.0 or later ([LICENSE](LICENSE))
+* the General Public License (GPL), version 3 ([COPYING](COPYING) or http://www.gnu.org/licenses/gpl-3.0.en.html)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
+work by you, as defined in the MaidSafe Contributor Agreement, version 1.1 ([CONTRIBUTOR]
+(CONTRIBUTOR)), shall be dual licensed as above, and you agree to be bound by the terms of the
+MaidSafe Contributor Agreement, version 1.1.
