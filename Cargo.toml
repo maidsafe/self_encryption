@@ -7,7 +7,7 @@ license = "GPL-3.0/MaidSafe.net Commercial License 1.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.5.0"
+version = "0.5.1"
 
 [dependencies]
 brotli2 = "~0.1.0"
@@ -15,7 +15,7 @@ clippy = {version = "~0.0.69", optional = true}
 memmap = "~0.3.0"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.19"
-sodiumoxide = "~0.0.10"
+sodiumoxide = "=0.0.10"
 
 [dev-dependencies]
 docopt = "~0.6.80"

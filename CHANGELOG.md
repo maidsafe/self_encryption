@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.5.1]
+- Fix sodiumoxide to v0.0.10 as the new released v0.0.12 does not support rustc-serializable types anymore and breaks builds
+
 ## [0.5.0]
 - Use SHA256 instead of SHA512.
 
