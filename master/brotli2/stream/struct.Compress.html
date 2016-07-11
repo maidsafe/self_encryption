@@ -54,7 +54,8 @@
 
 <p>This stream is at the heart of the I/O encoders and is used to compress
 data.</p>
-</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(params: &amp;<a class='struct' href='../../brotli2/stream/struct.CompressParams.html' title='brotli2::stream::CompressParams'>CompressParams</a>) -&gt; <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h4>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-123' class='srclink' href='../../src/brotli2/stream.rs.html#195-326' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(params: &amp;<a class='struct' href='../../brotli2/stream/struct.CompressParams.html' title='brotli2::stream::CompressParams'>CompressParams</a>) -&gt; <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h4>
 <div class='docblock'><p>Creates a new compressor ready to encode data into brotli</p>
 </div><h4 id='method.input_block_size' class='method'><code>fn <a href='#method.input_block_size' class='fnname'>input_block_size</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
 <div class='docblock'><p>Returns the maximum amount of data that can be internally buffered to
@@ -83,8 +84,12 @@ meta-block should be created to flush the internal data.</p>
 
 <p>Returns an error, if any, and otherwise the internal buffer which
 contains the output data of compressed information.</p>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html' title='core::marker::Sync'>Sync</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html' title='core::ops::Drop'>Drop</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></h3><div class='impl-items'><h4 id='method.drop' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html#tymethod.drop' class='fnname'>drop</a>(&amp;mut self)</code></h4>
-</div></section>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-21' class='srclink' href='../../src/brotli2/stream.rs.html#31' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html' title='core::marker::Sync'>Sync</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-22' class='srclink' href='../../src/brotli2/stream.rs.html#32' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html' title='core::ops::Drop'>Drop</a> for <a class='struct' href='../../brotli2/stream/struct.Compress.html' title='brotli2::stream::Compress'>Compress</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-142' class='srclink' href='../../src/brotli2/stream.rs.html#328-334' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.drop' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html#tymethod.drop' class='fnname'>drop</a>(&amp;mut self)</code></h4>
+<div class='docblock'><p>A method called when the value goes out of scope. <a href="https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html#tymethod.drop">Read more</a></p>
+</div></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -107,6 +112,8 @@ contains the output data of compressed information.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 

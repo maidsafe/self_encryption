@@ -54,7 +54,8 @@
 
 <p>The view may be split into disjoint ranges, each of which will share the
 underlying memory map.</p>
-</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h3><div class='impl-items'><h4 id='method.split_at' class='method'><code>fn <a href='#method.split_at' class='fnname'>split_at</a>(self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a>, <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;</code></h4>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-264' class='srclink' href='../src/memmap/lib.rs.html#413-530' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.split_at' class='method'><code>fn <a href='#method.split_at' class='fnname'>split_at</a>(self, offset: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a>, <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;</code></h4>
 <div class='docblock'><p>Split the view into disjoint pieces at the specified offset.</p>
 
 <p>The provided offset must be less than the view&#39;s length.</p>
@@ -99,8 +100,12 @@ modification timestamp) may not be updated.</p>
 
 <p>The underlying memory map is shared, and thus the caller must ensure that the memory
 underlying the view is not illegally aliased.</p>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
-</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html' title='core::marker::Sync'>Sync</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h3><div class='impl-items'></div></section>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-295' class='srclink' href='../src/memmap/lib.rs.html#532-537' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html' title='core::marker::Sync'>Sync</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-303' class='srclink' href='../src/memmap/lib.rs.html#539' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-304' class='srclink' href='../src/memmap/lib.rs.html#540' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -123,6 +128,8 @@ underlying the view is not illegally aliased.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 

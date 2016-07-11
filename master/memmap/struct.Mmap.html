@@ -72,7 +72,8 @@ until the memory map is flushed, or it is dropped.</p>
 <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>anon_mmap</span> <span class='op'>=</span> <span class='ident'>Mmap</span>::<span class='ident'>anonymous</span>(<span class='number'>4096</span>, <span class='ident'>Protection</span>::<span class='ident'>ReadWrite</span>).<span class='ident'>unwrap</span>();
 <span class='kw'>unsafe</span> { <span class='ident'>anon_mmap</span>.<span class='ident'>as_mut_slice</span>() }.<span class='ident'>write</span>(<span class='string'>b&quot;foo&quot;</span>).<span class='ident'>unwrap</span>();
 <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='string'>b&quot;foo\0\0&quot;</span>, <span class='kw'>unsafe</span> { <span class='kw-2'>&amp;</span><span class='ident'>anon_mmap</span>.<span class='ident'>as_slice</span>()[<span class='number'>0</span>..<span class='number'>5</span>] });</pre>
-</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></h3><div class='impl-items'><h4 id='method.open' class='method'><code>fn <a href='#method.open' class='fnname'>open</a>(file: &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>, prot: <a class='enum' href='../memmap/enum.Protection.html' title='memmap::Protection'>Protection</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a>&gt;</code></h4>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-143' class='srclink' href='../src/memmap/lib.rs.html#100-252' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.open' class='method'><code>fn <a href='#method.open' class='fnname'>open</a>(file: &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>, prot: <a class='enum' href='../memmap/enum.Protection.html' title='memmap::Protection'>Protection</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a>&gt;</code></h4>
 <div class='docblock'><p>Opens a file-backed memory map.</p>
 
 <p>The file must be opened with read permissions, and write permissions if
@@ -156,8 +157,10 @@ dereferencing the pointer.</p>
 <div class='docblock'><p>Creates a splittable mmap view from the mmap.</p>
 </div><h4 id='method.into_view_sync' class='method'><code>fn <a href='#method.into_view_sync' class='fnname'>into_view_sync</a>(self) -&gt; <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h4>
 <div class='docblock'><p>Creates a thread-safe splittable mmap view from the mmap.</p>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
-</div></section>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-210' class='srclink' href='../src/memmap/lib.rs.html#254-258' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -180,6 +183,8 @@ dereferencing the pointer.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 

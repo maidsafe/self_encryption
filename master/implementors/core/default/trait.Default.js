@@ -1,5 +1,5 @@
 (function() {var implementors = {};
-implementors['libc'] = [];implementors['memmap'] = ["impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='memmap/struct.MmapOptions.html' title='memmap::MmapOptions'>MmapOptions</a>",];implementors['rand'] = ["impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='rand/reseeding/struct.ReseedWithDefault.html' title='rand::reseeding::ReseedWithDefault'>ReseedWithDefault</a>",];
+implementors["libc"] = [];implementors["memmap"] = ["impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='memmap/struct.MmapOptions.html' title='memmap::MmapOptions'>MmapOptions</a>",];implementors["rand"] = ["impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='rand/reseeding/struct.ReseedWithDefault.html' title='rand::reseeding::ReseedWithDefault'>ReseedWithDefault</a>",];
 
             if (window.register_implementors) {
                 window.register_implementors(implementors);

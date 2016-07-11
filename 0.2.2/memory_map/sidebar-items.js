@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Protection","Memory map protection."]],"struct":[["Mmap","A memory-mapped buffer."]]});

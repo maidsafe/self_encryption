@@ -259,7 +259,7 @@
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>ops</span>::{<span class='ident'>Deref</span>, <span class='ident'>DerefMut</span>, <span class='ident'>Index</span>, <span class='ident'>IndexMut</span>};
 
 <span class='kw'>use</span> <span class='ident'>memmap</span>::{<span class='ident'>Mmap</span>, <span class='ident'>Protection</span>};
-<span class='kw'>use</span> <span class='ident'>super</span>::<span class='ident'>MAX_FILE_SIZE</span>;
+<span class='kw'>use</span> <span class='kw'>super</span>::<span class='ident'>MAX_FILE_SIZE</span>;
 
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>50</span> <span class='op'>*</span> <span class='number'>1024</span> <span class='op'>*</span> <span class='number'>1024</span>;
 
@@ -453,6 +453,8 @@
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 
