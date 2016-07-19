@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -15,19 +15,23 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+#![cfg_attr(feature="clippy", allow(cast_possible_truncation))]
+
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
+use std::io::Write;
 use std::iter;
 use std::marker::PhantomData;
-use std::sync::{Once, ONCE_INIT};
+use std::sync::{ONCE_INIT, Once};
 
-use brotli2::stream::{self, CompressParams, Status};
-use data_map::{DataMap, ChunkDetails};
-use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
-use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
+use brotli2::write::{BrotliDecoder, BrotliEncoder};
+use data_map::{ChunkDetails, DataMap};
+use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
+use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use sodiumoxide;
 use sodiumoxide::crypto::hash::sha256;
-use super::{SelfEncryptionError, Storage, StorageError, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
+use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
+            StorageError};
 
 const HASH_SIZE: usize = sha256::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -81,13 +85,11 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                -> Result<SelfEncryptor<'a, E, S>, SelfEncryptionError<E>> {
         initialise_sodiumoxide();
         let file_size = data_map.len();
-        let mut sequencer;
-
-        if file_size <= MAX_IN_MEMORY_SIZE as u64 {
-            sequencer = Sequencer::new_as_vector();
+        let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
+            Sequencer::new_as_vector()
         } else {
-            sequencer = try!(Sequencer::new_as_mmap());
-        }
+            try!(Sequencer::new_as_mmap())
+        };
 
         let sorted_map;
         let chunks;
@@ -130,7 +132,6 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// for easy connection to FUSE-like programs as well as fine grained access to system level
     /// libraries for developers.  The input `data` will be written from the specified `position`
     /// (starts from 0).
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<E>> {
         try!(self.prepare_window_for_writing(position, data.len() as u64));
         for (i, &byte) in data.iter().enumerate() {
@@ -143,7 +144,6 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// to read beyond the file size will cause the encryptor to return content filled with `0u8`s
     /// in the gap (file size isn't affected).  Any other unwritten gaps will also be filled with
     /// '0u8's.
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<E>> {
         try!(self.prepare_window_for_reading(position, length));
         let mut result = Vec::with_capacity(length as usize);
@@ -156,7 +156,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
+    #[cfg_attr(feature="clippy", allow(needless_range_loop))]
     pub fn close(mut self) -> Result<DataMap, SelfEncryptionError<E>> {
         if self.file_size == 0 {
             return Ok(DataMap::None);
@@ -172,18 +172,18 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         // - chunks whose size is out of date
         let possibly_reusable_end;  // end of range of possibly reusable chunks
         let (resized_start, resized_end) = resized_chunks(self.map_size, self.file_size);
-        if resized_start != resized_end {
+        if resized_start == resized_end {
+            possibly_reusable_end = get_num_chunks(self.map_size) as usize;
+        } else {
             self.chunks[0].flag_for_encryption();
             self.chunks[1].flag_for_encryption();
-            let byte_end = get_start_end_positions(self.map_size, 1).1;
+            let mut byte_end = get_start_end_positions(self.map_size, 1).1;
             try!(self.prepare_window_for_reading(0, byte_end));
 
             let byte_start = get_start_end_positions(self.map_size, resized_start).0;
-            let byte_end = self.map_size;
+            byte_end = self.map_size;
             try!(self.prepare_window_for_reading(byte_start, byte_end - byte_start));
             possibly_reusable_end = resized_start as usize;
-        } else {
-            possibly_reusable_end = get_num_chunks(self.map_size) as usize;
         }
 
         let num_new_chunks = get_num_chunks(self.file_size) as usize;
@@ -237,7 +237,6 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     }
 
     /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
-    #[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
     pub fn truncate(&mut self, new_size: u64) -> Result<(), SelfEncryptionError<E>> {
         if self.file_size == new_size {
             return Ok(());
@@ -380,17 +379,15 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
     fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
         let name = &self.sorted_map[chunk_number as usize].hash;
-        let decompressed_size = self.sorted_map[chunk_number as usize].source_size as usize;
         let content = try!(self.storage.get(name));
         let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
         let xor_result = xor(&content, &pad);
         let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
-        let mut chunk = vec![0u8; decompressed_size];
-        if let Ok(Status::Finished) = stream::decompress_buf(&decrypted[..], &mut &mut chunk[..]) {
-            Ok(chunk)
-        } else {
-            Err(SelfEncryptionError::Compression)
+        let mut decompressor = BrotliDecoder::new(vec![]);
+        if decompressor.write_all(&decrypted).is_err() {
+            return Err(SelfEncryptionError::Compression);
         }
+        decompressor.finish().map_err(|_| SelfEncryptionError::Compression)
     }
 }
 
@@ -398,8 +395,14 @@ fn encrypt_chunk<E: StorageError>(content: Vec<u8>,
                                   pki: (Pad, Key, Iv))
                                   -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pki;
-    let mut compressed = vec![];
-    try!(stream::compress_vec(&CompressParams::new().quality(6), &content, &mut compressed));
+    let mut compressor = BrotliEncoder::new(vec![], COMPRESSION_QUALITY);
+    if compressor.write_all(&content).is_err() {
+        return Err(SelfEncryptionError::Compression);
+    }
+    let compressed = match compressor.finish() {
+        Ok(data) => data,
+        Err(_) => return Err(SelfEncryptionError::Compression),
+    };
     let encrypted = encryption::encrypt(&compressed, &key, &iv);
     Ok(xor(&encrypted, &pad))
 }
@@ -492,7 +495,6 @@ fn resized_chunks(old_size: u64, new_size: u64) -> (u32, u32) {
 }
 
 // Returns the number of chunks according to file size.
-#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
 fn get_num_chunks(file_size: u64) -> u32 {
     if file_size < (3 * MIN_CHUNK_SIZE as u64) {
         return 0;
@@ -508,7 +510,6 @@ fn get_num_chunks(file_size: u64) -> u32 {
 }
 
 // Returns the size of a chunk according to file size.
-#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
 fn get_chunk_size(file_size: u64, chunk_number: u32) -> u32 {
     if file_size < 3 * MIN_CHUNK_SIZE as u64 {
         return 0;
@@ -534,12 +535,10 @@ fn get_chunk_size(file_size: u64, chunk_number: u32) -> u32 {
         } else {
             MIN_CHUNK_SIZE + remainder
         }
+    } else if penultimate {
+        MAX_CHUNK_SIZE
     } else {
-        if penultimate {
-            MAX_CHUNK_SIZE
-        } else {
-            remainder
-        }
+        remainder
     }
 }
 
@@ -566,7 +565,6 @@ fn get_previous_chunk_number(file_size: u64, chunk_number: u32) -> u32 {
     (get_num_chunks(file_size) + chunk_number - 1) % get_num_chunks(file_size)
 }
 
-#[cfg_attr(feature="clippy", allow(cast_possible_truncation))]
 fn get_chunk_number(file_size: u64, position: u64) -> u32 {
     if get_num_chunks(file_size) == 0 {
         return 0;
@@ -606,7 +604,7 @@ mod tests {
     use rand::distributions::{Range, Sample};
     use super::{SelfEncryptor, get_chunk_number, get_chunk_size, get_num_chunks,
                 get_previous_chunk_number, get_start_end_positions};
-    use super::super::{DataMap, Storage, StorageError, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
+    use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage, StorageError};
     use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
@@ -735,7 +733,7 @@ mod tests {
         assert_eq!(get_num_chunks(file_size), 11 + 1);
         assert_eq!(get_previous_chunk_number(file_size, 11), 10);
 
-        let number_of_chunks: u32 = 11;
+        let mut number_of_chunks: u32 = 11;
         file_size = (MAX_CHUNK_SIZE as u64 * number_of_chunks as u64) + 1024;
         assert_eq!(get_num_chunks(file_size), number_of_chunks + 1);
         for i in 0..number_of_chunks {
@@ -757,7 +755,7 @@ mod tests {
         assert_eq!(get_start_end_positions(file_size, number_of_chunks).1,
                    ((number_of_chunks * MAX_CHUNK_SIZE) as u64 + 1024));
 
-        let number_of_chunks: u32 = 100;
+        number_of_chunks = 100;
         file_size = MAX_CHUNK_SIZE as u64 * number_of_chunks as u64;
         assert_eq!(get_num_chunks(file_size), number_of_chunks);
         for i in 0..number_of_chunks - 1 {
@@ -779,10 +777,10 @@ mod tests {
                    ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
     }
 
-    fn check_file_size<'a, E: StorageError, S: Storage<E>>(se: &SelfEncryptor<'a, E, S>,
-                                                           expected_file_size: u64) {
+    fn check_file_size<E: StorageError, S: Storage<E>>(se: &SelfEncryptor<E, S>,
+                                                       expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
-        if se.sorted_map.len() > 0 {
+        if !se.sorted_map.is_empty() {
             let chunks_cumulated_size = se.sorted_map
                 .iter()
                 .fold(0u64, |acc, chunk| acc + chunk.source_size);
@@ -1489,15 +1487,21 @@ mod tests {
 
     #[test]
     fn serialised_vectors() {
-        for vec_len in vec![1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000] {
+        for vec_len in &[1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000] {
             let mut storage = SimpleStorage::new();
-            let data_map: DataMap = create_vector_data_map(&mut storage, vec_len);
-            check_vector_data_map(&mut storage, vec_len, &data_map);
+            let data_map: DataMap = create_vector_data_map(&mut storage, *vec_len);
+            check_vector_data_map(&mut storage, *vec_len, &data_map);
         }
     }
 
     #[test]
     fn chunk_number() {
+        const CHUNK_0_START: u32 = 0;
+        const CHUNK_0_END: u32 = MAX_CHUNK_SIZE - 1;
+        const CHUNK_1_START: u32 = MAX_CHUNK_SIZE;
+        const CHUNK_1_END: u32 = (2 * MAX_CHUNK_SIZE) - 1;
+        const CHUNK_2_START: u32 = 2 * MAX_CHUNK_SIZE;
+
         // Test chunk_number for files up to 3 * MIN_CHUNK_SIZE - 1.  Should be 0 for all bytes.
         let mut min_test_size = 0;
         let mut max_test_size = 3 * MIN_CHUNK_SIZE;
@@ -1533,11 +1537,6 @@ mod tests {
         // (MAX_CHUNK_SIZE - MIN_CHUNK_SIZE) bytes, with final chunk containing remainder.
         min_test_size = max_test_size;
         max_test_size = (3 * MAX_CHUNK_SIZE) + MIN_CHUNK_SIZE;
-        const CHUNK_0_START: u32 = 0;
-        const CHUNK_0_END: u32 = MAX_CHUNK_SIZE - 1;
-        const CHUNK_1_START: u32 = MAX_CHUNK_SIZE;
-        const CHUNK_1_END: u32 = (2 * MAX_CHUNK_SIZE) - 1;
-        const CHUNK_2_START: u32 = 2 * MAX_CHUNK_SIZE;
         for file_size in min_test_size..max_test_size {
             const CHUNK_2_END: u32 = (3 * MAX_CHUNK_SIZE) - MIN_CHUNK_SIZE - 1;
             assert_eq!(get_num_chunks(file_size as u64), 4);

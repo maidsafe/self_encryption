@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -140,9 +140,11 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![cfg_attr(feature="clippy", deny(clippy, clippy_pedantic))]
-#![cfg_attr(feature="clippy", allow(use_debug))]
+#![cfg_attr(feature="clippy", allow(indexing_slicing, single_match_else, use_debug))]
 
 extern crate brotli2;
+#[cfg(test)]
+extern crate itertools;
 #[cfg(test)]
 extern crate maidsafe_utilities;
 extern crate memmap;
@@ -150,18 +152,22 @@ extern crate memmap;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate sodiumoxide;
+#[macro_use]
+extern crate unwrap;
 
 mod data_map;
 mod encryption;
 mod error;
 mod self_encryptor;
 mod sequencer;
+mod sequential;
 mod storage;
 pub mod test_helpers;
 
 pub use data_map::{ChunkDetails, DataMap};
 pub use error::SelfEncryptionError;
 pub use self_encryptor::SelfEncryptor;
+pub use sequential::encryptor::Encryptor as SequentialEncryptor;
 pub use storage::{Storage, StorageError};
 
 /// The maximum size of file which can be self-encrypted, defined as 1GB.
@@ -170,3 +176,6 @@ pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
 pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
 /// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.
 pub const MIN_CHUNK_SIZE: u32 = 1024;
+/// Controls the compression-speed vs compression-density tradeoffs.  The higher the quality, the
+/// slower the compression.  Range is 0 to 11.
+pub const COMPRESSION_QUALITY: u32 = 6;
