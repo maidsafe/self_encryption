@@ -10,16 +10,18 @@ repository = "https://github.com/maidsafe/self_encryption"
 version = "0.5.1"
 
 [dependencies]
-brotli2 = "~0.1.0"
-clippy = {version = "~0.0.69", optional = true}
-memmap = "~0.3.0"
+brotli2 = "~0.2.1"
+clippy = {version = "~0.0.79", optional = true}
+memmap = "~0.4.0"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.19"
 sodiumoxide = "=0.0.10"
+unwrap = "~1.1.0"
 
 [dev-dependencies]
-docopt = "~0.6.80"
-maidsafe_utilities = "~0.6.0"
+docopt = "~0.6.81"
+itertools = "~0.4.16"
+maidsafe_utilities = "~0.8.0"
 
 [[example]]
 name = "basic_encryptor"

@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -47,7 +47,7 @@ struct Entry {
 }
 
 
-
+#[derive(Default)]
 pub struct SimpleStorage {
     entries: Vec<Entry>,
 }
@@ -58,7 +58,7 @@ impl SimpleStorage {
     }
 
     pub fn has_chunk(&self, name: &[u8]) -> bool {
-        self.entries.iter().find(|ref entry| entry.name == name).is_some()
+        self.entries.iter().any(|ref entry| entry.name == name)
     }
 
     pub fn num_entries(&self) -> usize {
