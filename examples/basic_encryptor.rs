@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -15,7 +15,7 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-//! Basic example usage of a SelfEncryptor.
+//! Basic example usage of a `SelfEncryptor`.
 
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
@@ -33,8 +33,7 @@
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy, clippy_pedantic))]
-#![cfg_attr(feature="clippy", allow(use_debug))]
+#![cfg_attr(feature="clippy", deny(clippy))]
 
 extern crate docopt;
 #[macro_use]
@@ -121,7 +120,7 @@ struct DiskBasedStorage {
 impl DiskBasedStorage {
     fn calculate_path(&self, name: &[u8]) -> PathBuf {
         let mut path = PathBuf::from(self.storage_path.clone());
-        path.push(file_name(&name));
+        path.push(file_name(name));
         path
     }
 }

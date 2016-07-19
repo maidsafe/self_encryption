@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -19,7 +19,7 @@ use std::fmt::{Debug, Error, Formatter, Write};
 
 /// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
 /// chunk.
-#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
     pub chunk_num: u32,

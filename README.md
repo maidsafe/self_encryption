@@ -24,16 +24,6 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 [libsodium](https://github.com/jedisct1/libsodium) is a native dependency, and can be installed by following the instructions [for Windows](https://github.com/maidsafe/QA/blob/master/Documentation/Install%20libsodium%20for%20Windows.md) or [for OS X and Linux](https://github.com/maidsafe/QA/blob/master/Documentation/Install%20libsodium%20for%20OS%20X%20or%20Linux.md).
 
-## Todo Items
-
-- [ ] Allow any size file
-    - [ ] Replace sequencer with new struct and use BufferedStream to offload to disk (MemoryMapped file)
-    - [ ] Clean up any cache chunks when disk space is low (start + now < 90%)
-    - [ ] Store intermediate chunks when disk space is low (start + now < 90%)
-- [ ] Add another functor to constructor to allow storage query for chunks (not get)
-- [ ] Check for first last middle chunks on net and presume file stored
-- [ ] Uncomment benchmark tests read methods (require bench in beta channel or stabilised first)
-
 ## Video of the process
 [self_encryption process and use case video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
@@ -43,29 +33,17 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 
 This library splits a file into encrypted chunks and also produces a data map for the same. This data map with encrypted chunks enables the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows:
 
-1. Install RUST(Nightly build).
- - OSX / Linux: `curl -s https://static.rust-lang.org/rustup.sh | sudo sh -s -- --channel=nightly`
- - Windows: Download Exe installer from http://www.rust-lang.org/install.html
+##### Encrypt a file:
 
-2. Install gcc.
- - Linux: `sudo apt-get install gcc`
- - Windows: Any compatible gcc such as [TDM-GCC](http://tdm-gcc.tdragon.net/download)
+    cargo run --example basic_encryptor -- -e <full_path_to_any_file>
 
-3. Clone this repo / Download as zip and extract archive.
- - To clone via Git: `git clone http://github.com/maidsafe/self_encryption.git`
+You should now have the example binary in `../self_encryption/target/debug/examples/`. The `data_map` for the given file and it's encrypted chunks will be written to the current directory.
 
-4. Browse to repo locally in terminal / command prompt.
- - `cd self_encryption`
+##### Decrypt a file:
 
-5. Encrypt a file:
- - `cargo run --example basic_encryptor -- -e <full_path_to_any_file>`
+    cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>
 
-  You should now have the example binary in `../self_encryption/target/debug/examples/`. The `data_map` for the given file and it's encrypted chunks will be written to the current directory.
-
-6. Decrypt a file:
- - `cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>`
-
-  This will restore the original file to the given destination path.
+This will restore the original file to the given destination path.
 
 ## License
 

@@ -5,7 +5,7 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
@@ -31,8 +31,7 @@
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy, clippy_pedantic))]
-#![cfg_attr(feature="clippy", allow(use_debug))]
+#![cfg_attr(feature="clippy", deny(clippy))]
 
 #[macro_use]
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
@@ -41,7 +40,7 @@ extern crate rand;
 extern crate self_encryption;
 
 use rand::Rng;
-use self_encryption::{DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
+use self_encryption::{DataMap, MAX_CHUNK_SIZE, SelfEncryptor};
 use self_encryption::test_helpers::SimpleStorage;
 
 const DATA_SIZE: u32 = 20 * 1024 * 1024;
@@ -234,6 +233,16 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
 
 #[test]
 fn cross_platform_check() {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    static EXPECTED_HASHES: [[u8; 32]; 3] = [
+        [232, 176, 233, 119, 108, 41, 153, 211, 7, 3, 250, 251, 57, 199, 8, 185, 82, 141, 43, 64,
+         116, 74, 23, 40, 10, 104, 177, 4, 131, 17, 86, 152],
+        [25, 244, 115, 58, 80, 163, 71, 169, 253, 71, 170, 3, 217, 7, 9, 253, 96, 220, 101, 189,
+         200, 182, 241, 212, 71, 32, 7, 63, 203, 120, 133, 104],
+        [158, 28, 255, 84, 33, 37, 200, 110, 210, 11, 148, 150, 29, 205, 116, 103, 70, 186, 95, 153,
+         172, 148, 16, 198, 180, 226, 133, 133, 125, 41, 94, 208]
+    ];
+
     let mut chars0 = Vec::<u8>::new();
     let mut chars1 = Vec::<u8>::new();
     let mut chars2 = Vec::<u8>::new();
@@ -264,16 +273,6 @@ fn cross_platform_check() {
             .expect("Writing third slice to encryptor shouldn't fail.");
         data_map = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
     }
-
-    #[cfg_attr(rustfmt, rustfmt_skip)]
-    static EXPECTED_HASHES: [[u8; 32]; 3] = [
-        [232, 176, 233, 119, 108, 41, 153, 211, 7, 3, 250, 251, 57, 199, 8, 185, 82, 141, 43, 64,
-         116, 74, 23, 40, 10, 104, 177, 4, 131, 17, 86, 152],
-        [25, 244, 115, 58, 80, 163, 71, 169, 253, 71, 170, 3, 217, 7, 9, 253, 96, 220, 101, 189,
-         200, 182, 241, 212, 71, 32, 7, 63, 203, 120, 133, 104],
-        [158, 28, 255, 84, 33, 37, 200, 110, 210, 11, 148, 150, 29, 205, 116, 103, 70, 186, 95, 153,
-         172, 148, 16, 198, 180, 226, 133, 133, 125, 41, 94, 208]
-    ];
 
     assert_eq!(3, data_map.get_chunks().len());
 
