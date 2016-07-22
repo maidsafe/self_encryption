@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/brotli2-0.1.0/src/stream.rs`.">
+    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/brotli2-0.2.1/src/stream.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>stream.rs.html -- source</title>
@@ -601,9 +601,6 @@
 <span id="557">557</span>
 <span id="558">558</span>
 <span id="559">559</span>
-<span id="560">560</span>
-<span id="561">561</span>
-<span id="562">562</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! In-memory compression/decompression streams</span>
 
@@ -614,7 +611,7 @@
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>slice</span>;
 
 <span class='kw'>use</span> <span class='ident'>brotli_sys</span>;
-<span class='kw'>use</span> <span class='ident'>libc</span>::{<span class='ident'>c_int</span>, <span class='ident'>c_void</span>, <span class='ident'>size_t</span>};
+<span class='kw'>use</span> <span class='ident'>libc</span>::<span class='ident'>c_int</span>;
 
 <span class='doccomment'>/// In-memory state for decompressing brotli-encoded data.</span>
 <span class='doccomment'>///</span>
@@ -632,7 +629,7 @@
 <span class='doccomment'>/// This stream is at the heart of the I/O encoders and is used to compress</span>
 <span class='doccomment'>/// data.</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Compress</span> {
-    <span class='ident'>state</span>: <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressor</span>,
+    <span class='ident'>state</span>: <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderState</span>,
 }
 
 <span class='kw'>unsafe</span> <span class='kw'>impl</span> <span class='ident'>Send</span> <span class='kw'>for</span> <span class='ident'>Compress</span> {}
@@ -640,21 +637,27 @@
 
 <span class='doccomment'>/// Parameters passed to various compression routines.</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>CompressParams</span> {
-    <span class='ident'>params</span>: <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParams</span>,
+    <span class='doccomment'>/// Compression mode.</span>
+    <span class='ident'>mode</span>: <span class='ident'>u32</span>,
+    <span class='doccomment'>/// Controls the compression-speed vs compression-density tradeoffs. The higher the `quality`,</span>
+    <span class='doccomment'>/// the slower the compression. Range is 0 to 11.</span>
+    <span class='ident'>quality</span>: <span class='ident'>u32</span>,
+    <span class='doccomment'>/// Base 2 logarithm of the sliding window size. Range is 10 to 24.</span>
+    <span class='ident'>lgwin</span>: <span class='ident'>u32</span>,
+    <span class='doccomment'>/// Base 2 logarithm of the maximum input block size. Range is 16 to 24. If set to 0, the value</span>
+    <span class='doccomment'>/// will be set based on the quality.</span>
+    <span class='ident'>lgblock</span>: <span class='ident'>u32</span>,
 }
-
-<span class='kw'>unsafe</span> <span class='kw'>impl</span> <span class='ident'>Send</span> <span class='kw'>for</span> <span class='ident'>CompressParams</span> {}
-<span class='kw'>unsafe</span> <span class='kw'>impl</span> <span class='ident'>Sync</span> <span class='kw'>for</span> <span class='ident'>CompressParams</span> {}
 
 <span class='doccomment'>/// Possible choices for modes of compression</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>CompressMode</span> {
     <span class='doccomment'>/// Default compression mode, the compressor does not know anything in</span>
     <span class='doccomment'>/// advance about the properties of the input.</span>
-    <span class='ident'>Generic</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RUST_MODE_GENERIC</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
+    <span class='ident'>Generic</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_MODE_GENERIC</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
     <span class='doccomment'>/// Compression mode for utf-8 formatted text input.</span>
-    <span class='ident'>Text</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RUST_MODE_TEXT</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
+    <span class='ident'>Text</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_MODE_TEXT</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
     <span class='doccomment'>/// Compression mode in WOFF 2.0.</span>
-    <span class='ident'>Font</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RUST_MODE_FONT</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
+    <span class='ident'>Font</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_MODE_FONT</span> <span class='kw'>as</span> <span class='ident'>isize</span>,
 }
 
 <span class='doccomment'>/// Error that can happen from decompressing or compressing a brotli stream.</span>
@@ -801,10 +804,11 @@
 
 <span class='kw'>impl</span> <span class='ident'>Compress</span> {
     <span class='doccomment'>/// Creates a new compressor ready to encode data into brotli</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>params</span>: <span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>) <span class='op'>-&gt;</span> <span class='ident'>Compress</span> {
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>() <span class='op'>-&gt;</span> <span class='ident'>Compress</span> {
         <span class='kw'>unsafe</span> {
-            <span class='kw'>let</span> <span class='ident'>state</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressorCreate</span>(<span class='ident'>params</span>.<span class='ident'>params</span>);
+            <span class='kw'>let</span> <span class='ident'>state</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderCreateInstance</span>(<span class='prelude-val'>None</span>, <span class='prelude-val'>None</span>, <span class='number'>0</span> <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> _);
             <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>state</span>.<span class='ident'>is_null</span>());
+
             <span class='ident'>Compress</span> { <span class='ident'>state</span>: <span class='ident'>state</span> }
         }
     }
@@ -815,7 +819,7 @@
     <span class='doccomment'>/// Data is fed into this compressor via the `copy_input` function, and then</span>
     <span class='doccomment'>/// it&#39;s later compressed via the `write_brotli_data` function.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>input_block_size</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>usize</span> {
-        <span class='kw'>unsafe</span> { <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressorInputBlockSize</span>(<span class='self'>self</span>.<span class='ident'>state</span>) }
+        <span class='kw'>unsafe</span> { <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderInputBlockSize</span>(<span class='self'>self</span>.<span class='ident'>state</span>) }
     }
 
     <span class='comment'>// Apparently this is just a shim around CopyInputToRingBuffer,</span>
@@ -893,9 +897,9 @@
     <span class='doccomment'>/// generate an error.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>copy_input</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>input</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) {
         <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressorCopyInputToRingBuffer</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
-                                                                  <span class='ident'>input</span>.<span class='ident'>len</span>(),
-                                                                  <span class='ident'>input</span>.<span class='ident'>as_ptr</span>())
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderCopyInputToRingBuffer</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                           <span class='ident'>input</span>.<span class='ident'>len</span>(),
+                                                           <span class='ident'>input</span>.<span class='ident'>as_ptr</span>())
         }
     }
 
@@ -910,17 +914,51 @@
     <span class='doccomment'>///</span>
     <span class='doccomment'>/// Returns an error, if any, and otherwise the internal buffer which</span>
     <span class='doccomment'>/// contains the output data of compressed information.</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// # Examples</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// ```</span>
+    <span class='doccomment'>/// use std::cmp;</span>
+    <span class='doccomment'>/// use brotli2::stream::{Error, Compress, decompress_buf};</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// // An example of compressing `input` into the destination vector</span>
+    <span class='doccomment'>/// // `output`</span>
+    <span class='doccomment'>/// fn compress_vec(input: &amp;[u8],</span>
+    <span class='doccomment'>///                 output: &amp;mut Vec&lt;u8&gt;) -&gt; Result&lt;(), Error&gt; {</span>
+    <span class='doccomment'>///     let mut compress = Compress::new();</span>
+    <span class='doccomment'>///     for chunk in input.chunks(compress.input_block_size()) {</span>
+    <span class='doccomment'>///         compress.copy_input(chunk);</span>
+    <span class='doccomment'>///         output.extend_from_slice(&amp;try!(compress.compress(false, false)));</span>
+    <span class='doccomment'>///     }</span>
+    <span class='doccomment'>///     output.extend_from_slice(&amp;try!(compress.compress(true, false)));</span>
+    <span class='doccomment'>///     Ok(())</span>
+    <span class='doccomment'>/// }</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// fn assert_roundtrip(data: &amp;[u8]) {</span>
+    <span class='doccomment'>///     let mut compressed = Vec::new();</span>
+    <span class='doccomment'>///     compress_vec(data, &amp;mut compressed).unwrap();</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>///     let mut decompressed = [0; 2048];</span>
+    <span class='doccomment'>///     let mut decompressed = &amp;mut decompressed[..];</span>
+    <span class='doccomment'>///     decompress_buf(&amp;compressed, &amp;mut decompressed).unwrap();</span>
+    <span class='doccomment'>///     assert_eq!(decompressed, data);</span>
+    <span class='doccomment'>/// }</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// assert_roundtrip(b&quot;Hello, World!&quot;);</span>
+    <span class='doccomment'>/// assert_roundtrip(b&quot;&quot;);</span>
+    <span class='doccomment'>/// assert_roundtrip(&amp;[6; 1024]);</span>
+    <span class='doccomment'>/// ```</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>compress</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>last</span>: <span class='ident'>bool</span>, <span class='ident'>force_flush</span>: <span class='ident'>bool</span>)
                     <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>], <span class='ident'>Error</span><span class='op'>&gt;</span> {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>size</span> <span class='op'>=</span> <span class='number'>0</span>;
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>ptr</span> <span class='op'>=</span> <span class='number'>0</span> <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> _;
         <span class='kw'>unsafe</span> {
             <span class='kw'>let</span> (<span class='ident'>last</span>, <span class='ident'>flush</span>) <span class='op'>=</span> (<span class='ident'>last</span> <span class='kw'>as</span> <span class='ident'>c_int</span>, <span class='ident'>force_flush</span> <span class='kw'>as</span> <span class='ident'>c_int</span>);
-            <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressorWriteBrotliData</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
-                                                                    <span class='ident'>last</span>,
-                                                                    <span class='ident'>flush</span>,
-                                                                    <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>size</span>,
-                                                                    <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>ptr</span>);
+            <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderWriteData</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                       <span class='ident'>last</span>,
+                                                       <span class='ident'>flush</span>,
+                                                       <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>size</span>,
+                                                       <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>ptr</span>);
             <span class='kw'>if</span> <span class='ident'>r</span> <span class='op'>==</span> <span class='number'>0</span> {
                 <span class='prelude-val'>Err</span>(<span class='ident'>Error</span>(()))
             } <span class='kw'>else</span> <span class='kw'>if</span> <span class='ident'>size</span> <span class='op'>==</span> <span class='number'>0</span> {
@@ -930,12 +968,33 @@
             }
         }
     }
+
+    <span class='doccomment'>/// Configure the parameters of this compression session.</span>
+    <span class='doccomment'>///</span>
+    <span class='doccomment'>/// Note that this is likely to only successful if called before compression</span>
+    <span class='doccomment'>/// starts.</span>
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>set_params</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>params</span>: <span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>) {
+        <span class='kw'>unsafe</span> {
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderSetParameter</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                  <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_PARAM_MODE</span>,
+                                                  <span class='ident'>params</span>.<span class='ident'>mode</span>);
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderSetParameter</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                  <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_PARAM_QUALITY</span>,
+                                                  <span class='ident'>params</span>.<span class='ident'>quality</span>);
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderSetParameter</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                  <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_PARAM_LGWIN</span>,
+                                                  <span class='ident'>params</span>.<span class='ident'>lgwin</span>);
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderSetParameter</span>(<span class='self'>self</span>.<span class='ident'>state</span>,
+                                                  <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_PARAM_LGBLOCK</span>,
+                                                  <span class='ident'>params</span>.<span class='ident'>lgblock</span>);
+        }
+    }
 }
 
 <span class='kw'>impl</span> <span class='ident'>Drop</span> <span class='kw'>for</span> <span class='ident'>Compress</span> {
     <span class='kw'>fn</span> <span class='ident'>drop</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
         <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressorDestroy</span>(<span class='self'>self</span>.<span class='ident'>state</span>);
+            <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderDestroyInstance</span>(<span class='self'>self</span>.<span class='ident'>state</span>);
         }
     }
 }
@@ -952,11 +1011,13 @@
                     <span class='ident'>output</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> [<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>usize</span>, <span class='ident'>Error</span><span class='op'>&gt;</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>size</span> <span class='op'>=</span> <span class='ident'>output</span>.<span class='ident'>len</span>();
     <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='kw'>unsafe</span> {
-        <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressBuffer</span>(<span class='ident'>params</span>.<span class='ident'>params</span>,
-                                             <span class='ident'>input</span>.<span class='ident'>len</span>(),
-                                             <span class='ident'>input</span>.<span class='ident'>as_ptr</span>(),
-                                             <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>size</span>,
-                                             <span class='ident'>output</span>.<span class='ident'>as_mut_ptr</span>())
+        <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderCompress</span>(<span class='ident'>params</span>.<span class='ident'>quality</span> <span class='kw'>as</span> <span class='ident'>c_int</span>,
+                                          <span class='ident'>params</span>.<span class='ident'>lgwin</span> <span class='kw'>as</span> <span class='ident'>c_int</span>,
+                                          <span class='ident'>params</span>.<span class='ident'>mode</span> <span class='kw'>as</span> <span class='ident'>brotli_sys</span>::<span class='ident'>BrotliEncoderMode</span>,
+                                          <span class='ident'>input</span>.<span class='ident'>len</span>(),
+                                          <span class='ident'>input</span>.<span class='ident'>as_ptr</span>(),
+                                          <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>size</span>,
+                                          <span class='ident'>output</span>.<span class='ident'>as_mut_ptr</span>())
     };
     <span class='op'>*</span><span class='ident'>output</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>mem</span>::<span class='ident'>replace</span>(<span class='ident'>output</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> [])[..<span class='ident'>size</span>];
     <span class='kw'>if</span> <span class='ident'>r</span> <span class='op'>==</span> <span class='number'>0</span> {
@@ -966,55 +1027,20 @@
     }
 }
 
-<span class='doccomment'>/// Compresses the data in `input` into `output`.</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// The `output` vector will be pushed onto and reallocated if necessary, but</span>
-<span class='doccomment'>/// the entirety of the compressed `input` will be present in `output` when</span>
-<span class='doccomment'>/// finished.</span>
-<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>compress_vec</span>(<span class='ident'>params</span>: <span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>,
-                    <span class='ident'>input</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>],
-                    <span class='ident'>output</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>(), <span class='ident'>Error</span><span class='op'>&gt;</span> {
-    <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='kw'>unsafe</span> {
-        <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliCompressBufferVec</span>(<span class='ident'>params</span>.<span class='ident'>params</span>,
-                                                <span class='ident'>input</span>.<span class='ident'>len</span>(),
-                                                <span class='ident'>input</span>.<span class='ident'>as_ptr</span>(),
-                                                <span class='ident'>output</span> <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> _ <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>c_void</span>,
-                                                <span class='ident'>callback</span>)
-    };
-    <span class='kw'>return</span> <span class='kw'>if</span> <span class='ident'>r</span> <span class='op'>==</span> <span class='number'>0</span> {
-        <span class='prelude-val'>Err</span>(<span class='ident'>Error</span>(()))
-    } <span class='kw'>else</span> {
-        <span class='prelude-val'>Ok</span>(())
-    };
-
-    <span class='kw'>extern</span> <span class='kw'>fn</span> <span class='ident'>callback</span>(<span class='ident'>output</span>: <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>c_void</span>,
-                       <span class='ident'>buf</span>: <span class='op'>*</span><span class='kw'>const</span> <span class='ident'>c_void</span>,
-                       <span class='ident'>size</span>: <span class='ident'>size_t</span>) <span class='op'>-&gt;</span> <span class='ident'>c_int</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='kw'>let</span> <span class='ident'>output</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span>(<span class='ident'>output</span> <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>);
-            <span class='kw'>let</span> <span class='ident'>input</span> <span class='op'>=</span> <span class='ident'>slice</span>::<span class='ident'>from_raw_parts</span>(<span class='ident'>buf</span> <span class='kw'>as</span> <span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>u8</span>, <span class='ident'>size</span>);
-            <span class='ident'>output</span>.<span class='ident'>extend_from_slice</span>(<span class='ident'>input</span>);
-            <span class='number'>1</span> <span class='comment'>// &quot;true&quot; == all data written</span>
-        }
-    }
-}
-
 <span class='kw'>impl</span> <span class='ident'>CompressParams</span> {
     <span class='doccomment'>/// Creates a new default set of compression parameters.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>() <span class='op'>-&gt;</span> <span class='ident'>CompressParams</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='kw'>let</span> <span class='ident'>params</span> <span class='op'>=</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsCreate</span>();
-            <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>params</span>.<span class='ident'>is_null</span>());
-            <span class='ident'>CompressParams</span> { <span class='ident'>params</span>: <span class='ident'>params</span> }
+        <span class='ident'>CompressParams</span> {
+            <span class='ident'>mode</span>: <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_DEFAULT_MODE</span>,
+            <span class='ident'>quality</span>: <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_DEFAULT_QUALITY</span>,
+            <span class='ident'>lgwin</span>: <span class='ident'>brotli_sys</span>::<span class='ident'>BROTLI_DEFAULT_WINDOW</span>,
+            <span class='ident'>lgblock</span>: <span class='number'>0</span>,
         }
     }
 
     <span class='doccomment'>/// Set the mode of this compression.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>mode</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>mode</span>: <span class='ident'>CompressMode</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>CompressParams</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsSetMode</span>(<span class='self'>self</span>.<span class='ident'>params</span>,
-                                                <span class='ident'>mode</span> <span class='kw'>as</span> <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliMode</span>);
-        }
+        <span class='self'>self</span>.<span class='ident'>mode</span> <span class='op'>=</span> <span class='ident'>mode</span> <span class='kw'>as</span> <span class='ident'>u32</span>;
         <span class='self'>self</span>
     }
 
@@ -1023,10 +1049,7 @@
     <span class='doccomment'>/// The higher the quality, the slower the compression. Currently the range</span>
     <span class='doccomment'>/// for the quality is 0 to 11.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>quality</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>quality</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>CompressParams</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsSetQuality</span>(<span class='self'>self</span>.<span class='ident'>params</span>,
-                                                   <span class='ident'>quality</span> <span class='kw'>as</span> <span class='ident'>c_int</span>);
-        }
+        <span class='self'>self</span>.<span class='ident'>quality</span> <span class='op'>=</span> <span class='ident'>quality</span>;
         <span class='self'>self</span>
     }
 
@@ -1034,10 +1057,7 @@
     <span class='doccomment'>///</span>
     <span class='doccomment'>/// Currently the range is 10 to 24.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>lgwin</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>lgwin</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>CompressParams</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsSetLgwin</span>(<span class='self'>self</span>.<span class='ident'>params</span>,
-                                                 <span class='ident'>lgwin</span> <span class='kw'>as</span> <span class='ident'>c_int</span>);
-        }
+        <span class='self'>self</span>.<span class='ident'>lgwin</span> <span class='op'>=</span> <span class='ident'>lgwin</span>;
         <span class='self'>self</span>
     }
 
@@ -1046,19 +1066,8 @@
     <span class='doccomment'>/// Currently the range is 16 to 24, and if set to 0 the value will be set</span>
     <span class='doccomment'>/// based on the quality.</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>lgblock</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>lgblock</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>CompressParams</span> {
-        <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsSetLgblock</span>(<span class='self'>self</span>.<span class='ident'>params</span>,
-                                                   <span class='ident'>lgblock</span> <span class='kw'>as</span> <span class='ident'>c_int</span>);
-        }
+        <span class='self'>self</span>.<span class='ident'>lgblock</span> <span class='op'>=</span> <span class='ident'>lgblock</span>;
         <span class='self'>self</span>
-    }
-}
-
-<span class='kw'>impl</span> <span class='ident'>Drop</span> <span class='kw'>for</span> <span class='ident'>CompressParams</span> {
-    <span class='kw'>fn</span> <span class='ident'>drop</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
-        <span class='kw'>unsafe</span> {
-            <span class='ident'>brotli_sys</span>::<span class='ident'>RustBrotliParamsDestroy</span>(<span class='self'>self</span>.<span class='ident'>params</span>);
-        }
     }
 }
 
@@ -1091,22 +1100,6 @@
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
-    <span class='kw'>fn</span> <span class='ident'>compress_vec_smoke</span>() {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
-        <span class='ident'>compress_vec</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>(), <span class='string'>b&quot;hello!&quot;</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>).<span class='ident'>unwrap</span>();
-
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>dst</span> <span class='op'>=</span> [<span class='number'>0</span>; <span class='number'>128</span>];
-        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>decompressed_size</span>(<span class='kw-2'>&amp;</span><span class='ident'>data</span>), <span class='prelude-val'>Ok</span>(<span class='number'>6</span>));
-        {
-            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>dst</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>dst</span>[..];
-            <span class='kw'>let</span> <span class='ident'>n</span> <span class='op'>=</span> <span class='ident'>decompress_buf</span>(<span class='kw-2'>&amp;</span><span class='ident'>data</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>dst</span>).<span class='ident'>unwrap</span>();
-            <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>n</span>, <span class='ident'>Status</span>::<span class='ident'>Finished</span>);
-            <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dst</span>.<span class='ident'>len</span>(), <span class='number'>6</span>);
-        }
-        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>dst</span>[..<span class='number'>6</span>], <span class='string'>b&quot;hello!&quot;</span>);
-    }
-
-    <span class='attribute'>#[<span class='ident'>test</span>]</span>
     <span class='kw'>fn</span> <span class='ident'>compress_buf_smoke</span>() {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> [<span class='number'>0</span>; <span class='number'>128</span>];
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>[..];
@@ -1125,8 +1118,9 @@
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
     <span class='kw'>fn</span> <span class='ident'>decompressor_smoke</span>() {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
-        <span class='ident'>compress_vec</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>(), <span class='string'>b&quot;hello!&quot;</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>).<span class='ident'>unwrap</span>();
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> [<span class='number'>0</span>; <span class='number'>128</span>];
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>[..];
+        <span class='ident'>compress_buf</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>(), <span class='string'>b&quot;hello!&quot;</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>).<span class='ident'>unwrap</span>();
 
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>Decompress</span>::<span class='ident'>new</span>();
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>dst</span> <span class='op'>=</span> [<span class='number'>0</span>; <span class='number'>128</span>];
@@ -1147,7 +1141,7 @@
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
     <span class='kw'>fn</span> <span class='ident'>compress_smoke</span>() {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>c</span> <span class='op'>=</span> <span class='ident'>Compress</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>c</span> <span class='op'>=</span> <span class='ident'>Compress</span>::<span class='ident'>new</span>();
         <span class='ident'>c</span>.<span class='ident'>copy_input</span>(<span class='string'>b&quot;hello!&quot;</span>);
         <span class='ident'>data</span>.<span class='ident'>extend_from_slice</span>(<span class='ident'>c</span>.<span class='ident'>compress</span>(<span class='boolvalue'>true</span>, <span class='boolvalue'>false</span>).<span class='ident'>unwrap</span>());
 
@@ -1156,7 +1150,7 @@
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='kw-2'>&amp;</span><span class='ident'>dst</span>[..<span class='number'>6</span>], <span class='string'>b&quot;hello!&quot;</span>);
 
         <span class='ident'>data</span>.<span class='ident'>truncate</span>(<span class='number'>0</span>);
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>c</span> <span class='op'>=</span> <span class='ident'>Compress</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>::<span class='ident'>new</span>());
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>c</span> <span class='op'>=</span> <span class='ident'>Compress</span>::<span class='ident'>new</span>();
         <span class='ident'>c</span>.<span class='ident'>copy_input</span>(<span class='string'>b&quot;hel&quot;</span>);
         <span class='ident'>data</span>.<span class='ident'>extend_from_slice</span>(<span class='ident'>c</span>.<span class='ident'>compress</span>(<span class='boolvalue'>false</span>, <span class='boolvalue'>true</span>).<span class='ident'>unwrap</span>());
         <span class='ident'>c</span>.<span class='ident'>copy_input</span>(<span class='string'>b&quot;lo!&quot;</span>);

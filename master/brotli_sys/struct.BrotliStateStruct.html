@@ -47,7 +47,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a id='src-23' class='srclink' href='../src/brotli_sys/lib.rs.html#29-114' title='goto source code'>[src]</a></span></h1>
+               </span><a id='src-23' class='srclink' href='../src/brotli_sys/lib.rs.html#32-118' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct BrotliStateStruct {
     pub state: <a class='type' href='../brotli_sys/type.BrotliRunningState.html' title='brotli_sys::BrotliRunningState'>BrotliRunningState</a>,
     pub loop_counter: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
@@ -64,6 +64,8 @@
     pub ringbuffer_mask: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
     pub dist_rb_idx: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
     pub dist_rb: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[</a><a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>; 4]</a>,
+    pub error_code: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
+    pub sub_loop_counter: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub ringbuffer: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub ringbuffer_end: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub htree_command: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='struct' href='../brotli_sys/struct.HuffmanCode.html' title='brotli_sys::HuffmanCode'>HuffmanCode</a>,
@@ -71,7 +73,6 @@
     pub context_lookup2: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub context_map_slice: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub dist_context_map_slice: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
-    pub sub_loop_counter: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub literal_hgroup: <a class='struct' href='../brotli_sys/struct.HuffmanTreeGroup.html' title='brotli_sys::HuffmanTreeGroup'>HuffmanTreeGroup</a>,
     pub insert_copy_hgroup: <a class='struct' href='../brotli_sys/struct.HuffmanTreeGroup.html' title='brotli_sys::HuffmanTreeGroup'>HuffmanTreeGroup</a>,
     pub distance_hgroup: <a class='struct' href='../brotli_sys/struct.HuffmanTreeGroup.html' title='brotli_sys::HuffmanTreeGroup'>HuffmanTreeGroup</a>,
@@ -90,7 +91,6 @@
     pub num_dist_htrees: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub dist_context_map: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub literal_htree: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='struct' href='../brotli_sys/struct.HuffmanCode.html' title='brotli_sys::HuffmanCode'>HuffmanCode</a>,
-    pub literal_htree_index: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub dist_htree_index: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub repeat_code_len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub prev_code_len: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
@@ -114,7 +114,7 @@
     pub code: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub context_map_table: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[</a><a class='struct' href='../brotli_sys/struct.HuffmanCode.html' title='brotli_sys::HuffmanCode'>HuffmanCode</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>; 646]</a>,
     pub mtf_upper_bound: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
-    pub mtf: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>; 256]</a>,
+    pub mtf: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>; 260]</a>,
     pub custom_dict: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*const </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub custom_dict_size: <a class='type' href='../libc/type.c_int.html' title='libc::c_int'>c_int</a>,
     pub substate_metablock_header: <a class='type' href='../brotli_sys/type.BrotliRunningMetablockHeaderState.html' title='brotli_sys::BrotliRunningMetablockHeaderState'>BrotliRunningMetablockHeaderState</a>,
@@ -132,6 +132,7 @@
     pub num_literal_htrees: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
     pub context_map: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
     pub context_modes: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.pointer.html'>*mut </a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
+    pub trivial_literal_contexts: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.array.html'>; 8]</a>,
     // some fields omitted
 }</pre><h2 class='fields'>Fields</h2>
 <table><tr class='stab '>
@@ -150,6 +151,8 @@
                              <td id='structfield.ringbuffer_mask'><code>ringbuffer_mask</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.dist_rb_idx'><code>dist_rb_idx</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.dist_rb'><code>dist_rb</code></td><td></td></tr><tr class='stab '>
+                             <td id='structfield.error_code'><code>error_code</code></td><td></td></tr><tr class='stab '>
+                             <td id='structfield.sub_loop_counter'><code>sub_loop_counter</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.ringbuffer'><code>ringbuffer</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.ringbuffer_end'><code>ringbuffer_end</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.htree_command'><code>htree_command</code></td><td></td></tr><tr class='stab '>
@@ -157,7 +160,6 @@
                              <td id='structfield.context_lookup2'><code>context_lookup2</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.context_map_slice'><code>context_map_slice</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.dist_context_map_slice'><code>dist_context_map_slice</code></td><td></td></tr><tr class='stab '>
-                             <td id='structfield.sub_loop_counter'><code>sub_loop_counter</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.literal_hgroup'><code>literal_hgroup</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.insert_copy_hgroup'><code>insert_copy_hgroup</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.distance_hgroup'><code>distance_hgroup</code></td><td></td></tr><tr class='stab '>
@@ -176,7 +178,6 @@
                              <td id='structfield.num_dist_htrees'><code>num_dist_htrees</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.dist_context_map'><code>dist_context_map</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.literal_htree'><code>literal_htree</code></td><td></td></tr><tr class='stab '>
-                             <td id='structfield.literal_htree_index'><code>literal_htree_index</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.dist_htree_index'><code>dist_htree_index</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.repeat_code_len'><code>repeat_code_len</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.prev_code_len'><code>prev_code_len</code></td><td></td></tr><tr class='stab '>
@@ -217,7 +218,8 @@
                              <td id='structfield.window_bits'><code>window_bits</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.num_literal_htrees'><code>num_literal_htrees</code></td><td></td></tr><tr class='stab '>
                              <td id='structfield.context_map'><code>context_map</code></td><td></td></tr><tr class='stab '>
-                             <td id='structfield.context_modes'><code>context_modes</code></td><td></td></tr></table></section>
+                             <td id='structfield.context_modes'><code>context_modes</code></td><td></td></tr><tr class='stab '>
+                             <td id='structfield.trivial_literal_contexts'><code>trivial_literal_contexts</code></td><td></td></tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
