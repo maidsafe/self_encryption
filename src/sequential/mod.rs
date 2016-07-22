@@ -1,4 +1,4 @@
-// Copyright 2015 MaidSafe.net limited.
+// Copyright 2016 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
@@ -8,28 +8,25 @@
 // bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
 // Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-// TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
+pub mod encryptor;
+pub mod large_encryptor;
+pub mod medium_encryptor;
+pub mod small_encryptor;
+pub mod utils;
 
-use sodiumoxide::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
+use encryption::{IV_SIZE, KEY_SIZE};
+use sodiumoxide::crypto::hash::sha256;
+pub use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE, MIN_CHUNK_SIZE,
+                SelfEncryptionError, Storage, StorageError};
 
-pub use sodiumoxide::crypto::secretbox::Key;
-pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
-pub type DecryptionError = ();
+pub const HASH_SIZE: usize = sha256::DIGESTBYTES;
+pub const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
-pub const KEY_SIZE: usize = KEYBYTES;
-pub const IV_SIZE: usize = NONCEBYTES;
-
-pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
-    secretbox::seal(data, iv, key)
-}
-
-pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, DecryptionError> {
-    secretbox::open(encrypted_data, iv, key)
-}
+pub struct Pad(pub [u8; PAD_SIZE]);
