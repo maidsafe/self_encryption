@@ -214,6 +214,14 @@
 <span id="170">170</span>
 <span id="171">171</span>
 <span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
 </pre><pre class='rust '>
 <span class='comment'>// Copyright 2015 MaidSafe.net limited.</span>
 <span class='comment'>//</span>
@@ -222,7 +230,7 @@
 <span class='comment'>// licence you accepted on initial access to the Software (the &quot;Licences&quot;).</span>
 <span class='comment'>//</span>
 <span class='comment'>// By contributing code to the SAFE Network Software, or to this project generally, you agree to be</span>
-<span class='comment'>// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the</span>
+<span class='comment'>// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the</span>
 <span class='comment'>// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.</span>
 <span class='comment'>//</span>
 <span class='comment'>// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed</span>
@@ -356,10 +364,11 @@
 
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>feature</span>(<span class='ident'>plugin</span>))]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>plugin</span>(<span class='ident'>clippy</span>))]</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>deny</span>(<span class='ident'>clippy</span>, <span class='ident'>clippy_pedantic</span>))]</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>allow</span>(<span class='ident'>use_debug</span>))]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;clippy&quot;</span>, <span class='ident'>deny</span>(<span class='ident'>clippy</span>))]</span>
 
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>brotli2</span>;
+<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>itertools</span>;
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>maidsafe_utilities</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>memmap</span>;
@@ -367,18 +376,22 @@
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rand</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rustc_serialize</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>sodiumoxide</span>;
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>unwrap</span>;
 
 <span class='kw'>mod</span> <span class='ident'>data_map</span>;
 <span class='kw'>mod</span> <span class='ident'>encryption</span>;
 <span class='kw'>mod</span> <span class='ident'>error</span>;
 <span class='kw'>mod</span> <span class='ident'>self_encryptor</span>;
 <span class='kw'>mod</span> <span class='ident'>sequencer</span>;
+<span class='kw'>mod</span> <span class='ident'>sequential</span>;
 <span class='kw'>mod</span> <span class='ident'>storage</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>test_helpers</span>;
 
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>data_map</span>::{<span class='ident'>ChunkDetails</span>, <span class='ident'>DataMap</span>};
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>error</span>::<span class='ident'>SelfEncryptionError</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>self_encryptor</span>::<span class='ident'>SelfEncryptor</span>;
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>sequential</span>::<span class='ident'>encryptor</span>::<span class='ident'>Encryptor</span> <span class='kw'>as</span> <span class='ident'>SequentialEncryptor</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>storage</span>::{<span class='ident'>Storage</span>, <span class='ident'>StorageError</span>};
 
 <span class='doccomment'>/// The maximum size of file which can be self-encrypted, defined as 1GB.</span>
@@ -387,6 +400,9 @@
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MAX_CHUNK_SIZE</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>1024</span> <span class='op'>*</span> <span class='number'>1024</span>;
 <span class='doccomment'>/// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.</span>
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MIN_CHUNK_SIZE</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>1024</span>;
+<span class='doccomment'>/// Controls the compression-speed vs compression-density tradeoffs.  The higher the quality, the</span>
+<span class='doccomment'>/// slower the compression.  Range is 0 to 11.</span>
+<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>COMPRESSION_QUALITY</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='number'>6</span>;
 </pre>
 </section>
     <section id='search' class="content hidden"></section>

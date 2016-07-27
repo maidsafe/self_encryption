@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/brotli2-0.1.0/src/read.rs`.">
+    <meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/brotli2-0.2.1/src/read.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>read.rs.html -- source</title>
@@ -227,6 +227,14 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Reader-based compression/decompression streams</span>
 
@@ -259,14 +267,9 @@
         }
     }
 
-    <span class='doccomment'>/// Creates a new encoder with a custom `Stream`.</span>
-    <span class='doccomment'>///</span>
-    <span class='doccomment'>/// The `Stream` can be pre-configured for multithreaded encoding, different</span>
-    <span class='doccomment'>/// compression options/tuning, etc.</span>
-    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new_params</span>(<span class='ident'>r</span>: <span class='ident'>R</span>, <span class='ident'>params</span>: <span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>) <span class='op'>-&gt;</span> <span class='ident'>BrotliEncoder</span><span class='op'>&lt;</span><span class='ident'>R</span><span class='op'>&gt;</span> {
-        <span class='ident'>BrotliEncoder</span> {
-            <span class='ident'>inner</span>: <span class='ident'>bufread</span>::<span class='ident'>BrotliEncoder</span>::<span class='ident'>new_params</span>(<span class='ident'>BufReader</span>::<span class='ident'>new</span>(<span class='ident'>r</span>), <span class='ident'>params</span>),
-        }
+    <span class='doccomment'>/// Configure the compression parameters of this encoder.</span>
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>set_params</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>params</span>: <span class='kw-2'>&amp;</span><span class='ident'>CompressParams</span>) {
+        <span class='self'>self</span>.<span class='ident'>inner</span>.<span class='ident'>set_params</span>(<span class='ident'>params</span>);
     }
 
     <span class='doccomment'>/// Acquires a reference to the underlying stream</span>
@@ -411,6 +414,19 @@
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>BrotliDecoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='ident'>result</span>[..]);
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>data</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
         <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>read</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>data</span>).<span class='ident'>unwrap</span>() <span class='op'>==</span> <span class='number'>0</span>);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>qc</span>() {
+        ::<span class='ident'>quickcheck</span>::<span class='ident'>quickcheck</span>(<span class='ident'>test</span> <span class='kw'>as</span> <span class='kw'>fn</span>(_) <span class='op'>-&gt;</span> _);
+
+        <span class='kw'>fn</span> <span class='ident'>test</span>(<span class='ident'>v</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+            <span class='kw'>let</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>BrotliEncoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='ident'>v</span>[..], <span class='number'>6</span>);
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>r</span> <span class='op'>=</span> <span class='ident'>BrotliDecoder</span>::<span class='ident'>new</span>(<span class='ident'>r</span>);
+            <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>v2</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
+            <span class='ident'>r</span>.<span class='ident'>read_to_end</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>v2</span>).<span class='ident'>unwrap</span>();
+            <span class='ident'>v</span> <span class='op'>==</span> <span class='ident'>v2</span>
+        }
     }
 }
 </pre>

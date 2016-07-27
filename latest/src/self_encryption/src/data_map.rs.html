@@ -217,7 +217,7 @@
 <span class='comment'>// licence you accepted on initial access to the Software (the &quot;Licences&quot;).</span>
 <span class='comment'>//</span>
 <span class='comment'>// By contributing code to the SAFE Network Software, or to this project generally, you agree to be</span>
-<span class='comment'>// bound by the terms of the MaidSafe Contributor Agreement, version 1.0.  This, along with the</span>
+<span class='comment'>// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the</span>
 <span class='comment'>// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.</span>
 <span class='comment'>//</span>
 <span class='comment'>// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed</span>
@@ -231,7 +231,7 @@
 
 <span class='doccomment'>/// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given</span>
 <span class='doccomment'>/// chunk.</span>
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcEncodable</span>, <span class='ident'>RustcDecodable</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>, <span class='ident'>Clone</span>)]</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcEncodable</span>, <span class='ident'>RustcDecodable</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>, <span class='ident'>Clone</span>, <span class='ident'>Default</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>ChunkDetails</span> {
     <span class='doccomment'>/// Index number (starts at 0)</span>
     <span class='kw'>pub</span> <span class='ident'>chunk_num</span>: <span class='ident'>u32</span>,
