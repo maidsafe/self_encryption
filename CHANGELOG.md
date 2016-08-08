@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.7.0]
+- Use new rust_sodium crate instead of sodiumoxide.
+
 ## [0.6.0]
 - Expose a new SequentialEncryptor which publishes its data immediately if possible.
 
