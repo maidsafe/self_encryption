@@ -96,7 +96,7 @@ impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
     pub fn new(storage: &'a mut S,
                data_map: Option<DataMap>)
                -> Result<Encryptor<'a, E, S>, SelfEncryptionError<E>> {
-        utils::initialise_sodiumoxide();
+        utils::initialise_rust_sodium();
         let state = match data_map {
             Some(DataMap::Content(content)) => {
                 StateMachine::Small(SmallEncryptor::new(storage, content))

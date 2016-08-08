@@ -17,10 +17,10 @@
 
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-use sodiumoxide::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
+use rust_sodium::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
 
-pub use sodiumoxide::crypto::secretbox::Key;
-pub use sodiumoxide::crypto::secretbox::Nonce as Iv;
+pub use rust_sodium::crypto::secretbox::Key;
+pub use rust_sodium::crypto::secretbox::Nonce as Iv;
 pub type DecryptionError = ();
 
 pub const KEY_SIZE: usize = KEYBYTES;

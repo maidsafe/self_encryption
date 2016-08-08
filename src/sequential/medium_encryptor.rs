@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 use data_map::{ChunkDetails, DataMap};
-use sodiumoxide::crypto::hash::sha256;
+use rust_sodium::crypto::hash::sha256;
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::small_encryptor::SmallEncryptor;
 

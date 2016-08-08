@@ -150,7 +150,7 @@ extern crate memmap;
 #[cfg(test)]
 extern crate rand;
 extern crate rustc_serialize;
-extern crate sodiumoxide;
+extern crate rust_sodium;
 #[macro_use]
 extern crate unwrap;
 

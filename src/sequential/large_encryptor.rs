@@ -20,7 +20,7 @@ use std::convert::From;
 use std::marker::PhantomData;
 
 use data_map::{ChunkDetails, DataMap};
-use sodiumoxide::crypto::hash::sha256;
+use rust_sodium::crypto::hash::sha256;
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;

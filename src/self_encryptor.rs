@@ -26,8 +26,8 @@ use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
-use sodiumoxide;
-use sodiumoxide::crypto::hash::sha256;
+use rust_sodium;
+use rust_sodium::crypto::hash::sha256;
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
 
@@ -81,7 +81,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     pub fn new(storage: &'a mut S,
                data_map: DataMap)
                -> Result<SelfEncryptor<'a, E, S>, SelfEncryptionError<E>> {
-        initialise_sodiumoxide();
+        initialise_rust_sodium();
         let file_size = data_map.len();
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             Sequencer::new_as_vector()
@@ -590,9 +590,9 @@ impl<'a, E: StorageError, S: Storage<E>> Debug for SelfEncryptor<'a, E, S> {
     }
 }
 
-fn initialise_sodiumoxide() {
+fn initialise_rust_sodium() {
     static INITIALISE_SODIUMOXIDE: Once = ONCE_INIT;
-    INITIALISE_SODIUMOXIDE.call_once(|| assert!(sodiumoxide::init()));
+    INITIALISE_SODIUMOXIDE.call_once(|| assert!(rust_sodium::init()));
 }
 
 #[cfg(test)]
