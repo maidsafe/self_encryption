@@ -99,7 +99,7 @@
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>utils</span>;
 
 <span class='kw'>use</span> <span class='ident'>encryption</span>::{<span class='ident'>IV_SIZE</span>, <span class='ident'>KEY_SIZE</span>};
-<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha256</span>;
+<span class='kw'>use</span> <span class='ident'>rust_sodium</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha256</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='kw'>super</span>::{<span class='ident'>COMPRESSION_QUALITY</span>, <span class='ident'>MAX_CHUNK_SIZE</span>, <span class='ident'>MAX_FILE_SIZE</span>, <span class='ident'>MIN_CHUNK_SIZE</span>,
                 <span class='ident'>SelfEncryptionError</span>, <span class='ident'>Storage</span>, <span class='ident'>StorageError</span>};
 
