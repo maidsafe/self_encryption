@@ -22,7 +22,7 @@ pub mod small_encryptor;
 pub mod utils;
 
 use encryption::{IV_SIZE, KEY_SIZE};
-use sodiumoxide::crypto::hash::sha256;
+use rust_sodium::crypto::hash::sha256;
 pub use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE, MIN_CHUNK_SIZE,
                 SelfEncryptionError, Storage, StorageError};
 
