@@ -97,10 +97,10 @@
 
 <span class='comment'>// TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015</span>
 
-<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::{<span class='self'>self</span>, <span class='ident'>KEYBYTES</span>, <span class='ident'>NONCEBYTES</span>};
+<span class='kw'>use</span> <span class='ident'>rust_sodium</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::{<span class='self'>self</span>, <span class='ident'>KEYBYTES</span>, <span class='ident'>NONCEBYTES</span>};
 
-<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::<span class='ident'>Key</span>;
-<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::<span class='ident'>Nonce</span> <span class='kw'>as</span> <span class='ident'>Iv</span>;
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>rust_sodium</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::<span class='ident'>Key</span>;
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>rust_sodium</span>::<span class='ident'>crypto</span>::<span class='ident'>secretbox</span>::<span class='ident'>Nonce</span> <span class='kw'>as</span> <span class='ident'>Iv</span>;
 <span class='kw'>pub</span> <span class='kw'>type</span> <span class='ident'>DecryptionError</span> <span class='op'>=</span> ();
 
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>KEY_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='ident'>KEYBYTES</span>;

@@ -1657,8 +1657,8 @@
 <span class='kw'>use</span> <span class='ident'>data_map</span>::{<span class='ident'>ChunkDetails</span>, <span class='ident'>DataMap</span>};
 <span class='kw'>use</span> <span class='ident'>encryption</span>::{<span class='self'>self</span>, <span class='ident'>IV_SIZE</span>, <span class='ident'>Iv</span>, <span class='ident'>KEY_SIZE</span>, <span class='ident'>Key</span>};
 <span class='kw'>use</span> <span class='ident'>sequencer</span>::{<span class='ident'>MAX_IN_MEMORY_SIZE</span>, <span class='ident'>Sequencer</span>};
-<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>;
-<span class='kw'>use</span> <span class='ident'>sodiumoxide</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha256</span>;
+<span class='kw'>use</span> <span class='ident'>rust_sodium</span>;
+<span class='kw'>use</span> <span class='ident'>rust_sodium</span>::<span class='ident'>crypto</span>::<span class='ident'>hash</span>::<span class='ident'>sha256</span>;
 <span class='kw'>use</span> <span class='kw'>super</span>::{<span class='ident'>COMPRESSION_QUALITY</span>, <span class='ident'>MAX_CHUNK_SIZE</span>, <span class='ident'>MIN_CHUNK_SIZE</span>, <span class='ident'>SelfEncryptionError</span>, <span class='ident'>Storage</span>,
             <span class='ident'>StorageError</span>};
 
@@ -1712,7 +1712,7 @@
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>storage</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;a</span> <span class='kw-2'>mut</span> <span class='ident'>S</span>,
                <span class='ident'>data_map</span>: <span class='ident'>DataMap</span>)
                <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>SelfEncryptor</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>E</span>, <span class='ident'>S</span><span class='op'>&gt;</span>, <span class='ident'>SelfEncryptionError</span><span class='op'>&lt;</span><span class='ident'>E</span><span class='op'>&gt;&gt;</span> {
-        <span class='ident'>initialise_sodiumoxide</span>();
+        <span class='ident'>initialise_rust_sodium</span>();
         <span class='kw'>let</span> <span class='ident'>file_size</span> <span class='op'>=</span> <span class='ident'>data_map</span>.<span class='ident'>len</span>();
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>sequencer</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='ident'>file_size</span> <span class='op'>&lt;=</span> <span class='ident'>MAX_IN_MEMORY_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span> {
             <span class='ident'>Sequencer</span>::<span class='ident'>new_as_vector</span>()
@@ -2221,9 +2221,9 @@
     }
 }
 
-<span class='kw'>fn</span> <span class='ident'>initialise_sodiumoxide</span>() {
+<span class='kw'>fn</span> <span class='ident'>initialise_rust_sodium</span>() {
     <span class='kw'>static</span> <span class='ident'>INITIALISE_SODIUMOXIDE</span>: <span class='ident'>Once</span> <span class='op'>=</span> <span class='ident'>ONCE_INIT</span>;
-    <span class='ident'>INITIALISE_SODIUMOXIDE</span>.<span class='ident'>call_once</span>(<span class='op'>||</span> <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>sodiumoxide</span>::<span class='ident'>init</span>()));
+    <span class='ident'>INITIALISE_SODIUMOXIDE</span>.<span class='ident'>call_once</span>(<span class='op'>||</span> <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>rust_sodium</span>::<span class='ident'>init</span>()));
 }
 
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
