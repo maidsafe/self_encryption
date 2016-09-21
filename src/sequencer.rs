@@ -15,12 +15,12 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+
+use memmap::{Mmap, Protection};
 use std::io::Error as IoError;
 use std::io::ErrorKind as IoErrorKind;
 use std::io::Write;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-
-use memmap::{Mmap, Protection};
 use super::MAX_FILE_SIZE;
 
 pub const MAX_IN_MEMORY_SIZE: usize = 50 * 1024 * 1024;

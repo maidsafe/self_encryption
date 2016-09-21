@@ -58,7 +58,7 @@ impl SimpleStorage {
     }
 
     pub fn has_chunk(&self, name: &[u8]) -> bool {
-        self.entries.iter().any(|ref entry| entry.name == name)
+        self.entries.iter().any(|entry| entry.name == name)
     }
 
     pub fn num_entries(&self) -> usize {
@@ -68,7 +68,7 @@ impl SimpleStorage {
 
 impl Storage<SimpleStorageError> for SimpleStorage {
     fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
-        match self.entries.iter().find(|ref entry| entry.name == name) {
+        match self.entries.iter().find(|entry| entry.name == name) {
             Some(entry) => Ok(entry.data.clone()),
             None => Err(SimpleStorageError {}),
         }

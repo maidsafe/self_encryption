@@ -15,19 +15,19 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+
+use brotli2::write::{BrotliDecoder, BrotliEncoder};
+use data_map::{ChunkDetails, DataMap};
+use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
+use rust_sodium;
+use rust_sodium::crypto::hash::sha256;
+use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
 use std::io::Write;
 use std::iter;
 use std::marker::PhantomData;
 use std::sync::{ONCE_INIT, Once};
-
-use brotli2::write::{BrotliDecoder, BrotliEncoder};
-use data_map::{ChunkDetails, DataMap};
-use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
-use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
-use rust_sodium;
-use rust_sodium::crypto::hash::sha256;
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
 
@@ -261,7 +261,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
             self.sequencer.truncate(new_size as usize);
         } else {
-            self.extend_sequencer_up_to(new_size);
+            try!(self.extend_sequencer_up_to(new_size));
         }
         self.file_size = new_size;
         Ok(())
@@ -285,7 +285,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
         if chunks_start == chunks_end {
-            self.extend_sequencer_up_to(position + length);
+            try!(self.extend_sequencer_up_to(position + length));
             return Ok(());
         }
 
@@ -301,7 +301,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                            get_start_end_positions(self.map_size, next_two[1] as u32).1);
             cmp::max(position + length, end)
         };
-        self.extend_sequencer_up_to(required_len);
+        try!(self.extend_sequencer_up_to(required_len));
 
         // Middle chunks don't need decrypting since they'll get overwritten.
         // TODO If first/last chunk gets completely overwritten, no need to decrypt.
@@ -335,7 +335,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
 
         if chunks_start == chunks_end {
-            self.extend_sequencer_up_to(position + length);
+            try!(self.extend_sequencer_up_to(position + length));
             return Ok(());
         }
 
@@ -343,7 +343,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             let end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
             cmp::max(position + length, end)
         };
-        self.extend_sequencer_up_to(required_len);
+        try!(self.extend_sequencer_up_to(required_len));
 
         for i in chunks_start..chunks_end {
             if self.chunks[i].in_sequencer {
@@ -361,18 +361,16 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         Ok(())
     }
 
-    fn extend_sequencer_up_to(&mut self, new_len: u64) {
+    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<E>> {
         if new_len > self.sequencer.len() as u64 {
             if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                match self.sequencer.create_mapping() {
-                    Ok(()) => (),
-                    Err(_) => return,   // FIXME return error or something
-                }
+                try!(self.sequencer.create_mapping());
             } else {
                 let old_len = self.sequencer.len() as u64;
                 self.sequencer.extend(iter::repeat(0).take((new_len - old_len) as usize));
             }
         }
+        Ok(())
     }
 
     fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
