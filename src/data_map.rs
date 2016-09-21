@@ -83,7 +83,7 @@ impl Debug for ChunkDetails {
 #[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
-    /// holds the list of the files chunks and corresponding hashes.
+    /// holds the list of the file's chunks and corresponding hashes.
     Chunks(Vec<ChunkDetails>),
     /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
     /// are put in here in their entirety.
