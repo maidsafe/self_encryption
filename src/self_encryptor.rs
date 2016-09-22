@@ -15,19 +15,19 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+
+use brotli2::write::{BrotliDecoder, BrotliEncoder};
+use data_map::{ChunkDetails, DataMap};
+use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
+use rust_sodium;
+use rust_sodium::crypto::hash::sha256;
+use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
 use std::io::Write;
 use std::iter;
 use std::marker::PhantomData;
 use std::sync::{ONCE_INIT, Once};
-
-use brotli2::write::{BrotliDecoder, BrotliEncoder};
-use data_map::{ChunkDetails, DataMap};
-use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
-use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
-use rust_sodium;
-use rust_sodium::crypto::hash::sha256;
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
 
@@ -93,19 +93,20 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let chunks;
         let map_size;
         match data_map {
-            DataMap::Content(ref content) => {
-                sequencer.init(content);
+            DataMap::Content(content) => {
+                sequencer.init(&content);
                 sorted_map = vec![];
                 chunks = vec![];
                 map_size = 0;
             }
-            DataMap::Chunks(_) => {
-                sorted_map = data_map.get_sorted_chunks();
+            DataMap::Chunks(mut sorted_chunks) => {
+                DataMap::chunks_sort(&mut sorted_chunks);
                 let c = Chunk {
                     status: ChunkStatus::AlreadyEncrypted,
                     in_sequencer: false,
                 };
-                chunks = vec![c; sorted_map.len()];
+                chunks = vec![c; sorted_chunks.len()];
+                sorted_map = sorted_chunks;
                 map_size = file_size;
             }
             DataMap::None => {
@@ -132,8 +133,8 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<E>> {
         try!(self.prepare_window_for_writing(position, data.len() as u64));
-        for (i, &byte) in data.iter().enumerate() {
-            self.sequencer[position as usize + i] = byte;
+        for (p, byte) in self.sequencer.iter_mut().skip(position as usize).zip(data) {
+            *p = *byte;
         }
         Ok(())
     }
@@ -144,11 +145,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// '0u8's.
     pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<E>> {
         try!(self.prepare_window_for_reading(position, length));
-        let mut result = Vec::with_capacity(length as usize);
-        for &byte in self.sequencer.iter().skip(position as usize).take(length as usize) {
-            result.push(byte);
-        }
-        Ok(result)
+        Ok(self.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect())
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
@@ -160,8 +157,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             return Ok(DataMap::None);
         }
         if self.file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            let mut content = self.sequencer.to_vec();
-            content.truncate(self.file_size as usize);
+            let content = (*self.sequencer)[..self.file_size as usize].to_vec();
             return Ok(DataMap::Content(content));
         }
 
@@ -195,15 +191,9 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 new_map[i].source_size = self.sorted_map[i].source_size;
             } else {
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
-                let pos = get_start_end_positions(self.file_size, i as u32).0;
+                let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-
-                let mut tmp = vec![0u8; this_size];
-                for (index, tmp_byte) in tmp.iter_mut().enumerate() {
-                    *tmp_byte = self.sequencer[index + pos as usize];
-                }
-
-                let sha256::Digest(name) = sha256::hash(&tmp[..]);
+                let sha256::Digest(name) = sha256::hash(&(*self.sequencer)[pos..pos + this_size]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -216,16 +206,12 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 new_map[i].hash = self.sorted_map[i].hash.clone();
             } else {
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
-                let pos = get_start_end_positions(self.file_size, i as u32).0;
+                let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
 
                 assert!(this_size > 0);
-                let mut tmp = vec![0u8; this_size];
-                for (index, tmp_char) in tmp.iter_mut().enumerate() {
-                    *tmp_char = self.sequencer[index + pos as usize];
-                }
 
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
-                let content = try!(encrypt_chunk(tmp, pki));
+                let content = try!(encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki));
                 let sha256::Digest(name) = sha256::hash(&content);
                 try!(self.storage.put(name.to_vec(), content));
                 new_map[i].hash = name.to_vec();
@@ -261,7 +247,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
             self.sequencer.truncate(new_size as usize);
         } else {
-            self.extend_sequencer_up_to(new_size);
+            try!(self.extend_sequencer_up_to(new_size));
         }
         self.file_size = new_size;
         Ok(())
@@ -285,7 +271,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
         if chunks_start == chunks_end {
-            self.extend_sequencer_up_to(position + length);
+            try!(self.extend_sequencer_up_to(position + length));
             return Ok(());
         }
 
@@ -301,7 +287,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                            get_start_end_positions(self.map_size, next_two[1] as u32).1);
             cmp::max(position + length, end)
         };
-        self.extend_sequencer_up_to(required_len);
+        try!(self.extend_sequencer_up_to(required_len));
 
         // Middle chunks don't need decrypting since they'll get overwritten.
         // TODO If first/last chunk gets completely overwritten, no need to decrypt.
@@ -310,12 +296,10 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 continue;
             }
             self.chunks[i].in_sequencer = true;
-            let pos = get_start_end_positions(self.map_size, i as u32).0;
+            let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
             let vec = try!(self.decrypt_chunk(i as u32));
-            let mut pos_aux = pos;
-            for &byte in &vec {
-                self.sequencer[pos_aux as usize] = byte;
-                pos_aux += 1;
+            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
+                *p = byte;
             }
         }
         for chunk in &mut self.chunks[chunks_start..chunks_end] {
@@ -335,7 +319,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
 
         if chunks_start == chunks_end {
-            self.extend_sequencer_up_to(position + length);
+            try!(self.extend_sequencer_up_to(position + length));
             return Ok(());
         }
 
@@ -343,36 +327,32 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             let end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
             cmp::max(position + length, end)
         };
-        self.extend_sequencer_up_to(required_len);
+        try!(self.extend_sequencer_up_to(required_len));
 
         for i in chunks_start..chunks_end {
             if self.chunks[i].in_sequencer {
                 continue;
             }
             self.chunks[i].in_sequencer = true;
-            let pos = get_start_end_positions(self.map_size, i as u32).0;
+            let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
             let vec = try!(self.decrypt_chunk(i as u32));
-            let mut pos_aux = pos;
-            for &byte in &vec {
-                self.sequencer[pos_aux as usize] = byte;
-                pos_aux += 1;
+            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
+                *p = byte
             }
         }
         Ok(())
     }
 
-    fn extend_sequencer_up_to(&mut self, new_len: u64) {
-        if new_len > self.sequencer.len() as u64 {
+    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<E>> {
+        let old_len = self.sequencer.len() as u64;
+        if new_len > old_len {
             if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                match self.sequencer.create_mapping() {
-                    Ok(()) => (),
-                    Err(_) => return,   // FIXME return error or something
-                }
+                try!(self.sequencer.create_mapping());
             } else {
-                let old_len = self.sequencer.len() as u64;
                 self.sequencer.extend(iter::repeat(0).take((new_len - old_len) as usize));
             }
         }
+        Ok(())
     }
 
     fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
@@ -389,12 +369,12 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     }
 }
 
-fn encrypt_chunk<E: StorageError>(content: Vec<u8>,
+fn encrypt_chunk<E: StorageError>(content: &[u8],
                                   pki: (Pad, Key, Iv))
                                   -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pki;
     let mut compressor = BrotliEncoder::new(vec![], COMPRESSION_QUALITY);
-    if compressor.write_all(&content).is_err() {
+    if compressor.write_all(content).is_err() {
         return Err(SelfEncryptionError::Compression);
     }
     let compressed = match compressor.finish() {
@@ -411,25 +391,22 @@ fn get_pad_key_and_iv(chunk_number: u32,
                       -> (Pad, Key, Iv) {
     let n_1 = get_previous_chunk_number(map_size, chunk_number);
     let n_2 = get_previous_chunk_number(map_size, n_1);
-    let vec = &sorted_map[chunk_number as usize].pre_hash;
-    let n_1_vec = &sorted_map[n_1 as usize].pre_hash;
-    let n_2_vec = &sorted_map[n_2 as usize].pre_hash;
+    let this_pre_hash = &sorted_map[chunk_number as usize].pre_hash;
+    let n_1_pre_hash = &sorted_map[n_1 as usize].pre_hash;
+    let n_2_pre_hash = &sorted_map[n_2 as usize].pre_hash;
 
     let mut pad = [0u8; PAD_SIZE];
-    for (i, &element) in vec.iter()
-        .chain(&n_2_vec[0..(KEY_SIZE - IV_SIZE)])
-        .enumerate() {
-        pad[i] = element;
-    }
-
     let mut key = [0u8; KEY_SIZE];
-    for (i, &element) in n_1_vec[0..KEY_SIZE].iter().enumerate() {
-        key[i] = element;
+    let mut iv = [0u8; IV_SIZE];
+
+    for (pad_iv_el, element) in pad.iter_mut()
+        .chain(iv.iter_mut())
+        .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        *pad_iv_el = *element;
     }
 
-    let mut iv = [0u8; IV_SIZE];
-    for (i, &element) in n_2_vec[(KEY_SIZE - IV_SIZE)..].iter().enumerate() {
-        iv[i] = element;
+    for (key_el, element) in key.iter_mut().zip(n_1_pre_hash.iter()) {
+        *key_el = *element;
     }
 
     (Pad(pad), Key(key), Iv(iv))

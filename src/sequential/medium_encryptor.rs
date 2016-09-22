@@ -15,12 +15,12 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use std::convert::From;
-use std::marker::PhantomData;
-use std::mem;
 
 use data_map::{ChunkDetails, DataMap};
 use rust_sodium::crypto::hash::sha256;
+use std::convert::From;
+use std::marker::PhantomData;
+use std::mem;
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::small_encryptor::SmallEncryptor;
 
@@ -133,13 +133,13 @@ impl<'a, E: StorageError, S: Storage<E>> From<SmallEncryptor<'a, E, S>>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     use data_map::DataMap;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
+    use super::*;
     use super::super::{MAX_CHUNK_SIZE, utils};
     use super::super::small_encryptor::{self, SmallEncryptor};
     use test_helpers::SimpleStorage;

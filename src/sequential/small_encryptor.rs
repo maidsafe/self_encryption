@@ -15,10 +15,10 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use std::marker::PhantomData;
-use std::mem;
 
 use data_map::DataMap;
+use std::marker::PhantomData;
+use std::mem;
 use super::{MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError};
 
 pub const MAX: u64 = (3 * MIN_CHUNK_SIZE as u64) - 1;
@@ -71,13 +71,13 @@ impl<'a, E: StorageError, S: Storage<E>> SmallEncryptor<'a, E, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     use data_map::DataMap;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
+    use super::*;
     use super::super::utils;
     use test_helpers::SimpleStorage;
 

@@ -15,10 +15,6 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-#[cfg(test)]
-use std::cmp;
-use std::io::Write;
-use std::sync::{ONCE_INIT, Once};
 
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::ChunkDetails;
@@ -26,6 +22,10 @@ use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
 #[cfg(test)]
 use rand::Rng;
 use rust_sodium;
+#[cfg(test)]
+use std::cmp;
+use std::io::Write;
+use std::sync::{ONCE_INIT, Once};
 use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
@@ -39,20 +39,17 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let n_2_pre_hash = &chunks[n_2].pre_hash;
 
     let mut pad = [0u8; PAD_SIZE];
-    for (i, &element) in this_pre_hash.iter()
-        .chain(&n_2_pre_hash[0..(KEY_SIZE - IV_SIZE)])
-        .enumerate() {
-        pad[i] = element;
-    }
-
     let mut key = [0u8; KEY_SIZE];
-    for (i, &element) in n_1_pre_hash[0..KEY_SIZE].iter().enumerate() {
-        key[i] = element;
+    let mut iv = [0u8; IV_SIZE];
+
+    for (pad_iv_el, element) in pad.iter_mut()
+        .chain(iv.iter_mut())
+        .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        *pad_iv_el = *element;
     }
 
-    let mut iv = [0u8; IV_SIZE];
-    for (i, &element) in n_2_pre_hash[(KEY_SIZE - IV_SIZE)..].iter().enumerate() {
-        iv[i] = element;
+    for (key_el, element) in key.iter_mut().zip(n_1_pre_hash.iter()) {
+        *key_el = *element;
     }
 
     (Pad(pad), Key(key), Iv(iv))

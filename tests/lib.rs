@@ -19,7 +19,7 @@
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(bad_style, exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
           unknown_crate_types, warnings)]
-#![deny(deprecated, drop_with_repr_extern, improper_ctypes, missing_docs,
+#![deny(deprecated, improper_ctypes, missing_docs,
         non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
         private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
@@ -34,6 +34,7 @@
 #![cfg_attr(feature="clippy", deny(clippy))]
 
 #[macro_use]
+#[cfg_attr(feature="clippy", allow(useless_attribute))]
 #[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
 extern crate maidsafe_utilities;
 extern crate rand;
@@ -279,6 +280,6 @@ fn cross_platform_check() {
     let chunks = data_map.get_chunks();
 
     for i in 0..chunks.len() {
-        assert!(&EXPECTED_HASHES[i][..] == &chunks[i].hash[..]);
+        assert_eq!(&EXPECTED_HASHES[i][..], &chunks[i].hash[..]);
     }
 }

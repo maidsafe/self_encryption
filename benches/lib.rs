@@ -19,7 +19,7 @@
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(bad_style, exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
           unknown_crate_types, warnings)]
-#![deny(deprecated, drop_with_repr_extern, improper_ctypes, missing_docs,
+#![deny(deprecated, improper_ctypes, missing_docs,
         non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
         private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
@@ -36,9 +36,9 @@ extern crate self_encryption;
 extern crate test;
 
 use rand::Rng;
-use test::Bencher;
 use self_encryption::{DataMap, SelfEncryptor};
 use self_encryption::test_helpers::SimpleStorage;
+use test::Bencher;
 
 fn random_bytes(size: usize) -> Vec<u8> {
     rand::thread_rng().gen_iter().take(size).collect()

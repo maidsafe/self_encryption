@@ -21,7 +21,7 @@
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(bad_style, exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
           unknown_crate_types, warnings)]
-#![deny(deprecated, drop_with_repr_extern, improper_ctypes, missing_docs,
+#![deny(deprecated, improper_ctypes, missing_docs,
         non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
         private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
@@ -41,18 +41,18 @@ extern crate maidsafe_utilities;
 extern crate rustc_serialize;
 extern crate self_encryption;
 
-use std::env;
-use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter};
-use std::fs::{self, File};
-use std::io::Error as IoError;
-use std::io::{Read, Write};
-use std::path::PathBuf;
-use std::string::String;
 
 use docopt::Docopt;
 use maidsafe_utilities::serialisation;
 use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
+use std::env;
+use std::error::Error as StdError;
+use std::fmt::{self, Display, Formatter};
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::io::Error as IoError;
+use std::path::PathBuf;
+use std::string::String;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static USAGE: &'static str = "
