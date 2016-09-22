@@ -88,14 +88,6 @@ impl Sequencer {
         };
         Ok(())
     }
-
-    /// If we are a vector return the vector otherwise return empty vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self.data {
-            Data::Vector(ref vector) => vector.clone(),
-            Data::Mmap(_) => Vec::new(),
-        }
-    }
 }
 
 #[allow(unsafe_code)]

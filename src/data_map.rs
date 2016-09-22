@@ -132,14 +132,14 @@ impl DataMap {
         }
     }
 
+    /// Sorts list of chunks using quicksort
+    pub fn chunks_sort(chunks: &mut [ChunkDetails]) {
+        chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
+    }
+
     /// Iterates through the chunks to figure out the total size, i.e. the file size
     fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
         chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
-    }
-
-    /// Sorts list of chunks using quicksort
-    fn chunks_sort(chunks: &mut [ChunkDetails]) {
-        chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
     }
 }
 

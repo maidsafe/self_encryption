@@ -280,6 +280,6 @@ fn cross_platform_check() {
     let chunks = data_map.get_chunks();
 
     for i in 0..chunks.len() {
-        assert!(&EXPECTED_HASHES[i][..] == &chunks[i].hash[..]);
+        assert_eq!(&EXPECTED_HASHES[i][..], &chunks[i].hash[..]);
     }
 }
