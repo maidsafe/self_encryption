@@ -211,10 +211,10 @@
 <span class='comment'>// Please review the Licences for the specific language governing permissions and limitations</span>
 <span class='comment'>// relating to use of the SAFE Network Software.</span>
 
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>PhantomData</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>mem</span>;
 
 <span class='kw'>use</span> <span class='ident'>data_map</span>::<span class='ident'>DataMap</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>PhantomData</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>mem</span>;
 <span class='kw'>use</span> <span class='kw'>super</span>::{<span class='ident'>MIN_CHUNK_SIZE</span>, <span class='ident'>SelfEncryptionError</span>, <span class='ident'>Storage</span>, <span class='ident'>StorageError</span>};
 
 <span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>MAX</span>: <span class='ident'>u64</span> <span class='op'>=</span> (<span class='number'>3</span> <span class='op'>*</span> <span class='ident'>MIN_CHUNK_SIZE</span> <span class='kw'>as</span> <span class='ident'>u64</span>) <span class='op'>-</span> <span class='number'>1</span>;
@@ -267,13 +267,13 @@
 
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
 <span class='kw'>mod</span> <span class='ident'>tests</span> {
-    <span class='kw'>use</span> <span class='kw'>super</span>::<span class='op'>*</span>;
 
     <span class='kw'>use</span> <span class='ident'>data_map</span>::<span class='ident'>DataMap</span>;
     <span class='kw'>use</span> <span class='ident'>itertools</span>::<span class='ident'>Itertools</span>;
     <span class='kw'>use</span> <span class='ident'>maidsafe_utilities</span>::<span class='ident'>SeededRng</span>;
     <span class='kw'>use</span> <span class='ident'>rand</span>::<span class='ident'>Rng</span>;
     <span class='kw'>use</span> <span class='ident'>self_encryptor</span>::<span class='ident'>SelfEncryptor</span>;
+    <span class='kw'>use</span> <span class='kw'>super</span>::<span class='op'>*</span>;
     <span class='kw'>use</span> <span class='kw'>super</span>::<span class='kw'>super</span>::<span class='ident'>utils</span>;
     <span class='kw'>use</span> <span class='ident'>test_helpers</span>::<span class='ident'>SimpleStorage</span>;
 

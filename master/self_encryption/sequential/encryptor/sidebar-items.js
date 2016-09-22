@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Encryptor","An encryptor which only permits sequential writes, i.e. there is no ability to specify an offset in the `write()` call; all data is appended sequentially."]]});
