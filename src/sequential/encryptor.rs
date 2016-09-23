@@ -18,20 +18,20 @@
 
 use data_map::DataMap;
 use std::mem;
-use super::{SelfEncryptionError, Storage, StorageError, utils};
+use super::{SelfEncryptionError, Storage, utils};
 use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
 
-enum StateMachine<'a, E: StorageError, S: 'a + Storage<E>> {
-    Small(SmallEncryptor<'a, E, S>),
-    Medium(MediumEncryptor<'a, E, S>),
-    Large(LargeEncryptor<'a, E, S>),
+enum StateMachine<'a, S: 'a + Storage> {
+    Small(SmallEncryptor<'a, S>),
+    Medium(MediumEncryptor<'a, S>),
+    Large(LargeEncryptor<'a, S>),
     None,
 }
 
-impl<'a, E: StorageError, S: Storage<E>> StateMachine<'a, E, S> {
-    fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<E>> {
+impl<'a, S: Storage> StateMachine<'a, S> {
+    fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
         match *self {
             StateMachine::Small(ref mut encryptor) => encryptor.write(data),
             StateMachine::Medium(ref mut encryptor) => encryptor.write(data),
@@ -40,7 +40,7 @@ impl<'a, E: StorageError, S: Storage<E>> StateMachine<'a, E, S> {
         }
     }
 
-    fn close(&mut self) -> Result<DataMap, SelfEncryptionError<E>> {
+    fn close(&mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
         match *self {
             StateMachine::Small(ref mut encryptor) => encryptor.close(),
             StateMachine::Medium(ref mut encryptor) => encryptor.close(),
@@ -86,16 +86,16 @@ impl<'a, E: StorageError, S: Storage<E>> StateMachine<'a, E, S> {
 ///
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
-pub struct Encryptor<'a, E: StorageError, S: 'a + Storage<E>> {
-    state: StateMachine<'a, E, S>,
+pub struct Encryptor<'a, S: 'a + Storage> {
+    state: StateMachine<'a, S>,
 }
 
-impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
+impl<'a, S: Storage> Encryptor<'a, S> {
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
     pub fn new(storage: &'a mut S,
                data_map: Option<DataMap>)
-               -> Result<Encryptor<'a, E, S>, SelfEncryptionError<E>> {
+               -> Result<Encryptor<'a, S>, SelfEncryptionError<S::Error>> {
         utils::initialise_rust_sodium();
         let state = match data_map {
             Some(DataMap::Content(content)) => {
@@ -118,7 +118,7 @@ impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
     /// Buffers some or all of `data` and stores any completed chunks (i.e. those which cannot be
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
-    pub fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<E>> {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
         match self.state {
             StateMachine::Small(_) => {
                 let new_len = self.state.len() + data.len() as u64;
@@ -143,7 +143,7 @@ impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
     /// buffers are flushed, resulting in up to four chunks being stored.
     // TODO - change this to take `mut self` rather than `&mut self` and update docs to state
     //        "cannot be used" rather than "should not be used".
-    pub fn close(&mut self) -> Result<DataMap, SelfEncryptionError<E>> {
+    pub fn close(&mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
         self.state.close()
     }
 

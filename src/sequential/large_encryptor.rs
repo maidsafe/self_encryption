@@ -20,8 +20,7 @@ use data_map::{ChunkDetails, DataMap};
 use rust_sodium::crypto::hash::sha256;
 use std::{cmp, mem};
 use std::convert::From;
-use std::marker::PhantomData;
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
+use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 
@@ -32,23 +31,22 @@ const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
 // trigger the creation and storing of any completed chunks up to that point except for the first
 // two and last two chunks.  These will always be dealt with in `close()` since they may always be
 // affected subsequent `write()` calls.
-pub struct LargeEncryptor<'a, E: StorageError, S: 'a + Storage<E>> {
+pub struct LargeEncryptor<'a, S: 'a + Storage> {
     storage: &'a mut S,
     chunks: Vec<ChunkDetails>,
     original_chunks: Option<Vec<ChunkDetails>>,
     chunk_0_data: Vec<u8>,
     chunk_1_data: Vec<u8>,
     buffer: Vec<u8>,
-    phantom: PhantomData<E>,
 }
 
-impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
+impl<'a, S: Storage> LargeEncryptor<'a, S> {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
     // its internal buffers.
     pub fn new(storage: &'a mut S,
                chunks: Vec<ChunkDetails>)
-               -> Result<LargeEncryptor<'a, E, S>, SelfEncryptionError<E>> {
+               -> Result<LargeEncryptor<'a, S>, SelfEncryptionError<S::Error>> {
         debug_assert!(chunks.len() > 3);
         debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
         let chunk_0_data;
@@ -91,7 +89,6 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
             chunk_0_data: chunk_0_data,
             chunk_1_data: chunk_1_data,
             buffer: buffer,
-            phantom: PhantomData,
         })
     }
 
@@ -99,7 +96,7 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
     // remainder.  Chunks which cannot be stored yet include the first two chunks and the final
     // chunk.  If the final chunk is smaller than `MIN_CHUNK_SIZE` then the penultimate chunk
     // cannot be stored either.
-    pub fn write(&mut self, mut data: &[u8]) -> Result<(), SelfEncryptionError<E>> {
+    pub fn write(&mut self, mut data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
         self.original_chunks = None;
 
         // Try filling `chunk_0_data` and `chunk_1_data` buffers first.
@@ -127,7 +124,7 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
     // possibly the penultimate chunk if the last chunk would otherwise be too small.  The only
     // exception is where the encryptor didn't receive any `write()` calls, in which case no chunks
     // are stored.
-    pub fn close(&mut self) -> Result<DataMap, SelfEncryptionError<E>> {
+    pub fn close(&mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
         if let Some(ref mut chunks) = self.original_chunks {
             let mut swapped_chunks = vec![];
             mem::swap(&mut swapped_chunks, chunks);
@@ -194,7 +191,7 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
         data
     }
 
-    fn encrypt_chunk(&mut self, data: &[u8], index: usize) -> Result<(), SelfEncryptionError<E>> {
+    fn encrypt_chunk(&mut self, data: &[u8], index: usize) -> Result<(), SelfEncryptionError<S::Error>> {
         if index > 1 {
             self.chunks.push(ChunkDetails {
                 chunk_num: index as u32,
@@ -214,9 +211,9 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
 }
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
-impl<'a, E: StorageError, S: Storage<E>> From<SmallEncryptor<'a, E, S>>
-        for LargeEncryptor<'a, E, S> {
-    fn from(small_encryptor: SmallEncryptor<'a, E, S>) -> LargeEncryptor<'a, E, S> {
+impl<'a, S: Storage> From<SmallEncryptor<'a, S>>
+        for LargeEncryptor<'a, S> {
+    fn from(small_encryptor: SmallEncryptor<'a, S>) -> LargeEncryptor<'a, S> {
         LargeEncryptor {
             storage: small_encryptor.storage,
             chunks: vec![],
@@ -224,15 +221,14 @@ impl<'a, E: StorageError, S: Storage<E>> From<SmallEncryptor<'a, E, S>>
             chunk_0_data: small_encryptor.buffer,
             chunk_1_data: vec![],
             buffer: vec![],
-            phantom: PhantomData,
         }
     }
 }
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
-impl<'a, E: StorageError, S: Storage<E>> From<MediumEncryptor<'a, E, S>>
-        for LargeEncryptor<'a, E, S> {
-    fn from(medium_encryptor: MediumEncryptor<'a, E, S>) -> LargeEncryptor<'a, E, S> {
+impl<'a, S: Storage> From<MediumEncryptor<'a, S>>
+        for LargeEncryptor<'a, S> {
+    fn from(medium_encryptor: MediumEncryptor<'a, S>) -> LargeEncryptor<'a, S> {
         let mut encryptor = LargeEncryptor {
             storage: medium_encryptor.storage,
             chunks: vec![],
@@ -240,7 +236,6 @@ impl<'a, E: StorageError, S: Storage<E>> From<MediumEncryptor<'a, E, S>>
             chunk_0_data: vec![],
             chunk_1_data: vec![],
             buffer: vec![],
-            phantom: PhantomData,
         };
         let _ = encryptor.write(&medium_encryptor.buffer);
         encryptor

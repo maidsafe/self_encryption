@@ -26,7 +26,6 @@ use std::cmp;
 use std::fmt::{self, Debug, Formatter};
 use std::io::Write;
 use std::iter;
-use std::marker::PhantomData;
 use std::sync::{ONCE_INIT, Once};
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
@@ -64,23 +63,22 @@ impl Chunk {
 
 /// This is the encryption object and all file handling should be done using this object as the low
 /// level mechanism to read and write *content*.  This library has no knowledge of file metadata.
-pub struct SelfEncryptor<'a, E: StorageError, S: 'a + Storage<E>> {
+pub struct SelfEncryptor<'a, S: 'a + Storage> {
     storage: &'a mut S,
     sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
     chunks: Vec<Chunk>, // this is sorted as well
     map_size: u64, // original file size of the data_map
     sequencer: Sequencer,
     file_size: u64,
-    phantom: PhantomData<E>, // to allow `E` to be used
 }
 
-impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
+impl<'a, S: Storage> SelfEncryptor<'a, S> {
     /// This is the only constructor for an encryptor object.  Each `SelfEncryptor` is used for a
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
     /// not previously been self-encrypted, use `DataMap::None`.
     pub fn new(storage: &'a mut S,
                data_map: DataMap)
-               -> Result<SelfEncryptor<'a, E, S>, SelfEncryptionError<E>> {
+               -> Result<SelfEncryptor<'a, S>, SelfEncryptionError<S::Error>> {
         initialise_rust_sodium();
         let file_size = data_map.len();
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
@@ -123,7 +121,6 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             sequencer: sequencer,
             file_size: file_size,
             map_size: map_size,
-            phantom: PhantomData,
         })
     }
 
@@ -131,7 +128,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// for easy connection to FUSE-like programs as well as fine grained access to system level
     /// libraries for developers.  The input `data` will be written from the specified `position`
     /// (starts from 0).
-    pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<E>> {
+    pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<S::Error>> {
         try!(self.prepare_window_for_writing(position, data.len() as u64));
         for (p, byte) in self.sequencer.iter_mut().skip(position as usize).zip(data) {
             *p = *byte;
@@ -143,7 +140,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// to read beyond the file size will cause the encryptor to return content filled with `0u8`s
     /// in the gap (file size isn't affected).  Any other unwritten gaps will also be filled with
     /// '0u8's.
-    pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<E>> {
+    pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<S::Error>> {
         try!(self.prepare_window_for_reading(position, length));
         Ok(self.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect())
     }
@@ -152,7 +149,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
     #[cfg_attr(feature="clippy", allow(needless_range_loop))]
-    pub fn close(mut self) -> Result<DataMap, SelfEncryptionError<E>> {
+    pub fn close(mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
         if self.file_size == 0 {
             return Ok(DataMap::None);
         }
@@ -221,7 +218,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     }
 
     /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
-    pub fn truncate(&mut self, new_size: u64) -> Result<(), SelfEncryptionError<E>> {
+    pub fn truncate(&mut self, new_size: u64) -> Result<(), SelfEncryptionError<S::Error>> {
         if self.file_size == new_size {
             return Ok(());
         }
@@ -266,7 +263,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     fn prepare_window_for_writing(&mut self,
                                   position: u64,
                                   length: u64)
-                                  -> Result<(), SelfEncryptionError<E>> {
+                                  -> Result<(), SelfEncryptionError<S::Error>> {
         self.file_size = cmp::max(self.file_size, position + length);
 
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
@@ -315,7 +312,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     fn prepare_window_for_reading(&mut self,
                                   position: u64,
                                   length: u64)
-                                  -> Result<(), SelfEncryptionError<E>> {
+                                  -> Result<(), SelfEncryptionError<S::Error>> {
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
 
         if chunks_start == chunks_end {
@@ -343,7 +340,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         Ok(())
     }
 
-    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<E>> {
+    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<S::Error>> {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
             if new_len > MAX_IN_MEMORY_SIZE as u64 {
@@ -355,7 +352,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         Ok(())
     }
 
-    fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
+    fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<S::Error>> {
         let name = &self.sorted_map[chunk_number as usize].hash;
         let content = try!(self.storage.get(name));
         let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
@@ -553,7 +550,7 @@ fn get_chunk_number(file_size: u64, position: u64) -> u32 {
     get_num_chunks(file_size) - 1
 }
 
-impl<'a, E: StorageError, S: Storage<E>> Debug for SelfEncryptor<'a, E, S> {
+impl<'a, S: Storage> Debug for SelfEncryptor<'a, S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
         for (i, chunk) in self.chunks.iter().enumerate() {
@@ -579,7 +576,7 @@ mod tests {
     use rand::distributions::{Range, Sample};
     use super::{SelfEncryptor, get_chunk_number, get_chunk_size, get_num_chunks,
                 get_previous_chunk_number, get_start_end_positions};
-    use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage, StorageError};
+    use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage};
     use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
@@ -752,8 +749,8 @@ mod tests {
                    ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
     }
 
-    fn check_file_size<E: StorageError, S: Storage<E>>(se: &SelfEncryptor<E, S>,
-                                                       expected_file_size: u64) {
+    fn check_file_size<S: Storage>(se: &SelfEncryptor<S>,
+                                   expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
         if !se.sorted_map.is_empty() {
             let chunks_cumulated_size = se.sorted_map

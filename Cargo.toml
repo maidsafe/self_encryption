@@ -12,6 +12,7 @@ version = "0.7.0"
 [dependencies]
 brotli2 = "~0.2.1"
 clippy = {version = "~0.0.79", optional = true}
+futures = { git = "https://github.com/alexcrichton/futures-rs" }
 memmap = "~0.4.0"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.19"
@@ -20,6 +21,7 @@ unwrap = "~1.1.0"
 
 [dev-dependencies]
 docopt = "~0.6.81"
+futures-cpupool = { git = "https://github.com/alexcrichton/futures-rs" }
 itertools = "~0.4.16"
 maidsafe_utilities = "~0.8.0"
 

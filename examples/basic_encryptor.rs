@@ -125,7 +125,9 @@ impl DiskBasedStorage {
     }
 }
 
-impl Storage<DiskBasedStorageError> for DiskBasedStorage {
+impl Storage for DiskBasedStorage {
+    type Error = DiskBasedStorageError;
+
     fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
         let path = self.calculate_path(name);
         let mut file = try!(File::open(&path));
