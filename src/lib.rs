@@ -39,7 +39,9 @@
 //! in the "examples" folder of this project.
 //!
 //! ```
-//! # #![allow(dead_code)]
+//! # extern crate futures;
+//! # extern crate self_encryption;
+//! use futures::{BoxFuture, Future};
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::{Storage, StorageError};
@@ -76,42 +78,55 @@
 //!     }
 //! }
 //!
-//! impl Storage<SimpleStorageError> for SimpleStorage {
-//!    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
-//!        match self.entries.iter().find(|ref entry| entry.name == name) {
+//! impl Storage for SimpleStorage {
+//!    type Error = SimpleStorageError;
+//!
+//!    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, SimpleStorageError> {
+//!        let result = match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
-//!        }
+//!        };
+//!
+//!        futures::done(result).boxed()
 //!    }
 //!
-//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
-//!        Ok(self.entries.push(Entry {
+//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
+//!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
-//!        }))
+//!        });
+//!
+//!        futures::finished(()).boxed()
 //!    }
 //! }
+//!
+//! # fn main() {}
 //! ```
 //!
 //! Using this `SimpleStorage`, a self-encryptor can be created and written to/read from:
 //!
 //! ```
+//! # extern crate futures;
+//! # extern crate self_encryption;
+//! use futures::Future;
 //! use self_encryption::{DataMap, SelfEncryptor};
 //! # use self_encryption::test_helpers::SimpleStorage;
 //!
-//! let mut storage = SimpleStorage::new();
-//! let mut encryptor = SelfEncryptor::new(&mut storage, DataMap::None).unwrap();
-//! let data = vec![0, 1, 2, 3, 4, 5];
-//! let mut offset = 0;
+//! fn main() {
+//!     let storage = SimpleStorage::new();
+//!     let mut encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
+//!     let data = vec![0, 1, 2, 3, 4, 5];
+//!     let mut offset = 0;
 //!
-//! encryptor.write(&data, offset).unwrap();
+//!     encryptor.write(&data, offset).wait().unwrap();
 //!
-//! offset = 2;
-//! let length = 3;
-//! assert_eq!(encryptor.read(offset, length).unwrap(), vec![2, 3, 4]);
+//!     offset = 2;
+//!     let length = 3;
+//!     assert_eq!(encryptor.read(offset, length).wait().unwrap(), vec![2, 3, 4]);
 //!
-//! let data_map = encryptor.close().unwrap();
-//! assert_eq!(data_map.len(), 6);
+//!     let data_map = encryptor.close().wait().unwrap().0;
+//!     assert_eq!(data_map.len(), 6);
+//! }
 //! ```
 //!
 //! The `close()` function returns a `DataMap` which can be used when creating a new encryptor to
@@ -142,6 +157,7 @@
 #![cfg_attr(feature="clippy", deny(clippy))]
 
 extern crate brotli2;
+extern crate futures;
 #[cfg(test)]
 extern crate itertools;
 #[cfg(test)]
@@ -162,6 +178,7 @@ mod sequencer;
 mod sequential;
 mod storage;
 pub mod test_helpers;
+mod util;
 
 pub use data_map::{ChunkDetails, DataMap};
 pub use error::SelfEncryptionError;

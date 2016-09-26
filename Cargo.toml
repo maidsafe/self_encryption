@@ -21,7 +21,6 @@ unwrap = "~1.1.0"
 
 [dev-dependencies]
 docopt = "~0.6.81"
-futures-cpupool = { git = "https://github.com/alexcrichton/futures-rs" }
 itertools = "~0.4.16"
 maidsafe_utilities = "~0.8.0"
 
