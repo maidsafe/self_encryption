@@ -17,35 +17,34 @@
 
 
 use data_map::DataMap;
-use std::mem;
+use futures::{self, BoxFuture, Future};
 use super::{SelfEncryptionError, Storage, utils};
 use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
 
-enum StateMachine<'a, S: 'a + Storage> {
-    Small(SmallEncryptor<'a, S>),
-    Medium(MediumEncryptor<'a, S>),
-    Large(LargeEncryptor<'a, S>),
-    None,
+enum StateMachine<S> {
+    Small(SmallEncryptor<S>),
+    Medium(MediumEncryptor<S>),
+    Large(LargeEncryptor<S>),
 }
 
-impl<'a, S: Storage> StateMachine<'a, S> {
-    fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
-        match *self {
-            StateMachine::Small(ref mut encryptor) => encryptor.write(data),
-            StateMachine::Medium(ref mut encryptor) => encryptor.write(data),
-            StateMachine::Large(ref mut encryptor) => encryptor.write(data),
-            StateMachine::None => unreachable!(),
+impl<S> StateMachine<S> where S: Storage + Send + 'static,
+                              S::Error: Send
+{
+    fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
+        match self {
+            StateMachine::Small(encryptor) => encryptor.write(data).map(From::from).boxed(),
+            StateMachine::Medium(encryptor) => encryptor.write(data).map(From::from).boxed(),
+            StateMachine::Large(encryptor) => encryptor.write(data).map(From::from).boxed(),
         }
     }
 
-    fn close(&mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
-        match *self {
-            StateMachine::Small(ref mut encryptor) => encryptor.close(),
-            StateMachine::Medium(ref mut encryptor) => encryptor.close(),
-            StateMachine::Large(ref mut encryptor) => encryptor.close(),
-            StateMachine::None => unreachable!(),
+    fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
+        match self {
+            StateMachine::Small(encryptor) => encryptor.close(),
+            StateMachine::Medium(encryptor) => encryptor.close(),
+            StateMachine::Large(encryptor) => encryptor.close(),
         }
     }
 
@@ -54,7 +53,6 @@ impl<'a, S: Storage> StateMachine<'a, S> {
             StateMachine::Small(ref encryptor) => encryptor.len(),
             StateMachine::Medium(ref encryptor) => encryptor.len(),
             StateMachine::Large(ref encryptor) => encryptor.len(),
-            StateMachine::None => unreachable!(),
         }
     }
 
@@ -63,8 +61,25 @@ impl<'a, S: Storage> StateMachine<'a, S> {
             StateMachine::Small(ref encryptor) => encryptor.is_empty(),
             StateMachine::Medium(ref encryptor) => encryptor.is_empty(),
             StateMachine::Large(ref encryptor) => encryptor.is_empty(),
-            StateMachine::None => unreachable!(),
         }
+    }
+}
+
+impl<S> From<SmallEncryptor<S>> for StateMachine<S> {
+    fn from(e: SmallEncryptor<S>) -> Self {
+        StateMachine::Small(e)
+    }
+}
+
+impl<S> From<MediumEncryptor<S>> for StateMachine<S> {
+    fn from(e: MediumEncryptor<S>) -> Self {
+        StateMachine::Medium(e)
+    }
+}
+
+impl<S> From<LargeEncryptor<S>> for StateMachine<S> {
+    fn from(e: LargeEncryptor<S>) -> Self {
+        StateMachine::Large(e)
     }
 }
 
@@ -86,64 +101,87 @@ impl<'a, S: Storage> StateMachine<'a, S> {
 ///
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
-pub struct Encryptor<'a, S: 'a + Storage> {
-    state: StateMachine<'a, S>,
+pub struct Encryptor<S> {
+    state: StateMachine<S>,
 }
 
-impl<'a, S: Storage> Encryptor<'a, S> {
+impl<S> Encryptor<S> where S: Storage + Send + 'static,
+                           S::Error: Send
+{
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
-    pub fn new(storage: &'a mut S,
-               data_map: Option<DataMap>)
-               -> Result<Encryptor<'a, S>, SelfEncryptionError<S::Error>> {
+    pub fn new(storage: S, data_map: Option<DataMap>)
+               -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
         utils::initialise_rust_sodium();
-        let state = match data_map {
+        match data_map {
             Some(DataMap::Content(content)) => {
-                StateMachine::Small(SmallEncryptor::new(storage, content))
+                SmallEncryptor::new(storage, content)
+                               .map(StateMachine::from)
+                               .map(Self::from)
+                               .boxed()
             }
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
                 if chunks.len() == 3 {
-                    StateMachine::Medium(try!(MediumEncryptor::new(storage, chunks)))
+                    MediumEncryptor::new(storage, chunks)
+                                    .map(StateMachine::from)
+                                    .map(Self::from)
+                                    .boxed()
                 } else {
-                    StateMachine::Large(try!(LargeEncryptor::new(storage, chunks)))
+                    LargeEncryptor::new(storage, chunks)
+                                   .map(StateMachine::from)
+                                   .map(Self::from)
+                                   .boxed()
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),
-            None => StateMachine::Small(SmallEncryptor::new(storage, vec![])),
-        };
-        Ok(Encryptor { state: state })
+            None => SmallEncryptor::new(storage, vec![])
+                                   .map(StateMachine::from)
+                                   .map(Self::from)
+                                   .boxed()
+        }
     }
 
     /// Buffers some or all of `data` and stores any completed chunks (i.e. those which cannot be
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
-    pub fn write(&mut self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
-        match self.state {
-            StateMachine::Small(_) => {
-                let new_len = self.state.len() + data.len() as u64;
-                if new_len >= large_encryptor::MIN {
-                    self.transition_to_large();
+    pub fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
+        let future_new_state = match self.state {
+            StateMachine::Small(small) => {
+                let new_len = small.len() + data.len() as u64;
+                let new_state = if new_len >= large_encryptor::MIN {
+                    StateMachine::from(LargeEncryptor::from(small))
                 } else if new_len >= medium_encryptor::MIN {
-                    self.transition_to_medium();
+                    StateMachine::from(MediumEncryptor::from(small))
+                } else {
+                    StateMachine::from(small)
+                };
+
+                futures::finished(new_state).boxed()
+            }
+            StateMachine::Medium(medium) => {
+                if medium.len() + data.len() as u64 >= large_encryptor::MIN {
+                    LargeEncryptor::from_medium(medium)
+                                   .map(StateMachine::from)
+                                   .boxed()
+                } else {
+                    futures::finished(StateMachine::from(medium)).boxed()
                 }
             }
-            StateMachine::Medium(_) => {
-                if self.state.len() + data.len() as u64 >= large_encryptor::MIN {
-                    self.transition_to_large();
-                }
+            StateMachine::Large(large) => {
+                futures::finished(StateMachine::from(large)).boxed()
             }
-            StateMachine::Large(_) => (),
-            StateMachine::None => unreachable!(),
-        }
-        self.state.write(data)
+        };
+
+        let data = data.to_vec();
+        future_new_state.and_then(move |state| state.write(&data))
+                        .map(Self::from)
+                        .boxed()
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
     /// buffers are flushed, resulting in up to four chunks being stored.
-    // TODO - change this to take `mut self` rather than `&mut self` and update docs to state
-    //        "cannot be used" rather than "should not be used".
-    pub fn close(&mut self) -> Result<DataMap, SelfEncryptionError<S::Error>> {
+    pub fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         self.state.close()
     }
 
@@ -159,35 +197,20 @@ impl<'a, S: Storage> Encryptor<'a, S> {
     pub fn is_empty(&self) -> bool {
         self.state.is_empty()
     }
+}
 
-    fn transition_to_medium(&mut self) {
-        let mut temp = StateMachine::None;
-        mem::swap(&mut temp, &mut self.state);
-        temp = match temp {
-            StateMachine::Small(encryptor) => StateMachine::Medium(encryptor.into()),
-            _ => unreachable!(),
-        };
-        mem::swap(&mut temp, &mut self.state);
-    }
-
-    fn transition_to_large(&mut self) {
-        let mut temp = StateMachine::None;
-        mem::swap(&mut temp, &mut self.state);
-        temp = match temp {
-            StateMachine::Small(encryptor) => StateMachine::Large(encryptor.into()),
-            StateMachine::Medium(encryptor) => StateMachine::Large(encryptor.into()),
-            _ => unreachable!(),
-        };
-        mem::swap(&mut temp, &mut self.state);
+impl<S> From<StateMachine<S>> for Encryptor<S> {
+    fn from(s: StateMachine<S>) -> Self {
+        Encryptor {
+            state: s,
+        }
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-
     use data_map::DataMap;
+    use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
@@ -196,93 +219,97 @@ mod tests {
     use super::super::*;
     use test_helpers::SimpleStorage;
 
-    fn read(expected_data: &[u8], storage: &mut SimpleStorage, data_map: &DataMap) {
-        let mut self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
-        let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64));
+    fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
+        let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
+        let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).wait());
         assert!(fetched == expected_data);
+        self_encryptor.into_storage()
     }
 
     fn write(data: &[u8],
-             storage: &mut SimpleStorage,
+             storage: SimpleStorage,
              data_map: &mut DataMap,
-             expected_len: usize) {
-        let mut encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())));
-        unwrap!(encryptor.write(data));
+             expected_len: usize)
+             -> SimpleStorage {
+        let mut encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).wait());
+        encryptor = unwrap!(encryptor.write(data).wait());
         assert_eq!(encryptor.len(), expected_len as u64);
-        *data_map = unwrap!(encryptor.close());
+        let (data_map2, storage) = unwrap!(encryptor.close().wait());
+        *data_map = data_map2;
+        storage
     }
 
     #[test]
     fn transitions() {
-        let mut storage = SimpleStorage::new();
         let mut rng = SeededRng::new();
         let data = rng.gen_iter().take(4 * MAX_CHUNK_SIZE as usize + 1).collect_vec();
 
-        let mut data_map;
         // Write 0 bytes.
-        {
-            let mut encryptor = unwrap!(Encryptor::new(&mut storage, None));
+        let (mut data_map, mut storage) = {
+            let storage = SimpleStorage::new();
+            let mut encryptor = unwrap!(Encryptor::new(storage, None).wait());
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
-            unwrap!(encryptor.write(&[]));
+            encryptor = unwrap!(encryptor.write(&[]).wait());
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
-            data_map = unwrap!(encryptor.close());
-        }
-        read(&[], &mut storage, &data_map);
+            unwrap!(encryptor.close().wait())
+        };
+
+        storage = read(&[], storage, &data_map);
 
         // Write 1 byte.
         let mut index_start = 0;
         let mut index_end = 1;
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        storage = read(&data[..index_end], storage, &data_map);
 
         // Append as far as `small_encryptor::MAX` bytes.
         index_start = index_end;
         index_end = small_encryptor::MAX as usize;
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        storage = read(&data[..index_end], storage, &data_map);
 
         // Append a further single byte.
         index_start = index_end;
         index_end = small_encryptor::MAX as usize + 1;
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        storage = read(&data[..index_end], storage, &data_map);
 
         // Append as far as `medium_encryptor::MAX` bytes.
         index_start = index_end;
         index_end = medium_encryptor::MAX as usize;
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        storage = read(&data[..index_end], storage, &data_map);
 
         // Append a further single byte.
         index_start = index_end;
         index_end = medium_encryptor::MAX as usize + 1;
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        storage = read(&data[..index_end], storage, &data_map);
 
         // Append remaining bytes.
         index_start = index_end;
         index_end = data.len();
-        write(&data[index_start..index_end],
-              &mut storage,
-              &mut data_map,
-              index_end);
-        read(&data[..index_end], &mut storage, &data_map);
+        storage = write(&data[index_start..index_end],
+                        storage,
+                        &mut data_map,
+                        index_end);
+        let _ = read(&data[..index_end], storage, &data_map);
     }
 }
