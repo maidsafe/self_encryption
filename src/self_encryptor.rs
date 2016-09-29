@@ -19,6 +19,7 @@
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
+use futures::{self, BoxFuture, Future};
 use rust_sodium;
 use rust_sodium::crypto::hash::sha256;
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
@@ -26,8 +27,7 @@ use std::cmp;
 use std::fmt::{self, Debug, Formatter};
 use std::io::Write;
 use std::iter;
-use std::marker::PhantomData;
-use std::sync::{ONCE_INIT, Once};
+use std::sync::{Arc, Mutex, ONCE_INIT, Once};
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
 
@@ -64,23 +64,16 @@ impl Chunk {
 
 /// This is the encryption object and all file handling should be done using this object as the low
 /// level mechanism to read and write *content*.  This library has no knowledge of file metadata.
-pub struct SelfEncryptor<'a, E: StorageError, S: 'a + Storage<E>> {
-    storage: &'a mut S,
-    sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
-    chunks: Vec<Chunk>, // this is sorted as well
-    map_size: u64, // original file size of the data_map
-    sequencer: Sequencer,
-    file_size: u64,
-    phantom: PhantomData<E>, // to allow `E` to be used
-}
+pub struct SelfEncryptor<S>(Arc<Mutex<Inner<S>>>);
 
-impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
+impl<S> SelfEncryptor<S> where S: Storage + Send + Sync + 'static,
+                               S::Error: Send  {
     /// This is the only constructor for an encryptor object.  Each `SelfEncryptor` is used for a
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
     /// not previously been self-encrypted, use `DataMap::None`.
-    pub fn new(storage: &'a mut S,
+    pub fn new(storage: S,
                data_map: DataMap)
-               -> Result<SelfEncryptor<'a, E, S>, SelfEncryptionError<E>> {
+               -> Result<SelfEncryptor<S>, SelfEncryptionError<S::Error>> {
         initialise_rust_sodium();
         let file_size = data_map.len();
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
@@ -116,70 +109,227 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
         }
 
-        Ok(SelfEncryptor {
+        Ok(SelfEncryptor(Arc::new(Mutex::new(Inner {
             storage: storage,
             sorted_map: sorted_map,
             chunks: chunks,
             sequencer: sequencer,
             file_size: file_size,
             map_size: map_size,
-            phantom: PhantomData,
-        })
+        }))))
     }
 
     /// Write method mirrors a POSIX type write mechanism.  It loosely mimics a filesystem interface
     /// for easy connection to FUSE-like programs as well as fine grained access to system level
     /// libraries for developers.  The input `data` will be written from the specified `position`
     /// (starts from 0).
-    pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<E>> {
-        try!(self.prepare_window_for_writing(position, data.len() as u64));
-        for (p, byte) in self.sequencer.iter_mut().skip(position as usize).zip(data) {
-            *p = *byte;
-        }
-        Ok(())
+    pub fn write(&self, data: &[u8], position: u64) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
+        let inner = self.0.clone();
+        let data = data.to_vec();
+
+        prepare_window_for_writing(self.0.clone(), position, data.len() as u64).map(move |_| {
+            let mut inner = unwrap!(inner.lock());
+            for (p, byte) in inner.sequencer.iter_mut().skip(position as usize).zip(data) {
+                *p = byte;
+            }
+        }).boxed()
     }
 
     /// The returned content is read from the specified `position` with specified `length`.  Trying
     /// to read beyond the file size will cause the encryptor to return content filled with `0u8`s
     /// in the gap (file size isn't affected).  Any other unwritten gaps will also be filled with
     /// '0u8's.
-    pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<E>> {
-        try!(self.prepare_window_for_reading(position, length));
-        Ok(self.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect())
+    pub fn read(&self, position: u64, length: u64) -> BoxFuture<Vec<u8>, SelfEncryptionError<S::Error>> {
+        let inner = self.0.clone();
+        prepare_window_for_reading(self.0.clone(), position, length).map(move |_| {
+            let inner = unwrap!(inner.lock());
+            inner.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect()
+        }).boxed()
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
     #[cfg_attr(feature="clippy", allow(needless_range_loop))]
-    pub fn close(mut self) -> Result<DataMap, SelfEncryptionError<E>> {
-        if self.file_size == 0 {
-            return Ok(DataMap::None);
+    pub fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
+        let file_size = {
+            let inner = unwrap!(self.0.lock());
+            inner.file_size
+        };
+
+        if file_size == 0 {
+            let storage = take_inner(self.0).storage;
+            return futures::finished((DataMap::None, storage)).boxed();
         }
-        if self.file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            let content = (*self.sequencer)[..self.file_size as usize].to_vec();
-            return Ok(DataMap::Content(content));
+
+        if file_size < 3 * MIN_CHUNK_SIZE as u64 {
+            let inner = take_inner(self.0);
+            let content = (*inner.sequencer)[..inner.file_size as usize].to_vec();
+            let storage = inner.storage;
+
+            return futures::finished((DataMap::Content(content), storage)).boxed();
         }
 
         // Decrypt:
         // - first two chunks if last chunks size has changed
         // - chunks whose size is out of date
-        let possibly_reusable_end;  // end of range of possibly reusable chunks
-        let (resized_start, resized_end) = resized_chunks(self.map_size, self.file_size);
-        if resized_start == resized_end {
-            possibly_reusable_end = get_num_chunks(self.map_size) as usize;
-        } else {
-            self.chunks[0].flag_for_encryption();
-            self.chunks[1].flag_for_encryption();
-            let mut byte_end = get_start_end_positions(self.map_size, 1).1;
-            try!(self.prepare_window_for_reading(0, byte_end));
+        let (resized_start, resized_end) = {
+            let inner = unwrap!(self.0.lock());
+            resized_chunks(inner.map_size, inner.file_size)
+        };
 
-            let byte_start = get_start_end_positions(self.map_size, resized_start).0;
-            byte_end = self.map_size;
-            try!(self.prepare_window_for_reading(byte_start, byte_end - byte_start));
-            possibly_reusable_end = resized_start as usize;
+        // end of range of possibly reusable chunks
+        let future_data_map = if resized_start == resized_end {
+            let mut inner = unwrap!(self.0.lock());
+            let end = get_num_chunks(inner.map_size) as usize;
+            inner.create_data_map(end)
+        } else {
+            let byte_end = {
+                let mut inner = unwrap!(self.0.lock());
+                inner.chunks[0].flag_for_encryption();
+                inner.chunks[1].flag_for_encryption();
+                get_start_end_positions(inner.map_size, 1).1
+            };
+
+            let inner0 = self.0.clone();
+            let inner1 = self.0.clone();
+
+            prepare_window_for_reading(self.0.clone(), 0, byte_end).and_then(move |_| {
+                let (byte_start, byte_end) = {
+                    let inner = unwrap!(inner0.lock());
+                    let byte_start = get_start_end_positions(inner.map_size, resized_start).0;
+                    let byte_end = inner.map_size;
+
+                    (byte_start, byte_end)
+                };
+
+                prepare_window_for_reading(inner0, byte_start, byte_end - byte_start)
+            }).and_then(move |_| {
+                let mut inner = unwrap!(inner1.lock());
+                inner.create_data_map(resized_start as usize)
+            }).boxed()
+        };
+
+        future_data_map.map(move |data_map| {
+            (data_map, take_inner(self.0).storage)
+        }).boxed()
+    }
+
+    /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
+    pub fn truncate(&self, new_size: u64) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
+        {
+            let mut inner = unwrap!(self.0.lock());
+            if inner.file_size == new_size {
+                return futures::finished(()).boxed();
+            }
+
+            if new_size >= inner.file_size {
+                let result = inner.extend_sequencer_up_to(new_size);
+                inner.file_size = new_size;
+                return futures::done(result).boxed();
+            }
         }
 
+        let (chunks_start, chunks_end) = {
+            let inner = unwrap!(self.0.lock());
+            overlapped_chunks(inner.map_size, new_size, inner.file_size - new_size)
+        };
+
+        let future = if chunks_start != chunks_end {
+            // One chunk might need to be decrypted + the first two for re-encryption.
+            let prepare = {
+                let inner = unwrap!(self.0.lock());
+                !inner.chunks[chunks_start].in_sequencer
+            };
+
+            let future = if prepare {
+                let byte_start = {
+                    let inner = unwrap!(self.0.lock());
+                    get_start_end_positions(inner.map_size, chunks_start as u32).0
+                };
+
+                let future = if byte_start < new_size {
+                    let inner = self.0.clone();
+                    prepare_window_for_reading(inner, byte_start, new_size - byte_start).boxed()
+                } else {
+                    futures::finished(()).boxed()
+                };
+
+                let inner = self.0.clone();
+                future.and_then(move |_| {
+                    let byte_end = {
+                        let mut inner = unwrap!(inner.lock());
+                        inner.chunks[0].flag_for_encryption();
+                        inner.chunks[1].flag_for_encryption();
+                        get_start_end_positions(inner.map_size, 1).1
+                    };
+
+                    prepare_window_for_reading(inner, 0, byte_end)
+                }).boxed()
+            } else {
+                futures::finished(()).boxed()
+            };
+
+            let inner = self.0.clone();
+            future.map(move |_| {
+                let mut inner = unwrap!(inner.lock());
+                for chunk in &mut inner.chunks[chunks_start..chunks_end] {
+                    chunk.status = ChunkStatus::ToBeHashed;
+                    chunk.in_sequencer = true;
+                }
+            }).boxed()
+        } else {
+            futures::finished(()).boxed()
+        };
+
+        let inner = self.0.clone();
+        future.map(move |_| {
+            let mut inner = unwrap!(inner.lock());
+            inner.sequencer.truncate(new_size as usize);
+            inner.file_size = new_size;
+        }).boxed()
+    }
+
+    /// Current file size as is known by encryptor.
+    pub fn len(&self) -> u64 {
+        unwrap!(self.0.lock()).file_size
+    }
+
+    /// Returns true if file size as is known by encryptor == 0.
+    pub fn is_empty(&self) -> bool {
+        unwrap!(self.0.lock()).file_size == 0
+    }
+
+    /// Consume this encryptor and return its storage.
+    pub fn into_storage(self) -> S {
+        take_inner(self.0).storage
+    }
+}
+
+struct Inner<S> {
+    storage: S,
+    sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
+    chunks: Vec<Chunk>, // this is sorted as well
+    map_size: u64, // original file size of the data_map
+    sequencer: Sequencer,
+    file_size: u64,
+}
+
+impl<S> Inner<S> where S: Storage,
+                       S::Error: Send + 'static {
+    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<S::Error>> {
+        let old_len = self.sequencer.len() as u64;
+        if new_len > old_len {
+            if new_len > MAX_IN_MEMORY_SIZE as u64 {
+                try!(self.sequencer.create_mapping());
+            } else {
+                self.sequencer.extend(iter::repeat(0).take((new_len - old_len) as usize));
+            }
+        }
+        Ok(())
+    }
+
+    fn create_data_map(&mut self, possibly_reusable_end: usize) -> BoxFuture<DataMap, SelfEncryptionError<S::Error>> {
         let num_new_chunks = get_num_chunks(self.file_size) as usize;
         let mut new_map = vec![ChunkDetails::new(); num_new_chunks];
 
@@ -201,6 +351,8 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
         }
 
+        let mut put_futures = Vec::with_capacity(num_new_chunks);
+
         for i in 0..num_new_chunks {
             if i < possibly_reusable_end && self.chunks[i].status == ChunkStatus::AlreadyEncrypted {
                 new_map[i].hash = self.sorted_map[i].hash.clone();
@@ -211,166 +363,176 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 assert!(this_size > 0);
 
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
-                let content = try!(encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki));
+                let content = match encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki) {
+                    Ok(content) => content,
+                    Err(error) => return futures::failed(error).boxed(),
+
+                };
                 let sha256::Digest(name) = sha256::hash(&content);
-                try!(self.storage.put(name.to_vec(), content));
+
+                put_futures.push(self.storage
+                                     .put(name.to_vec(), content)
+                                     .map_err(|error| SelfEncryptionError::Storage(error)));
+
                 new_map[i].hash = name.to_vec();
             }
         }
-        Ok(DataMap::Chunks(new_map))
-    }
 
-    /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
-    pub fn truncate(&mut self, new_size: u64) -> Result<(), SelfEncryptionError<E>> {
-        if self.file_size == new_size {
-            return Ok(());
-        }
-        if new_size < self.file_size {
-            let (chunks_start, chunks_end) =
-                overlapped_chunks(self.map_size, new_size, self.file_size - new_size);
-            if chunks_start != chunks_end {
-                // One chunk might need to be decrypted + the first two for re-encryption.
-                if !self.chunks[chunks_start].in_sequencer {
-                    let byte_start = get_start_end_positions(self.map_size, chunks_start as u32).0;
-                    if byte_start < new_size {
-                        try!(self.prepare_window_for_reading(byte_start, new_size - byte_start));
-                    }
-                    self.chunks[0].flag_for_encryption();
-                    self.chunks[1].flag_for_encryption();
-                    let byte_end = get_start_end_positions(self.map_size, 1).1;
-                    try!(self.prepare_window_for_reading(0, byte_end));
-                }
-                for chunk in &mut self.chunks[chunks_start..chunks_end] {
-                    chunk.status = ChunkStatus::ToBeHashed;
-                    chunk.in_sequencer = true;
-                }
-            }
-            self.sequencer.truncate(new_size as usize);
-        } else {
-            try!(self.extend_sequencer_up_to(new_size));
-        }
-        self.file_size = new_size;
-        Ok(())
-    }
-
-    /// Current file size as is known by encryptor.
-    pub fn len(&self) -> u64 {
-        self.file_size
-    }
-
-    /// Returns true if file size as is known by encryptor == 0.
-    pub fn is_empty(&self) -> bool {
-        self.file_size == 0
-    }
-
-    fn prepare_window_for_writing(&mut self,
-                                  position: u64,
-                                  length: u64)
-                                  -> Result<(), SelfEncryptionError<E>> {
-        self.file_size = cmp::max(self.file_size, position + length);
-
-        let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
-        if chunks_start == chunks_end {
-            try!(self.extend_sequencer_up_to(position + length));
-            return Ok(());
-        }
-
-        // Two more chunks need to be decrypted for re-encryption.
-        let next_two = [chunks_end % get_num_chunks(self.map_size) as usize,
-                        (chunks_end + 1) % get_num_chunks(self.map_size) as usize];
-
-        let required_len = {
-            let mut end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
-            end = cmp::max(end,
-                           get_start_end_positions(self.map_size, next_two[0] as u32).1);
-            end = cmp::max(end,
-                           get_start_end_positions(self.map_size, next_two[1] as u32).1);
-            cmp::max(position + length, end)
-        };
-        try!(self.extend_sequencer_up_to(required_len));
-
-        // Middle chunks don't need decrypting since they'll get overwritten.
-        // TODO If first/last chunk gets completely overwritten, no need to decrypt.
-        for &i in [chunks_start, chunks_end - 1].iter().chain(&next_two) {
-            if self.chunks[i].in_sequencer {
-                continue;
-            }
-            self.chunks[i].in_sequencer = true;
-            let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
-            let vec = try!(self.decrypt_chunk(i as u32));
-            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
-                *p = byte;
-            }
-        }
-        for chunk in &mut self.chunks[chunks_start..chunks_end] {
-            chunk.status = ChunkStatus::ToBeHashed;
-            chunk.in_sequencer = true;
-        }
-        for &i in &next_two {
-            self.chunks[i].flag_for_encryption();
-        }
-        Ok(())
-    }
-
-    fn prepare_window_for_reading(&mut self,
-                                  position: u64,
-                                  length: u64)
-                                  -> Result<(), SelfEncryptionError<E>> {
-        let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
-
-        if chunks_start == chunks_end {
-            try!(self.extend_sequencer_up_to(position + length));
-            return Ok(());
-        }
-
-        let required_len = {
-            let end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
-            cmp::max(position + length, end)
-        };
-        try!(self.extend_sequencer_up_to(required_len));
-
-        for i in chunks_start..chunks_end {
-            if self.chunks[i].in_sequencer {
-                continue;
-            }
-            self.chunks[i].in_sequencer = true;
-            let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
-            let vec = try!(self.decrypt_chunk(i as u32));
-            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
-                *p = byte
-            }
-        }
-        Ok(())
-    }
-
-    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError<E>> {
-        let old_len = self.sequencer.len() as u64;
-        if new_len > old_len {
-            if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                try!(self.sequencer.create_mapping());
-            } else {
-                self.sequencer.extend(iter::repeat(0).take((new_len - old_len) as usize));
-            }
-        }
-        Ok(())
-    }
-
-    fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
-        let name = &self.sorted_map[chunk_number as usize].hash;
-        let content = try!(self.storage.get(name));
-        let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
-        let xor_result = xor(&content, &pad);
-        let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
-        let mut decompressor = BrotliDecoder::new(vec![]);
-        if decompressor.write_all(&decrypted).is_err() {
-            return Err(SelfEncryptionError::Compression);
-        }
-        decompressor.finish().map_err(|_| SelfEncryptionError::Compression)
+        futures::collect(put_futures).map(move |_| DataMap::Chunks(new_map)).boxed()
     }
 }
 
-fn encrypt_chunk<E: StorageError>(content: &[u8],
-                                  pki: (Pad, Key, Iv))
+impl<S> Debug for Inner<S> {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "SelfEncryptor inner state")
+    }
+}
+
+fn prepare_window_for_writing<S>(inner: Arc<Mutex<Inner<S>>>, position: u64, length: u64)
+                                 -> BoxFuture<(), SelfEncryptionError<S::Error>>
+    where S: Storage + Send + Sync + 'static,
+          S::Error: Send
+{
+    let (chunks_start, chunks_end, next_two) = {
+        let mut inner = unwrap!(inner.lock());
+        inner.file_size = cmp::max(inner.file_size, position + length);
+
+        let (chunks_start, chunks_end) = overlapped_chunks(inner.map_size, position, length);
+        if chunks_start == chunks_end {
+            let result = inner.extend_sequencer_up_to(position + length).map(|_| ());
+            return futures::done(result).boxed();
+        }
+
+        // Two more chunks need to be decrypted for re-encryption.
+        let next_two = [chunks_end % get_num_chunks(inner.map_size) as usize,
+                        (chunks_end + 1) % get_num_chunks(inner.map_size) as usize];
+
+        let required_len = {
+            let mut end = get_start_end_positions(inner.map_size, chunks_end as u32 - 1).1;
+            end = cmp::max(end, get_start_end_positions(inner.map_size, next_two[0] as u32).1);
+            end = cmp::max(end, get_start_end_positions(inner.map_size, next_two[1] as u32).1);
+            cmp::max(position + length, end)
+        };
+
+        if let Err(error) = inner.extend_sequencer_up_to(required_len) {
+            return futures::failed(error).boxed();
+        }
+
+        (chunks_start, chunks_end, next_two)
+    };
+
+    // Middle chunks don't need decrypting since they'll get overwritten.
+    // TODO If first/last chunk gets completely overwritten, no need to decrypt.
+    let mut futures = Vec::new();
+    {
+        let mut inner = unwrap!(inner.lock());
+        for &i in [chunks_start, chunks_end - 1].iter().chain(&next_two) {
+            if inner.chunks[i].in_sequencer {
+                continue;
+            }
+            inner.chunks[i].in_sequencer = true;
+            let pos = get_start_end_positions(inner.map_size, i as u32).0 as usize;
+            let future = decrypt_chunk(&*inner, i as u32).map(move |vec| (vec, pos));
+            futures.push(future);
+        }
+    }
+
+    futures::collect(futures).map(move |decrypted_chunks| {
+        let mut inner = unwrap!(inner.lock());
+        for (vec, pos) in decrypted_chunks {
+            for (p, byte) in inner.sequencer.iter_mut().skip(pos).zip(vec) {
+                *p = byte;
+            }
+        }
+
+        for chunk in &mut inner.chunks[chunks_start..chunks_end] {
+            chunk.status = ChunkStatus::ToBeHashed;
+            chunk.in_sequencer = true;
+        }
+
+        for &i in &next_two {
+            inner.chunks[i].flag_for_encryption();
+        }
+    }).boxed()
+}
+
+fn prepare_window_for_reading<S>(inner: Arc<Mutex<Inner<S>>>,
+                                 position: u64,
+                                 length: u64)
+                                 -> BoxFuture<(), SelfEncryptionError<S::Error>>
+    where S: Storage + Send + Sync + 'static,
+          S::Error: Send + 'static
+{
+    let (chunks_start, chunks_end) = {
+        let inner = unwrap!(inner.lock());
+        overlapped_chunks(inner.map_size, position, length)
+    };
+
+    if chunks_start == chunks_end {
+        let mut inner = unwrap!(inner.lock());
+        return futures::done(inner.extend_sequencer_up_to(position + length))
+                       .boxed();
+    }
+
+    {
+        let mut inner = unwrap!(inner.lock());
+        let required_len = {
+            let end = get_start_end_positions(inner.map_size, chunks_end as u32 - 1).1;
+            cmp::max(position + length, end)
+        };
+
+        if let Err(error) = inner.extend_sequencer_up_to(required_len) {
+            return futures::failed(error).boxed();
+        }
+    }
+
+    let mut futures = Vec::new();
+    {
+        let mut inner = unwrap!(inner.lock());
+        for i in chunks_start..chunks_end {
+            if inner.chunks[i].in_sequencer {
+                continue;
+            }
+            inner.chunks[i].in_sequencer = true;
+            let pos = get_start_end_positions(inner.map_size, i as u32).0 as usize;
+            let future = decrypt_chunk(&*inner, i as u32).map(move |vec| (vec, pos));
+            futures.push(future);
+        }
+    }
+
+    futures::collect(futures).map(move |decrypted_chunks| {
+        let mut inner = unwrap!(inner.lock());
+        for (vec, pos) in decrypted_chunks {
+            for (p, byte) in inner.sequencer.iter_mut().skip(pos).zip(vec) {
+                *p = byte
+            }
+        }
+    }).boxed()
+}
+
+fn decrypt_chunk<S>(inner: &Inner<S>, chunk_number: u32)
+                    -> BoxFuture<Vec<u8>, SelfEncryptionError<S::Error>>
+    where S: Storage,
+          S::Error: Send + 'static
+{
+    let name = &inner.sorted_map[chunk_number as usize].hash;
+    let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &inner.sorted_map, inner.map_size);
+
+    inner.storage.get(name)
+                 .map_err(|error| SelfEncryptionError::Storage(error))
+                 .and_then(move |content| {
+        let xor_result = xor(&content, &pad);
+        encryption::decrypt(&xor_result, &key, &iv)
+                   .map_err(|_| SelfEncryptionError::Decryption)
+    }).and_then(|decrypted| {
+        let mut decompressor = BrotliDecoder::new(vec![]);
+        decompressor.write_all(&decrypted)
+                    .and_then(|_| decompressor.finish())
+                    .map_err(|_| SelfEncryptionError::Compression)
+    }).boxed()
+}
+
+fn encrypt_chunk<E: StorageError>(content: &[u8], pki: (Pad, Key, Iv))
                                   -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pki;
     let mut compressor = BrotliEncoder::new(vec![], COMPRESSION_QUALITY);
@@ -553,17 +715,22 @@ fn get_chunk_number(file_size: u64, position: u64) -> u32 {
     get_num_chunks(file_size) - 1
 }
 
-impl<'a, E: StorageError, S: Storage<E>> Debug for SelfEncryptor<'a, E, S> {
+fn take_inner<S>(inner: Arc<Mutex<Inner<S>>>) -> Inner<S> {
+    unwrap!(unwrap!(Arc::try_unwrap(inner)).into_inner())
+}
+
+impl<S: Storage> Debug for SelfEncryptor<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        let inner = unwrap!(self.0.lock());
         try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
-        for (i, chunk) in self.chunks.iter().enumerate() {
+        for (i, chunk) in inner.chunks.iter().enumerate() {
             try!(write!(formatter,
                         "        {:?}   {:?}\n",
-                        self.sorted_map[i],
+                        inner.sorted_map[i],
                         chunk))
         }
-        try!(write!(formatter, "    map_size: {}\n", self.map_size));
-        write!(formatter, "    file_size: {}\n}}", self.file_size)
+        try!(write!(formatter, "    map_size: {}\n", inner.map_size));
+        write!(formatter, "    file_size: {}\n}}", inner.file_size)
     }
 }
 
@@ -574,12 +741,13 @@ fn initialise_rust_sodium() {
 
 #[cfg(test)]
 mod tests {
+    use futures::Future;
     use maidsafe_utilities::serialisation;
     use rand::{self, Rng};
     use rand::distributions::{Range, Sample};
     use super::{SelfEncryptor, get_chunk_number, get_chunk_size, get_num_chunks,
                 get_previous_chunk_number, get_start_end_positions};
-    use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage, StorageError};
+    use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage};
     use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
@@ -752,11 +920,12 @@ mod tests {
                    ((number_of_chunks * MAX_CHUNK_SIZE) as u64));
     }
 
-    fn check_file_size<E: StorageError, S: Storage<E>>(se: &SelfEncryptor<E, S>,
-                                                       expected_file_size: u64) {
-        assert_eq!(se.file_size, expected_file_size);
-        if !se.sorted_map.is_empty() {
-            let chunks_cumulated_size = se.sorted_map
+    fn check_file_size<S: Storage>(se: &SelfEncryptor<S>,
+                                   expected_file_size: u64) {
+        let inner = unwrap!(se.0.lock());
+        assert_eq!(inner.file_size, expected_file_size);
+        if !inner.sorted_map.is_empty() {
+            let chunks_cumulated_size = inner.sorted_map
                 .iter()
                 .fold(0u64, |acc, chunk| acc + chunk.source_size);
             assert_eq!(chunks_cumulated_size, expected_file_size);
@@ -779,40 +948,39 @@ mod tests {
 
     #[test]
     fn write() {
-        let mut storage = SimpleStorage::new();
-        let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let storage = SimpleStorage::new();
+        let se = SelfEncryptor::new(storage, DataMap::None)
             .expect("Encryptor construction shouldn't fail.");
         let size = 3;
         let offset = 5u32;
         let the_bytes = random_bytes(size);
-        se.write(&the_bytes, offset as u64).expect("Writing to encryptor shouldn't fail.");
+        se.write(&the_bytes, offset as u64).wait().expect("Writing to encryptor shouldn't fail.");
         check_file_size(&se, (size + offset as usize) as u64);
     }
 
     #[test]
     fn multiple_writes() {
-        let mut storage = SimpleStorage::new();
         let size1 = 3;
         let size2 = 4;
         let part1 = random_bytes(size1);
         let part2 = random_bytes(size2);
         let data_map;
+
         {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             // Just testing multiple subsequent write calls
-            se.write(&part1, 0).expect("Writing part one to encryptor shouldn't fail.");
-            se.write(&part2, size1 as u64).expect("Writing part two to encryptor shouldn't fail.");
+            unwrap!(se.write(&part1, 0).wait());
+            unwrap!(se.write(&part2, size1 as u64).wait());
             // Let's also test an overwrite.. over middle bytes of part2
-            se.write(&[4u8, 2], size1 as u64 + 1)
-                .expect("Overwriting on encryptor shouldn't fail.");
+            unwrap!(se.write(&[4u8, 2], size1 as u64 + 1).wait());
             check_file_size(&se, (size1 + size2) as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
+            data_map = unwrap!(se.close().wait()).0;
         }
-        let mut se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = se.read(0, (size1 + size2) as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+
+        let storage = SimpleStorage::new();
+        let se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(se.read(0, (size1 + size2) as u64).wait());
         assert!(&fetched[..size1] == &part1[..]);
         assert_eq!(fetched[size1], part2[0]);
         assert!(&fetched[size1 + 1..size1 + 3] == &[4u8, 2][..]);
@@ -821,19 +989,23 @@ mod tests {
 
     #[test]
     fn three_min_chunks_minus_one() {
-        let mut storage = SimpleStorage::new();
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE * 3) - 1;
         let the_bytes = random_bytes(bytes_len as usize);
+
         {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
-            assert_eq!(se.sorted_map.len(), 0);
-            assert_eq!(se.sequencer.len(), bytes_len as usize);
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
+
+            {
+                let inner = unwrap!(se.0.lock());
+                assert_eq!(inner.sorted_map.len(), 0);
+                assert_eq!(inner.sequencer.len(), bytes_len as usize);
+            }
             check_file_size(&se, bytes_len as u64);
             // check close
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
+            data_map = unwrap!(se.close().wait()).0;
         }
         match data_map {
             DataMap::Chunks(_) => panic!("shall not return DataMap::Chunks"),
@@ -841,28 +1013,25 @@ mod tests {
             DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let storage = SimpleStorage::new();
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn three_min_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
-            let fetched = se.read(0, MIN_CHUNK_SIZE as u64 * 3)
-                .expect("Reading from encryptor shouldn't fail.");
+            let fetched = unwrap!(se.read(0, MIN_CHUNK_SIZE as u64 * 3).wait());
             assert!(fetched == the_bytes);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
@@ -875,26 +1044,23 @@ mod tests {
             DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read, write
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, MIN_CHUNK_SIZE as u64 * 3)
-            .expect("Reading again from encryptor shouldn't fail.");
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, MIN_CHUNK_SIZE as u64 * 3).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn three_min_chunks_plus_one() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
@@ -906,26 +1072,23 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn three_max_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let the_bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
@@ -937,27 +1100,24 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn three_max_chunks_plus_one() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE * 3) + 1;
         let the_bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
             // check close
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 4);
@@ -970,26 +1130,23 @@ mod tests {
             DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read and write
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn seven_and_a_bit_max_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = (MAX_CHUNK_SIZE * 7) + 1024;
         let the_bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 8);
@@ -1001,27 +1158,24 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
-            .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
+        let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn large_file_one_byte_under_eleven_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) - 1;
         let the_bytes = random_bytes(bytes_len);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize);
@@ -1033,27 +1187,28 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
+        let new_se = SelfEncryptor::new(storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = new_se.read(0, bytes_len as u64)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn large_file_one_byte_over_eleven_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1;
         let the_bytes = random_bytes(bytes_len);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&the_bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize + 1);
@@ -1065,9 +1220,10 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
+        let new_se = SelfEncryptor::new(storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = new_se.read(0, bytes_len as u64)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
@@ -1075,19 +1231,21 @@ mod tests {
     #[test]
     fn large_file_size_1024_over_eleven_chunks() {
         // has been tested for 50 chunks
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
         let the_bytes = random_bytes(bytes_len);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&the_bytes, 0)
+                .wait()
+                .expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
             // check close
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize + 1);
@@ -1100,29 +1258,28 @@ mod tests {
             DataMap::None => panic!("shall not return DataMap::None"),
         }
         // check read and write
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
+        let new_se = SelfEncryptor::new(storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = new_se.read(0, bytes_len as u64)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
     #[test]
     fn five_and_extend_to_seven_plus_one() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE * 5;
         let the_bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
-                .expect("Encryptor construction shouldn't fail.");
-            se.write(&the_bytes, 0).expect("Writing to encryptor shouldn't fail.");
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, bytes_len as u64);
-            se.truncate((7 * MAX_CHUNK_SIZE + 1) as u64)
-                .expect("Truncating encryptor shouldn't fail.");
+            unwrap!(se.truncate((7 * MAX_CHUNK_SIZE + 1) as u64).wait());
             check_file_size(&se, (7 * MAX_CHUNK_SIZE + 1) as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 8);
@@ -1138,19 +1295,19 @@ mod tests {
 
     #[test]
     fn truncate_three_max_chunks() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let bytes = random_bytes(bytes_len as usize);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            se.truncate(bytes_len as u64 - 24).expect("Truncating encryptor shouldn't fail.");
+            se.truncate(bytes_len as u64 - 24).wait().expect("Truncating encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64 - 24);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map.len(), bytes_len as u64 - 24);
         match data_map {
             DataMap::Chunks(ref chunks) => {
@@ -1162,34 +1319,35 @@ mod tests {
             }
             _ => panic!("data_map should be DataMap::Chunks"),
         }
-        let mut se = SelfEncryptor::new(&mut storage, data_map)
+        let se = SelfEncryptor::new(storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = se.read(0, bytes_len as u64 - 24)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
     fn truncate_from_data_map() {
-        let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let bytes = random_bytes(bytes_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
-        let data_map2: DataMap;
-        {
+            unwrap!(se.close().wait())
+        };
+
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
+            let se = SelfEncryptor::new(storage, data_map)
                 .expect("Second encryptor construction shouldn't fail.");
-            se.truncate(bytes_len as u64 - 24).expect("Truncating encryptor shouldn't fail.");
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            se.truncate(bytes_len as u64 - 24).wait().expect("Truncating encryptor shouldn't fail.");
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), bytes_len as u64 - 24);
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
@@ -1201,36 +1359,38 @@ mod tests {
             }
             _ => panic!("data_map should be DataMap::Chunks"),
         }
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
+        let se = SelfEncryptor::new(storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, bytes_len as u64 - 24)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
     fn truncate_from_data_map2() {
-        let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3;
         let bytes = random_bytes(bytes_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
-        let data_map2: DataMap;
-        {
+            unwrap!(se.close().wait())
+        };
+
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
+            let se = SelfEncryptor::new(storage, data_map)
                 .expect("Second encryptor construction shouldn't fail.");
-            se.truncate(bytes_len as u64 - 1).expect("Truncating encryptor once shouldn't fail.");
+            se.truncate(bytes_len as u64 - 1).wait().expect("Truncating encryptor once shouldn't fail.");
             se.truncate(bytes_len as u64)
+                .wait()
                 .expect("Truncating encryptor a second time shouldn't fail.");
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), bytes_len as u64);
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
@@ -1242,9 +1402,9 @@ mod tests {
             }
             _ => panic!("data_map should be DataMap::Chunks"),
         }
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
+        let se = SelfEncryptor::new(storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
+        let fetched = se.read(0, bytes_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
         let matching_bytes = bytes_len as usize - 1;
         assert!(&fetched[..matching_bytes] == &bytes[..matching_bytes]);
         assert_eq!(fetched[matching_bytes], 0u8);
@@ -1252,25 +1412,25 @@ mod tests {
 
     #[test]
     fn truncate_to_extend_from_data_map() {
-        let mut storage = SimpleStorage::new();
         let bytes_len = MAX_CHUNK_SIZE * 3 - 24;
         let bytes = random_bytes(bytes_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
-        let data_map2: DataMap;
-        {
+            unwrap!(se.close().wait())
+        };
+
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
+            let se = SelfEncryptor::new(storage, data_map)
                 .expect("Second encryptor construction shouldn't fail.");
-            se.truncate(bytes_len as u64 + 24).expect("Truncating encryptor shouldn't fail.");
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            se.truncate(bytes_len as u64 + 24).wait().expect("Truncating encryptor shouldn't fail.");
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), bytes_len as u64 + 24);
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
@@ -1282,9 +1442,10 @@ mod tests {
             }
             _ => panic!("data_map should be DataMap::Chunks"),
         }
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
+        let se = SelfEncryptor::new(storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, bytes_len as u64 + 24)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..bytes_len as usize] == &bytes[..]);
         assert!(&fetched[bytes_len as usize..] == &[0u8; 24]);
@@ -1292,18 +1453,18 @@ mod tests {
 
     #[test]
     fn large_100mb_file() {
-        let mut storage = SimpleStorage::new();
-        let data_map: DataMap;
         let number_of_chunks: u32 = 100;
         let bytes_len = MAX_CHUNK_SIZE as usize * number_of_chunks as usize;
         let bytes = random_bytes(bytes_len);
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+            se.write(&bytes, 0).wait().expect("Writing to encryptor shouldn't fail.");
             check_file_size(&se, bytes_len as u64);
-            data_map = se.close().expect("Closing encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks as usize);
@@ -1315,73 +1476,69 @@ mod tests {
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
             DataMap::None => panic!("shall not return DataMap::None"),
         }
-        let mut new_se = SelfEncryptor::new(&mut storage, data_map)
+        let new_se = SelfEncryptor::new(storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = new_se.read(0, bytes_len as u64)
+            .wait()
             .expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == bytes);
     }
 
     #[test]
     fn write_starting_with_existing_data_map() {
-        let mut storage = SimpleStorage::new();
         let part1_len = MIN_CHUNK_SIZE * 3;
         let part1_bytes = random_bytes(part1_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&part1_bytes, 0).expect("Writing part one to encryptor shouldn't fail.");
+            se.write(&part1_bytes, 0).wait().expect("Writing part one to encryptor shouldn't fail.");
             check_file_size(&se, part1_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         let part2_len = 1024;
         let part2_bytes = random_bytes(part2_len as usize);
         let full_len = part1_len + part2_len;
-        let data_map2: DataMap;
-        {
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
-                .expect("Second encryptor construction shouldn't fail.");
-            se.write(&part2_bytes, part1_len as u64)
-                .expect("Writing part two to encryptor shouldn't fail.");
+            let se = unwrap!(SelfEncryptor::new(storage, data_map));
+            unwrap!(se.write(&part2_bytes, part1_len as u64).wait());
             // check_file_size(&se, full_len);
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), full_len as u64);
 
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
-            .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, full_len as u64).expect("Reading from encryptor shouldn't fail.");
+        let se = unwrap!(SelfEncryptor::new(storage, data_map2));
+        let fetched = unwrap!(se.read(0, full_len as u64).wait());
         assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
     #[test]
     fn write_starting_with_existing_data_map2() {
-        let mut storage = SimpleStorage::new();
         let part1_len = MAX_CHUNK_SIZE * 3 - 24;
         let part1_bytes = random_bytes(part1_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&part1_bytes, 0).expect("Writing part one to encryptor shouldn't fail.");
+            se.write(&part1_bytes, 0).wait().expect("Writing part one to encryptor shouldn't fail.");
             check_file_size(&se, part1_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         let part2_len = 1024;
         let part2_bytes = random_bytes(part2_len as usize);
         let full_len = part1_len + part2_len;
-        let data_map2: DataMap;
-        {
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
-                .expect("Second encryptor construction shouldn't fail.");
-            se.write(&part2_bytes, part1_len as u64)
-                .expect("Writing part two to encryptor shouldn't fail.");
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            let se = unwrap!(SelfEncryptor::new(storage, data_map));
+            unwrap!(se.write(&part2_bytes, part1_len as u64).wait());
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), full_len as u64);
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
@@ -1394,66 +1551,62 @@ mod tests {
             _ => panic!("data_map should be DataMap::Chunks"),
         }
 
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
-            .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, full_len as u64).expect("Reading from encryptor shouldn't fail.");
+        let se = unwrap!(SelfEncryptor::new(storage, data_map2));
+        let fetched = se.read(0, full_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
         assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
         assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
     }
 
     #[test]
     fn overwrite_starting_with_existing_data_map() {
-        let mut storage = SimpleStorage::new();
         let part1_len = MAX_CHUNK_SIZE * 4;
         let part1_bytes = random_bytes(part1_len as usize);
-        let data_map: DataMap;
-        {
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&part1_bytes, 0).expect("Writing part one to encryptor shouldn't fail.");
+            se.write(&part1_bytes, 0).wait().expect("Writing part one to encryptor shouldn't fail.");
             check_file_size(&se, part1_len as u64);
-            data_map = se.close().expect("Closing first encryptor shouldn't fail.");
-        }
+            unwrap!(se.close().wait())
+        };
+
         let part2_len = 2;
         let part2_bytes = random_bytes(part2_len);
-        let data_map2: DataMap;
-        {
+        let (data_map2, storage) = {
             // Start with an existing data_map.
-            let mut se = SelfEncryptor::new(&mut storage, data_map)
+            let se = SelfEncryptor::new(storage, data_map)
                 .expect("Second encryptor construction shouldn't fail.");
             // Overwrite. This and next two chunks will have to be re-encrypted.
-            se.write(&part2_bytes, 2).expect("Writing part two to encryptor shouldn't fail.");
-            data_map2 = se.close().expect("Closing second encryptor shouldn't fail.");
-        }
+            se.write(&part2_bytes, 2).wait().expect("Writing part two to encryptor shouldn't fail.");
+            unwrap!(se.close().wait())
+        };
+
         assert_eq!(data_map2.len(), part1_len as u64);
 
-        let mut se = SelfEncryptor::new(&mut storage, data_map2)
+        let se = SelfEncryptor::new(storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, part1_len as u64).expect("Reading from encryptor shouldn't fail.");
+        let fetched = se.read(0, part1_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
         assert!(&part1_bytes[..2] == &fetched[..2]);
         assert!(&part2_bytes[..] == &fetched[2..2 + part2_len]);
         assert!(&part1_bytes[2 + part2_len..] == &fetched[2 + part2_len..]);
     }
 
-    fn create_vector_data_map(storage: &mut SimpleStorage, vec_len: usize) -> DataMap {
+    fn create_vector_data_map(vec_len: usize) -> (DataMap, SimpleStorage) {
         let data: Vec<usize> = (0..vec_len).collect();
-        let serialised_data: Vec<u8> = serialisation::serialise(&data)
-            .expect("failed to serialise Vec<usize>");
-        let mut self_encryptor = SelfEncryptor::new(storage, DataMap::None)
-            .expect("Encryptor construction shouldn't fail.");
-        self_encryptor.write(&serialised_data, 0).expect("Writing to encryptor shouldn't fail.");
+        let serialised_data: Vec<u8> = unwrap!(serialisation::serialise(&data));
+        let storage = SimpleStorage::new();
+        let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+        unwrap!(self_encryptor.write(&serialised_data, 0).wait());
         check_file_size(&self_encryptor, serialised_data.len() as u64);
-        self_encryptor.close().expect("Closing encryptor shouldn't fail.")
+
+        unwrap!(self_encryptor.close().wait())
     }
 
-    fn check_vector_data_map(storage: &mut SimpleStorage, vec_len: usize, data_map: &DataMap) {
-        let mut self_encryptor = SelfEncryptor::new(storage, data_map.clone())
-            .expect("Encryptor construction shouldn't fail.");
+    fn check_vector_data_map(storage: SimpleStorage, vec_len: usize, data_map: &DataMap) {
+        let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
         let length = self_encryptor.len();
-        let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length)
-            .expect("Reading from encryptor shouldn't fail.");
-        let data: Vec<usize> = serialisation::deserialise(&data_to_deserialise)
-            .expect("failed to deserialise Vec<usize>");
+        let data_to_deserialise = unwrap!(self_encryptor.read(0, length).wait());
+        let data: Vec<usize> = unwrap!(serialisation::deserialise(&data_to_deserialise));
         assert_eq!(data.len(), vec_len);
         for (index, data_char) in data.iter().enumerate() {
             assert_eq!(*data_char, index);
@@ -1463,9 +1616,8 @@ mod tests {
     #[test]
     fn serialised_vectors() {
         for vec_len in &[1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000] {
-            let mut storage = SimpleStorage::new();
-            let data_map: DataMap = create_vector_data_map(&mut storage, *vec_len);
-            check_vector_data_map(&mut storage, *vec_len, &data_map);
+            let (data_map, storage) = create_vector_data_map(*vec_len);
+            check_vector_data_map(storage, *vec_len, &data_map);
         }
     }
 
