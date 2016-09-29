@@ -14,7 +14,7 @@ matrix:
 sudo: false
 branches:
   only:
-    - master
+    - dev
 cache:
   cargo: true
   directories:
