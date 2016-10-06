@@ -38,9 +38,10 @@
 extern crate docopt;
 #[macro_use]
 extern crate maidsafe_utilities;
+#[macro_use]
+extern crate unwrap;
 extern crate rustc_serialize;
 extern crate self_encryption;
-
 
 use docopt::Docopt;
 use maidsafe_utilities::serialisation;
@@ -155,12 +156,12 @@ fn main() {
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
     let mut storage =
-        DiskBasedStorage { storage_path: unwrap_option!(chunk_store_dir.to_str(), "").to_owned() };
+        DiskBasedStorage { storage_path: unwrap!(chunk_store_dir.to_str(), "").to_owned() };
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
 
     if args.flag_encrypt && args.arg_target.is_some() {
-        if let Ok(mut file) = File::open(unwrap_option!(args.arg_target.clone(), "")) {
+        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone(), "")) {
             match file.metadata() {
                 Ok(metadata) => {
                     if metadata.len() > self_encryption::MAX_FILE_SIZE as u64 {
@@ -184,7 +185,7 @@ fn main() {
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
-                    let encoded = unwrap_result!(serialisation::serialise(&data_map));
+                    let encoded = unwrap!(serialisation::serialise(&data_map));
                     match file.write_all(&encoded[..]) {
                         Ok(_) => println!("Data map written to {:?}", data_map_file),
                         Err(error) => {
@@ -201,34 +202,32 @@ fn main() {
                 }
             }
         } else {
-            println!("Failed to open {}",
-                     unwrap_option!(args.arg_target.clone(), ""));
+            println!("Failed to open {}", unwrap!(args.arg_target.clone(), ""));
         }
     }
 
     if args.flag_decrypt && args.arg_destination.is_some() {
         if let Ok(mut file) = File::open(data_map_file.clone()) {
             let mut data = Vec::new();
-            let _ = unwrap_result!(file.read_to_end(&mut data));
+            let _ = unwrap!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
                 let mut se = SelfEncryptor::new(&mut storage, data_map)
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
-                if let Ok(mut file) = File::create(unwrap_option!(args.arg_destination.clone(),
-                                                                  "")) {
+                if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone(), "")) {
                     let content = se.read(0, length)
                         .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {
                             println!("File decrypted to {:?}",
-                                     unwrap_option!(args.arg_destination.clone(), ""))
+                                     unwrap!(args.arg_destination.clone(), ""))
                         }
                     };
                 } else {
                     println!("Failed to create {}",
-                             unwrap_option!(args.arg_destination.clone(), ""));
+                             unwrap!(args.arg_destination.clone(), ""));
                 }
             } else {
                 println!("Failed to parse data map - possible corruption");
