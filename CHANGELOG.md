@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.7.1]
+- Update maidsafe_utilities to v0.10.0 which removes deprecated API's.
+
 ## [0.7.0]
 - Use new rust_sodium crate instead of sodiumoxide.
 
