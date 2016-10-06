@@ -47,7 +47,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a id='src-150' class='srclink' href='../src/memmap/lib.rs.html#99-101' title='goto source code'>[src]</a></span></h1>
+               </span><a id='src-149' class='srclink' href='../src/memmap/lib.rs.html#99-101' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Mmap {
     // some fields omitted
 }</pre><div class='docblock'><p>A memory-mapped buffer.</p>
@@ -72,7 +72,7 @@ until the memory map is flushed, or it is dropped.</p>
 <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>anon_mmap</span> <span class='op'>=</span> <span class='ident'>Mmap</span>::<span class='ident'>anonymous</span>(<span class='number'>4096</span>, <span class='ident'>Protection</span>::<span class='ident'>ReadWrite</span>).<span class='ident'>unwrap</span>();
 <span class='kw'>unsafe</span> { <span class='ident'>anon_mmap</span>.<span class='ident'>as_mut_slice</span>() }.<span class='ident'>write</span>(<span class='string'>b&quot;foo&quot;</span>).<span class='ident'>unwrap</span>();
 <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='string'>b&quot;foo\0\0&quot;</span>, <span class='kw'>unsafe</span> { <span class='kw-2'>&amp;</span><span class='ident'>anon_mmap</span>.<span class='ident'>as_slice</span>()[<span class='number'>0</span>..<span class='number'>5</span>] });</pre>
-</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-152' class='srclink' href='../src/memmap/lib.rs.html#103-263' title='goto source code'>[src]</a></span></h3>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-151' class='srclink' href='../src/memmap/lib.rs.html#103-263' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'><h4 id='method.open' class='method'><code>fn <a href='#method.open' class='fnname'>open</a>(file: &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>, prot: <a class='enum' href='../memmap/enum.Protection.html' title='memmap::Protection'>Protection</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a>&gt;</code></h4>
 <div class='docblock'><p>Opens a file-backed memory map.</p>
 
@@ -162,7 +162,7 @@ dereferencing the pointer.</p>
 <div class='docblock'><p>Creates a splittable mmap view from the mmap.</p>
 </div><h4 id='method.into_view_sync' class='method'><code>fn <a href='#method.into_view_sync' class='fnname'>into_view_sync</a>(self) -&gt; <a class='struct' href='../memmap/struct.MmapViewSync.html' title='memmap::MmapViewSync'>MmapViewSync</a></code></h4>
 <div class='docblock'><p>Creates a thread-safe splittable mmap view from the mmap.</p>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-222' class='srclink' href='../src/memmap/lib.rs.html#265-269' title='goto source code'>[src]</a></span></h3>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../memmap/struct.Mmap.html' title='memmap::Mmap'>Mmap</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-221' class='srclink' href='../src/memmap/lib.rs.html#265-269' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
 <div class='docblock'><p>Formats the value using the given formatter.</p>
 </div></div></section>

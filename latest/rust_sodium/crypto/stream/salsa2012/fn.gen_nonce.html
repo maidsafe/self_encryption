@@ -13,7 +13,7 @@
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
     
 
-    
+    <link rel="shortcut icon" href="https://maidsafe.net/img/favicon.ico">
     
 </head>
 <body class="rustdoc">
@@ -27,7 +27,7 @@
     
 
     <nav class="sidebar">
-        
+        <a href='../../../../rust_sodium/index.html'><img src='https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png' alt='logo' width='100'></a>
         <p class='location'><a href='../../../index.html'>rust_sodium</a>::<wbr><a href='../../index.html'>crypto</a>::<wbr><a href='../index.html'>stream</a>::<wbr><a href='index.html'>salsa2012</a></p><script>window.sidebarCurrent = {name: 'gen_nonce', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
@@ -52,7 +52,7 @@
 
 <p>THREAD SAFETY: <code>gen_nonce()</code> is thread-safe provided that you have
 called <code>rust_sodium::init()</code> once before using any other function
-from rust_sodium.</p>
+from <code>rust_sodium</code>.</p>
 
 <p>NOTE: When using primitives with short nonces (e.g. salsa20, salsa208, salsa2012)
 do not use random nonces since the probability of nonce-collision is not negligible</p>

@@ -295,7 +295,7 @@
 <span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcEncodable</span>, <span class='ident'>RustcDecodable</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>PartialOrd</span>, <span class='ident'>Ord</span>, <span class='ident'>Clone</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>DataMap</span> {
     <span class='doccomment'>/// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm</span>
-    <span class='doccomment'>/// holds the list of the files chunks and corresponding hashes.</span>
+    <span class='doccomment'>/// holds the list of the file&#39;s chunks and corresponding hashes.</span>
     <span class='ident'>Chunks</span>(<span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>ChunkDetails</span><span class='op'>&gt;</span>),
     <span class='doccomment'>/// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and</span>
     <span class='doccomment'>/// are put in here in their entirety.</span>
@@ -340,18 +340,18 @@
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>has_chunks</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
         <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
             <span class='ident'>DataMap</span>::<span class='ident'>Chunks</span>(<span class='kw-2'>ref</span> <span class='ident'>chunks</span>) <span class='op'>=&gt;</span> <span class='ident'>DataMap</span>::<span class='ident'>chunks_size</span>(<span class='ident'>chunks</span>) <span class='op'>&gt;</span> <span class='number'>0</span>,
-            _ <span class='op'>=&gt;</span> <span class='boolvalue'>false</span>,
+            _ <span class='op'>=&gt;</span> <span class='bool-val'>false</span>,
         }
+    }
+
+    <span class='doccomment'>/// Sorts list of chunks using quicksort</span>
+    <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>chunks_sort</span>(<span class='ident'>chunks</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> [<span class='ident'>ChunkDetails</span>]) {
+        <span class='ident'>chunks</span>.<span class='ident'>sort_by</span>(<span class='op'>|</span><span class='ident'>a</span>, <span class='ident'>b</span><span class='op'>|</span> <span class='ident'>a</span>.<span class='ident'>chunk_num</span>.<span class='ident'>cmp</span>(<span class='kw-2'>&amp;</span><span class='ident'>b</span>.<span class='ident'>chunk_num</span>));
     }
 
     <span class='doccomment'>/// Iterates through the chunks to figure out the total size, i.e. the file size</span>
     <span class='kw'>fn</span> <span class='ident'>chunks_size</span>(<span class='ident'>chunks</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>ChunkDetails</span>]) <span class='op'>-&gt;</span> <span class='ident'>u64</span> {
         <span class='ident'>chunks</span>.<span class='ident'>iter</span>().<span class='ident'>fold</span>(<span class='number'>0</span>, <span class='op'>|</span><span class='ident'>acc</span>, <span class='ident'>chunk</span><span class='op'>|</span> <span class='ident'>acc</span> <span class='op'>+</span> <span class='ident'>chunk</span>.<span class='ident'>source_size</span>)
-    }
-
-    <span class='doccomment'>/// Sorts list of chunks using quicksort</span>
-    <span class='kw'>fn</span> <span class='ident'>chunks_sort</span>(<span class='ident'>chunks</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> [<span class='ident'>ChunkDetails</span>]) {
-        <span class='ident'>chunks</span>.<span class='ident'>sort_by</span>(<span class='op'>|</span><span class='ident'>a</span>, <span class='ident'>b</span><span class='op'>|</span> <span class='ident'>a</span>.<span class='ident'>chunk_num</span>.<span class='ident'>cmp</span>(<span class='kw-2'>&amp;</span><span class='ident'>b</span>.<span class='ident'>chunk_num</span>));
     }
 }
 
