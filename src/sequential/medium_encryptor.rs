@@ -67,7 +67,7 @@ impl<S> MediumEncryptor<S> where S: Storage + 'static {
                 buffer: buffer,
                 original_chunks: Some(chunks),
             }
-        }).boxed_no_send()
+        }).into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
@@ -76,7 +76,7 @@ impl<S> MediumEncryptor<S> where S: Storage + 'static {
         debug_assert!(data.len() as u64 + self.len() <= MAX);
         self.original_chunks = None;
         self.buffer.extend_from_slice(data);
-        futures::finished(self).boxed_no_send()
+        futures::finished(self).into_box()
     }
 
     // This finalises the encryptor - it should not be used again after this call.  Exactly three
@@ -85,7 +85,7 @@ impl<S> MediumEncryptor<S> where S: Storage + 'static {
     pub fn close(mut self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         if let Some(chunks) = self.original_chunks {
             return futures::finished((DataMap::Chunks(chunks), self.storage))
-                           .boxed_no_send();
+                           .into_box();
         }
 
         let mut futures;
@@ -120,9 +120,9 @@ impl<S> MediumEncryptor<S> where S: Storage + 'static {
                         details.hash = hash.to_vec();
                         self.storage.put(hash.to_vec(), encrypted_contents)
                                     .map_err(From::from)
-                                    .boxed()
+                                    .into_box()
                     }
-                    Err(error) => futures::failed(error).boxed_no_send(),
+                    Err(error) => futures::failed(error).into_box(),
                 };
 
                 futures.push(future);
@@ -131,7 +131,7 @@ impl<S> MediumEncryptor<S> where S: Storage + 'static {
 
         futures::collect(futures).map(move |_| {
             (DataMap::Chunks(chunk_details), self.storage)
-        }).boxed_no_send()
+        }).into_box()
     }
 
     pub fn len(&self) -> u64 {

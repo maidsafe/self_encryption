@@ -15,7 +15,7 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-use futures::BoxFuture;
+use futures::Future;
 use std::error::Error;
 
 /// Trait inherited from `std::error::Error` representing errors which can be returned by the
@@ -31,7 +31,7 @@ pub trait Storage {
 
     /// Retrieve data previously `put` under `name`.  If the data does not exist, an error should be
     /// returned.
-    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, Self::Error>;
+    fn get(&self, name: &[u8]) -> Box<Future<Item=Vec<u8>, Error=Self::Error>>;
     /// Store `data` under `name`.
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), Self::Error>;
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item=(), Error=Self::Error>>;
 }

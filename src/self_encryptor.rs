@@ -134,7 +134,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
             for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
                 *p = byte;
             }
-        }).boxed_no_send()
+        }).into_box()
     }
 
     /// The returned content is read from the specified `position` with specified `length`.  Trying
@@ -146,7 +146,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
         prepare_window_for_reading(self.0.clone(), position, length).map(move |_| {
             let state = state.borrow();
             state.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect()
-        }).boxed_no_send()
+        }).into_box()
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
@@ -161,7 +161,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
 
         if file_size == 0 {
             let storage = take_state(self.0).storage;
-            return futures::finished((DataMap::None, storage)).boxed_no_send();
+            return futures::finished((DataMap::None, storage)).into_box();
         }
 
         if file_size < 3 * MIN_CHUNK_SIZE as u64 {
@@ -170,7 +170,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
             let storage = state.storage;
 
             return futures::finished((DataMap::Content(content), storage))
-                           .boxed_no_send();
+                           .into_box();
         }
 
         // Decrypt:
@@ -210,12 +210,12 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
             }).and_then(move |_| {
                 let mut state = state1.borrow_mut();
                 state.create_data_map(resized_start as usize)
-            }).boxed_no_send()
+            }).into_box()
         };
 
         future_data_map.map(move |data_map| {
             (data_map, take_state(self.0).storage)
-        }).boxed_no_send()
+        }).into_box()
     }
 
     /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
@@ -223,13 +223,13 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
         {
             let mut state = self.0.borrow_mut();
             if state.file_size == new_size {
-                return futures::finished(()).boxed_no_send();
+                return futures::finished(()).into_box();
             }
 
             if new_size >= state.file_size {
                 let result = state.extend_sequencer_up_to(new_size);
                 state.file_size = new_size;
-                return futures::done(result).boxed_no_send();
+                return futures::done(result).into_box();
             }
         }
 
@@ -255,7 +255,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
                     let state = self.0.clone();
                     prepare_window_for_reading(state, byte_start, new_size - byte_start)
                 } else {
-                    futures::finished(()).boxed_no_send()
+                    futures::finished(()).into_box()
                 };
 
                 let state = self.0.clone();
@@ -268,9 +268,9 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
                     };
 
                     prepare_window_for_reading(state, 0, byte_end)
-                }).boxed_no_send()
+                }).into_box()
             } else {
-                futures::finished(()).boxed_no_send()
+                futures::finished(()).into_box()
             };
 
             let state = self.0.clone();
@@ -280,9 +280,9 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
                     chunk.status = ChunkStatus::ToBeHashed;
                     chunk.in_sequencer = true;
                 }
-            }).boxed_no_send()
+            }).into_box()
         } else {
-            futures::finished(()).boxed_no_send()
+            futures::finished(()).into_box()
         };
 
         let state = self.0.clone();
@@ -290,7 +290,7 @@ impl<S> SelfEncryptor<S> where S: Storage + 'static {
             let mut state = state.borrow_mut();
             state.sequencer.truncate(new_size as usize);
             state.file_size = new_size;
-        }).boxed_no_send()
+        }).into_box()
     }
 
     /// Current file size as is known by encryptor.
@@ -367,7 +367,7 @@ impl<S> State<S> where S: Storage + 'static {
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
                 let content = match encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki) {
                     Ok(content) => content,
-                    Err(error) => return futures::failed(error).boxed_no_send(),
+                    Err(error) => return futures::failed(error).into_box(),
 
                 };
                 let sha256::Digest(name) = sha256::hash(&content);
@@ -380,7 +380,7 @@ impl<S> State<S> where S: Storage + 'static {
             }
         }
 
-        futures::collect(put_futures).map(move |_| DataMap::Chunks(new_map)).boxed()
+        futures::collect(put_futures).map(move |_| DataMap::Chunks(new_map)).into_box()
     }
 }
 
@@ -401,7 +401,7 @@ fn prepare_window_for_writing<S>(state: Rc<RefCell<State<S>>>, position: u64, le
         let (chunks_start, chunks_end) = overlapped_chunks(state.map_size, position, length);
         if chunks_start == chunks_end {
             let result = state.extend_sequencer_up_to(position + length).map(|_| ());
-            return futures::done(result).boxed_no_send();
+            return futures::done(result).into_box();
         }
 
         // Two more chunks need to be decrypted for re-encryption.
@@ -416,7 +416,7 @@ fn prepare_window_for_writing<S>(state: Rc<RefCell<State<S>>>, position: u64, le
         };
 
         if let Err(error) = state.extend_sequencer_up_to(required_len) {
-            return futures::failed(error).boxed_no_send();
+            return futures::failed(error).into_box();
         }
 
         (chunks_start, chunks_end, next_two)
@@ -454,7 +454,7 @@ fn prepare_window_for_writing<S>(state: Rc<RefCell<State<S>>>, position: u64, le
         for &i in &next_two {
             state.chunks[i].flag_for_encryption();
         }
-    }).boxed_no_send()
+    }).into_box()
 }
 
 fn prepare_window_for_reading<S>(state: Rc<RefCell<State<S>>>,
@@ -471,7 +471,7 @@ fn prepare_window_for_reading<S>(state: Rc<RefCell<State<S>>>,
     if chunks_start == chunks_end {
         let mut state = state.borrow_mut();
         return futures::done(state.extend_sequencer_up_to(position + length))
-                       .boxed_no_send();
+                       .into_box();
     }
 
     {
@@ -482,7 +482,7 @@ fn prepare_window_for_reading<S>(state: Rc<RefCell<State<S>>>,
         };
 
         if let Err(error) = state.extend_sequencer_up_to(required_len) {
-            return futures::failed(error).boxed_no_send();
+            return futures::failed(error).into_box();
         }
     }
 
@@ -507,7 +507,7 @@ fn prepare_window_for_reading<S>(state: Rc<RefCell<State<S>>>,
                 *p = byte
             }
         }
-    }).boxed_no_send()
+    }).into_box()
 }
 
 fn decrypt_chunk<S>(state: &State<S>, chunk_number: u32)
@@ -528,7 +528,7 @@ fn decrypt_chunk<S>(state: &State<S>, chunk_number: u32)
         decompressor.write_all(&decrypted)
                     .and_then(|_| decompressor.finish())
                     .map_err(|_| SelfEncryptionError::Compression)
-    }).boxed_no_send()
+    }).into_box()
 }
 
 fn encrypt_chunk<E: StorageError>(content: &[u8], pki: (Pad, Key, Iv))

@@ -44,7 +44,7 @@ extern crate self_encryption;
 extern crate unwrap;
 
 use docopt::Docopt;
-use futures::{BoxFuture, Future};
+use futures::Future;
 use maidsafe_utilities::serialisation;
 use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
 use std::env;
@@ -130,7 +130,8 @@ impl DiskBasedStorage {
 impl Storage for DiskBasedStorage {
     type Error = DiskBasedStorageError;
 
-    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, DiskBasedStorageError> {
+    fn get(&self, name: &[u8])
+           -> Box<Future<Item=Vec<u8>, Error=DiskBasedStorageError>> {
         let path = self.calculate_path(name);
         let mut file = match File::open(&path) {
             Ok(file) => file,
@@ -143,7 +144,8 @@ impl Storage for DiskBasedStorage {
         futures::done(result).boxed()
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), DiskBasedStorageError> {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>)
+           -> Box<Future<Item=(), Error=DiskBasedStorageError>> {
         let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Ok(file) => file,

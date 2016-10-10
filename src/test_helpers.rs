@@ -17,11 +17,11 @@
 
 #![doc(hidden)]
 
-use futures::{self, BoxFuture, Future};
+use futures::{self, Future};
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
-
 use super::{Storage, StorageError};
+use util::BoxFuture;
 
 #[derive(Debug, Clone)]
 pub struct SimpleStorageError;

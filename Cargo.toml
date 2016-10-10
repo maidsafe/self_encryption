@@ -12,7 +12,7 @@ version = "0.7.0"
 [dependencies]
 brotli2 = "~0.2.1"
 clippy = {version = "~0.0.79", optional = true}
-futures = { git = "https://github.com/alexcrichton/futures-rs" }
+futures = "~0.1.2"
 memmap = "~0.4.0"
 rand = "~0.3.14"
 rustc-serialize = "~0.3.19"

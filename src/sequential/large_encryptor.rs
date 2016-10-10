@@ -93,7 +93,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
                 });
                 Box::new(future)
             } else {
-                futures::finished(Vec::with_capacity(MAX_BUFFER_LEN)).boxed_no_send()
+                futures::finished(Vec::with_capacity(MAX_BUFFER_LEN)).into_box()
             };
 
             // Decrypt the last chunk to `buffer`
@@ -126,7 +126,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
                 chunk_1_data: chunk_1_data,
                 buffer: buffer,
             }
-        }).boxed_no_send()
+        }).into_box()
     }
 
     pub fn from_medium(medium_encryptor: MediumEncryptor<S>) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
@@ -170,7 +170,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
             }
         }
 
-        futures::collect(futures).map(move |_| self).boxed_no_send()
+        futures::collect(futures).map(move |_| self).into_box()
     }
 
     // This finalises the encryptor - it should not be used again after this call.  Either three or
@@ -181,7 +181,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
     pub fn close(mut self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         if let Some(chunks) = self.original_chunks {
             return futures::finished((DataMap::Chunks(chunks), self.storage))
-                           .boxed_no_send();
+                           .into_box();
         }
 
         // Handle encrypting and storing the contents of `self.buffer`.
@@ -215,7 +215,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
 
         futures::collect(futures).map(move |_| {
             (DataMap::Chunks(swapped_chunks), self.storage)
-        }).boxed_no_send()
+        }).into_box()
     }
 
     pub fn len(&self) -> u64 {
@@ -263,7 +263,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
         let pad_key_iv = utils::get_pad_key_and_iv(index, &self.chunks);
         let encrypted_contents = match utils::encrypt_chunk(data, pad_key_iv) {
             Ok(contents) => contents,
-            Err(error) => return futures::failed(error).boxed_no_send(),
+            Err(error) => return futures::failed(error).into_box(),
         };
 
         let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
@@ -271,7 +271,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
 
         self.storage.put(hash.to_vec(), encrypted_contents)
                     .map_err(SelfEncryptionError::Storage)
-                    .boxed()
+                    .into_box()
     }
 }
 

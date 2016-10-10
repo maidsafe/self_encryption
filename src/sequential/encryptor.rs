@@ -38,9 +38,9 @@ enum State<S> {
 impl<S> State<S> where S: Storage + 'static {
     fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
         match self {
-            State::Small(encryptor) => encryptor.write(data).map(From::from).boxed_no_send(),
-            State::Medium(encryptor) => encryptor.write(data).map(From::from).boxed_no_send(),
-            State::Large(encryptor) => encryptor.write(data).map(From::from).boxed_no_send(),
+            State::Small(encryptor) => encryptor.write(data).map(From::from).into_box(),
+            State::Medium(encryptor) => encryptor.write(data).map(From::from).into_box(),
+            State::Large(encryptor) => encryptor.write(data).map(From::from).into_box(),
             State::Transitioning => unreachable!(),
         }
     }
@@ -130,7 +130,7 @@ impl<S> Encryptor<S> where S: Storage + 'static {
                 SmallEncryptor::new(storage, content)
                                .map(State::from)
                                .map(Self::from)
-                               .boxed_no_send()
+                               .into_box()
             }
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
@@ -138,19 +138,19 @@ impl<S> Encryptor<S> where S: Storage + 'static {
                     MediumEncryptor::new(storage, chunks)
                                     .map(State::from)
                                     .map(Self::from)
-                                    .boxed_no_send()
+                                    .into_box()
                 } else {
                     LargeEncryptor::new(storage, chunks)
                                    .map(State::from)
                                    .map(Self::from)
-                                   .boxed_no_send()
+                                   .into_box()
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),
             None => SmallEncryptor::new(storage, vec![])
                                    .map(State::from)
                                    .map(Self::from)
-                                   .boxed_no_send()
+                                   .into_box()
         }
     }
 
@@ -172,19 +172,19 @@ impl<S> Encryptor<S> where S: Storage + 'static {
                     State::from(small)
                 };
 
-                futures::finished(new_state).boxed_no_send()
+                futures::finished(new_state).into_box()
             }
             State::Medium(medium) => {
                 if medium.len() + data.len() as u64 >= large_encryptor::MIN {
                     LargeEncryptor::from_medium(medium)
                                    .map(State::from)
-                                   .boxed_no_send()
+                                   .into_box()
                 } else {
-                    futures::finished(State::from(medium)).boxed_no_send()
+                    futures::finished(State::from(medium)).into_box()
                 }
             }
             State::Large(large) => {
-                futures::finished(State::from(large)).boxed_no_send()
+                futures::finished(State::from(large)).into_box()
             }
             State::Transitioning => unreachable!(),
         };
@@ -194,7 +194,7 @@ impl<S> Encryptor<S> where S: Storage + 'static {
             next_state.write(&data)
         }).map(move |next_state| {
             *curr_state.borrow_mut() = next_state;
-        }).boxed_no_send()
+        }).into_box()
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal

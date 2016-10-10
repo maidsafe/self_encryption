@@ -23,11 +23,11 @@ pub type BoxFuture<T, E> = Box<Future<Item=T, Error=E>>;
 
 // Extension methods for Future.
 pub trait FutureExt: Future {
-    fn boxed_no_send(self) -> BoxFuture<Self::Item, Self::Error>;
+    fn into_box(self) -> BoxFuture<Self::Item, Self::Error>;
 }
 
 impl<F> FutureExt for F where F: Future + 'static {
-    fn boxed_no_send(self) -> BoxFuture<Self::Item, Self::Error> {
+    fn into_box(self) -> BoxFuture<Self::Item, Self::Error> {
         Box::new(self)
     }
 }
