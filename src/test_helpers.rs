@@ -17,13 +17,14 @@
 
 #![doc(hidden)]
 
+use futures::{self, Future};
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
-
 use super::{Storage, StorageError};
+use util::BoxFuture;
 
 #[derive(Debug, Clone)]
-pub struct SimpleStorageError {}
+pub struct SimpleStorageError;
 
 impl Display for SimpleStorageError {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -38,8 +39,6 @@ impl Error for SimpleStorageError {
 }
 
 impl StorageError for SimpleStorageError {}
-
-
 
 struct Entry {
     name: Vec<u8>,
@@ -66,18 +65,24 @@ impl SimpleStorage {
     }
 }
 
-impl Storage<SimpleStorageError> for SimpleStorage {
-    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
-        match self.entries.iter().find(|entry| entry.name == name) {
+impl Storage for SimpleStorage {
+    type Error = SimpleStorageError;
+
+    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, SimpleStorageError> {
+        let result = match self.entries.iter().find(|entry| entry.name == name) {
             Some(entry) => Ok(entry.data.clone()),
             None => Err(SimpleStorageError {}),
-        }
+        };
+
+        futures::done(result).boxed()
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
-        Ok(self.entries.push(Entry {
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
+        self.entries.push(Entry {
             name: name,
             data: data,
-        }))
+        });
+
+        futures::finished(()).boxed()
     }
 }
