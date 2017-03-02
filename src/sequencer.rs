@@ -16,11 +16,11 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::MAX_FILE_SIZE;
 use memmap::{Mmap, Protection};
 use std::io::Error as IoError;
 use std::io::Write;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-use super::MAX_FILE_SIZE;
 
 pub const MAX_IN_MEMORY_SIZE: usize = 50 * 1024 * 1024;
 
@@ -34,7 +34,7 @@ pub struct Sequencer {
     data: Data,
 }
 
-#[cfg_attr(feature="clippy", allow(len_without_is_empty))]
+#[cfg_attr(feature="cargo-clippy", allow(len_without_is_empty))]
 impl Sequencer {
     /// Initialise as a vector.
     pub fn new_as_vector() -> Sequencer {

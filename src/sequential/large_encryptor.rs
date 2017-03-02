@@ -16,14 +16,14 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
+use super::medium_encryptor::MediumEncryptor;
+use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
 use rust_sodium::crypto::hash::sha256;
 use std::{cmp, mem};
 use std::convert::From;
 use std::marker::PhantomData;
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
-use super::medium_encryptor::MediumEncryptor;
-use super::small_encryptor::SmallEncryptor;
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
 const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
@@ -251,15 +251,15 @@ impl<'a, E: StorageError, S: Storage<E>> From<MediumEncryptor<'a, E, S>>
 #[cfg(test)]
 mod tests {
 
+    use super::*;
+    use super::super::{MAX_CHUNK_SIZE, utils};
+    use super::super::medium_encryptor::{self, MediumEncryptor};
+    use super::super::small_encryptor::SmallEncryptor;
     use data_map::DataMap;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use super::*;
-    use super::super::{MAX_CHUNK_SIZE, utils};
-    use super::super::medium_encryptor::{self, MediumEncryptor};
-    use super::super::small_encryptor::SmallEncryptor;
     use test_helpers::SimpleStorage;
 
 
