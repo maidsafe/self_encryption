@@ -2,7 +2,6 @@ env:
   global:
     - RUST_BACKTRACE=1
     - PATH=$PATH:$HOME/.cargo/bin
-    - secure: ZgUUM+2D6rSJ5elyeFHTvvHj3W3VM4Tnfr7gF6vrQdh6Rr5AT8aZZlDT3v1RJecVlxy/bMPTImYqYGdMLakudvnJOZ8Wp1rr245GgEl56F0gLVQG0fiYiGTwYCtfMgNfHBl/bSW12dHOZ/dcw27urYT9DEo1y50NzIf1XdsmN1w=
 os:
   - linux
   - osx

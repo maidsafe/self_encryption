@@ -29,10 +29,6 @@
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
 
-#[macro_use]
-#[cfg_attr(feature="cargo-clippy", allow(useless_attribute))]
-#[allow(unused_extern_crates)] // Only using macros from maidsafe_utilites
-extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
 
