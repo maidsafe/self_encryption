@@ -1,7 +1,7 @@
 [package]
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
-documentation = "http://docs.maidsafe.net/self_encryption/latest"
+documentation = "https://docs.rs/self_encryption"
 homepage = "http://maidsafe.net"
 license = "GPL-3.0"
 name = "self_encryption"
@@ -11,7 +11,6 @@ version = "0.7.1"
 
 [dependencies]
 brotli2 = "~0.2.1"
-clippy = {version = "~0.0.94", optional = true}
 memmap = "~0.4.0"
 rand = "~0.3.14"
 rust_sodium = "~0.1.2"

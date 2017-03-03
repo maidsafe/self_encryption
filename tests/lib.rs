@@ -29,14 +29,6 @@
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
 
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy))]
-
-#[macro_use]
-#[cfg_attr(feature="clippy", allow(useless_attribute))]
-#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
-extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
 
@@ -114,8 +106,8 @@ fn write_random_sizes_at_random_positions() {
     let max_broken_size = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
-    let mut broken_data: Vec<(u32, &[u8])> =
-        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+    let mut broken_data: Vec<(u32, &[u8])> = Vec::with_capacity((DATA_SIZE / max_broken_size) as
+                                                                usize);
 
     let mut offset = 0;
     let mut last_piece = 0;

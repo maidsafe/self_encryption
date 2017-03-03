@@ -16,6 +16,8 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
+            StorageError};
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
@@ -28,8 +30,6 @@ use std::io::Write;
 use std::iter;
 use std::marker::PhantomData;
 use std::sync::{ONCE_INIT, Once};
-use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
-            StorageError};
 
 const HASH_SIZE: usize = sha256::DIGESTBYTES;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -151,7 +151,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
-    #[cfg_attr(feature="clippy", allow(needless_range_loop))]
+    #[cfg_attr(feature="cargo-clippy", allow(needless_range_loop))]
     pub fn close(mut self) -> Result<DataMap, SelfEncryptionError<E>> {
         if self.file_size == 0 {
             return Ok(DataMap::None);
@@ -164,7 +164,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         // Decrypt:
         // - first two chunks if last chunks size has changed
         // - chunks whose size is out of date
-        let possibly_reusable_end;  // end of range of possibly reusable chunks
+        let possibly_reusable_end; // end of range of possibly reusable chunks
         let (resized_start, resized_end) = resized_chunks(self.map_size, self.file_size);
         if resized_start == resized_end {
             possibly_reusable_end = get_num_chunks(self.map_size) as usize;
@@ -183,21 +183,21 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let num_new_chunks = get_num_chunks(self.file_size) as usize;
         let mut new_map = vec![ChunkDetails::new(); num_new_chunks];
 
-        for i in 0..num_new_chunks {
+        for (i, mut new_chunk) in new_map.iter_mut().enumerate() {
             if i < possibly_reusable_end && self.chunks[i].status != ChunkStatus::ToBeHashed {
-                new_map[i].chunk_num = i as u32;
-                new_map[i].hash.clear();
-                new_map[i].pre_hash = self.sorted_map[i].pre_hash.clone();
-                new_map[i].source_size = self.sorted_map[i].source_size;
+                new_chunk.chunk_num = i as u32;
+                new_chunk.hash.clear();
+                new_chunk.pre_hash = self.sorted_map[i].pre_hash.clone();
+                new_chunk.source_size = self.sorted_map[i].source_size;
             } else {
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
                 let sha256::Digest(name) = sha256::hash(&(*self.sequencer)[pos..pos + this_size]);
-                new_map[i].chunk_num = i as u32;
-                new_map[i].hash.clear();
-                new_map[i].pre_hash = name.to_vec();
-                new_map[i].source_size = this_size as u64;
+                new_chunk.chunk_num = i as u32;
+                new_chunk.hash.clear();
+                new_chunk.pre_hash = name.to_vec();
+                new_chunk.source_size = this_size as u64;
             }
         }
 
@@ -399,9 +399,10 @@ fn get_pad_key_and_iv(chunk_number: u32,
     let mut key = [0u8; KEY_SIZE];
     let mut iv = [0u8; IV_SIZE];
 
-    for (pad_iv_el, element) in pad.iter_mut()
-        .chain(iv.iter_mut())
-        .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+    for (pad_iv_el, element) in
+        pad.iter_mut()
+            .chain(iv.iter_mut())
+            .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
         *pad_iv_el = *element;
     }
 
@@ -419,7 +420,7 @@ fn overlapped_chunks(file_size: u64, position: u64, length: u64) -> (usize, usiz
         return (0, 0);
     }
     let start = get_chunk_number(file_size, position);
-    let end_pos = position + length - 1;    // inclusive
+    let end_pos = position + length - 1; // inclusive
     let end = if end_pos < file_size {
         get_chunk_number(file_size, end_pos) + 1
     } else {
@@ -574,12 +575,12 @@ fn initialise_rust_sodium() {
 
 #[cfg(test)]
 mod tests {
-    use maidsafe_utilities::serialisation;
-    use rand::{self, Rng};
-    use rand::distributions::{Range, Sample};
     use super::{SelfEncryptor, get_chunk_number, get_chunk_size, get_num_chunks,
                 get_previous_chunk_number, get_start_end_positions};
     use super::super::{DataMap, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, Storage, StorageError};
+    use maidsafe_utilities::serialisation;
+    use rand::{self, Rng};
+    use rand::distributions::{Range, Sample};
     use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
@@ -1194,7 +1195,7 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6);   // old ones + new ones
+                assert_eq!(storage.num_entries(), 6); // old ones + new ones
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1235,7 +1236,7 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6);   // old ones + new ones
+                assert_eq!(storage.num_entries(), 6); // old ones + new ones
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1275,7 +1276,7 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6);   // old ones + new ones
+                assert_eq!(storage.num_entries(), 6); // old ones + new ones
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1386,7 +1387,7 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 4);
-                assert_eq!(storage.num_entries(), 7);   // old ones + new ones
+                assert_eq!(storage.num_entries(), 7); // old ones + new ones
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }

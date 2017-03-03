@@ -17,10 +17,10 @@
 
 #![doc(hidden)]
 
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
 
 use super::{Storage, StorageError};
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct SimpleStorageError {}

@@ -16,13 +16,13 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
+use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
 use rust_sodium::crypto::hash::sha256;
 use std::convert::From;
 use std::marker::PhantomData;
 use std::mem;
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
-use super::small_encryptor::SmallEncryptor;
 
 pub const MIN: u64 = 3 * MIN_CHUNK_SIZE as u64;
 pub const MAX: u64 = 3 * MAX_CHUNK_SIZE as u64;
@@ -80,8 +80,8 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
         }
         // Third the contents, with the extra single or two bytes in the last chunk.
         let chunk_contents = vec![&self.buffer[..(self.buffer.len() / 3)],
-                                  &self.buffer[(self.buffer.len() / 3)..(2 *
-                                                                         (self.buffer.len() / 3))],
+                                  &self.buffer[(self.buffer.len() / 3)..
+                                   (2 * (self.buffer.len() / 3))],
                                   &self.buffer[(2 * (self.buffer.len() / 3))..]];
         // Note the pre-encryption hashes and sizes.
         let mut chunk_details = vec![];
@@ -95,9 +95,10 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
         }
         // Encrypt the chunks and note the post-encryption hashes
         let partial_details = chunk_details.clone();
-        for (index, (contents, mut details)) in chunk_contents.iter()
-            .zip(chunk_details.iter_mut())
-            .enumerate() {
+        for (index, (contents, mut details)) in
+            chunk_contents.iter()
+                .zip(chunk_details.iter_mut())
+                .enumerate() {
             let encrypted_contents = try!(utils::encrypt_chunk(contents,
                                           utils::get_pad_key_and_iv(index, &partial_details)));
             let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
@@ -134,14 +135,14 @@ impl<'a, E: StorageError, S: Storage<E>> From<SmallEncryptor<'a, E, S>>
 #[cfg(test)]
 mod tests {
 
+    use super::*;
+    use super::super::{MAX_CHUNK_SIZE, utils};
+    use super::super::small_encryptor::{self, SmallEncryptor};
     use data_map::DataMap;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use super::*;
-    use super::super::{MAX_CHUNK_SIZE, utils};
-    use super::super::small_encryptor::{self, SmallEncryptor};
     use test_helpers::SimpleStorage;
 
     #[test]

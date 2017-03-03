@@ -16,12 +16,12 @@
 // relating to use of the SAFE Network Software.
 
 
-use data_map::DataMap;
-use std::mem;
 use super::{SelfEncryptionError, Storage, StorageError, utils};
 use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
+use data_map::DataMap;
+use std::mem;
 
 enum StateMachine<'a, E: StorageError, S: 'a + Storage<E>> {
     Small(SmallEncryptor<'a, E, S>),
@@ -187,13 +187,13 @@ impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
 #[cfg(test)]
 mod tests {
 
+    use super::*;
+    use super::super::*;
     use data_map::DataMap;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use super::*;
-    use super::super::*;
     use test_helpers::SimpleStorage;
 
     fn read(expected_data: &[u8], storage: &mut SimpleStorage, data_map: &DataMap) {
