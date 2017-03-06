@@ -5,8 +5,8 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -14,7 +14,6 @@
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
-
 
 use super::{SelfEncryptionError, Storage, StorageError, utils};
 use super::large_encryptor::{self, LargeEncryptor};
@@ -104,9 +103,9 @@ impl<'a, E: StorageError, S: Storage<E>> Encryptor<'a, E, S> {
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
                 if chunks.len() == 3 {
-                    StateMachine::Medium(try!(MediumEncryptor::new(storage, chunks)))
+                    StateMachine::Medium(MediumEncryptor::new(storage, chunks)?)
                 } else {
-                    StateMachine::Large(try!(LargeEncryptor::new(storage, chunks)))
+                    StateMachine::Large(LargeEncryptor::new(storage, chunks)?)
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),

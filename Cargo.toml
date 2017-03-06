@@ -2,7 +2,7 @@
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "https://docs.rs/self_encryption"
-homepage = "http://maidsafe.net"
+homepage = "https://maidsafe.net"
 license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
@@ -23,4 +23,5 @@ itertools = "~0.5.2"
 maidsafe_utilities = "~0.10.0"
 
 [[example]]
+bench = false
 name = "basic_encryptor"
