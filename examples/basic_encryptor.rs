@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -30,10 +30,6 @@
         unused_qualifications, unused_results)]
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
-
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy))]
 
 extern crate docopt;
 #[macro_use]
@@ -129,25 +125,23 @@ impl DiskBasedStorage {
 impl Storage<DiskBasedStorageError> for DiskBasedStorage {
     fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
         let path = self.calculate_path(name);
-        let mut file = try!(File::open(&path));
+        let mut file = File::open(&path)?;
         let mut data = Vec::new();
-        let _ = try!(file.read_to_end(&mut data));
+        let _ = file.read_to_end(&mut data)?;
         Ok(data)
     }
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), DiskBasedStorageError> {
         let path = self.calculate_path(&name);
-        let mut file = try!(File::create(&path));
-        try!(file.write_all(&data[..]));
+        let mut file = File::create(&path)?;
+        file.write_all(&data[..])?;
         println!("Chunk written to {:?}", path);
         Ok(())
     }
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.decode())
-        .unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(|e| e.exit());
     if args.flag_help {
         println!("{:?}", args)
     }
@@ -216,8 +210,8 @@ fn main() {
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone(), "")) {
-                    let content = se.read(0, length)
-                        .expect("Reading from encryptor shouldn't fail.");
+                    let content =
+                        se.read(0, length).expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {

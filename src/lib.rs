@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -120,8 +120,8 @@
 
 #![doc(html_logo_url =
            "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
-       html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-       html_root_url = "http://maidsafe.github.io/self_encryption")]
+       html_favicon_url = "https://maidsafe.net/img/favicon.ico",
+       html_root_url = "https://docs.rs/self_encryption")]
 
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md

@@ -5,8 +5,8 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -14,7 +14,6 @@
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
-
 
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::medium_encryptor::MediumEncryptor;
@@ -60,39 +59,39 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
             // Decrypt first two chunks
             let mut start_iter = partial_details.iter_mut().enumerate();
             let (index, mut chunk) = unwrap!(start_iter.next());
-            chunk_0_data = try!(utils::decrypt_chunk(&try!(storage.get(&chunk.hash)),
-                                                     utils::get_pad_key_and_iv(index, &chunks)));
+            chunk_0_data = utils::decrypt_chunk(&storage.get(&chunk.hash)?,
+                                                utils::get_pad_key_and_iv(index, &chunks))?;
             chunk.hash.clear();
             let (index, mut chunk) = unwrap!(start_iter.next());
-            chunk_1_data = try!(utils::decrypt_chunk(&try!(storage.get(&chunk.hash)),
-                                                     utils::get_pad_key_and_iv(index, &chunks)));
+            chunk_1_data = utils::decrypt_chunk(&storage.get(&chunk.hash)?,
+                                                utils::get_pad_key_and_iv(index, &chunks))?;
             chunk.hash.clear();
 
             // If the penultimate chunk is not at MAX_CHUNK_SIZE, decrypt it to `buffer`
             let mut end_iter = start_iter.skip(chunks.len() - 4);
             let (index, chunk) = unwrap!(end_iter.next());
             if chunk.source_size < MAX_CHUNK_SIZE as u64 {
-                buffer = try!(utils::decrypt_chunk(&try!(storage.get(&chunk.hash)),
-                                                   utils::get_pad_key_and_iv(index, &chunks)));
+                buffer = utils::decrypt_chunk(&storage.get(&chunk.hash)?,
+                                              utils::get_pad_key_and_iv(index, &chunks))?;
                 truncated_details_len -= 1;
             }
             // Decrypt the last chunk to `buffer`
             let (index, chunk) = unwrap!(end_iter.next());
-            buffer.extend(try!(utils::decrypt_chunk(&try!(storage.get(&chunk.hash)),
-                                                    utils::get_pad_key_and_iv(index, &chunks))));
+            buffer.extend(utils::decrypt_chunk(&storage.get(&chunk.hash)?,
+                                               utils::get_pad_key_and_iv(index, &chunks))?);
         }
         // Remove the last one or two chunks' details since they're now in `buffer`
         partial_details.truncate(truncated_details_len);
 
         Ok(LargeEncryptor {
-            storage: storage,
-            chunks: partial_details,
-            original_chunks: Some(chunks),
-            chunk_0_data: chunk_0_data,
-            chunk_1_data: chunk_1_data,
-            buffer: buffer,
-            phantom: PhantomData,
-        })
+               storage: storage,
+               chunks: partial_details,
+               original_chunks: Some(chunks),
+               chunk_0_data: chunk_0_data,
+               chunk_1_data: chunk_1_data,
+               buffer: buffer,
+               phantom: PhantomData,
+           })
     }
 
     // Stores any chunks which cannot be modified by subsequent `write()` calls and buffers the
@@ -116,7 +115,7 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
                 let mut data_to_encrypt = self.buffer.split_off(MAX_CHUNK_SIZE as usize);
                 mem::swap(&mut self.buffer, &mut data_to_encrypt);
                 let index = self.chunks.len();
-                try!(self.encrypt_chunk(&data_to_encrypt, index));
+                self.encrypt_chunk(&data_to_encrypt, index)?;
             }
         }
         Ok(())
@@ -145,17 +144,17 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
         let mut index = self.chunks.len();
         let mut swapped_buffer = vec![];
         mem::swap(&mut swapped_buffer, &mut self.buffer);
-        try!(self.encrypt_chunk(&swapped_buffer[..first_len], index));
+        self.encrypt_chunk(&swapped_buffer[..first_len], index)?;
         if need_two_chunks {
             index += 1;
-            try!(self.encrypt_chunk(&swapped_buffer[first_len..], index));
+            self.encrypt_chunk(&swapped_buffer[first_len..], index)?;
         }
 
         // Handle encrypting and storing the contents of the first two chunks' buffers.
         mem::swap(&mut swapped_buffer, &mut self.chunk_0_data);
-        try!(self.encrypt_chunk(&swapped_buffer, 0));
+        self.encrypt_chunk(&swapped_buffer, 0)?;
         mem::swap(&mut swapped_buffer, &mut self.chunk_1_data);
-        try!(self.encrypt_chunk(&swapped_buffer, 1));
+        self.encrypt_chunk(&swapped_buffer, 1)?;
 
         let mut swapped_chunks = vec![];
         mem::swap(&mut swapped_chunks, &mut self.chunks);
@@ -184,11 +183,11 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
             if buffer_ref.len() == MAX_CHUNK_SIZE as usize {
                 self.chunks.push(ChunkDetails {
-                    chunk_num: index,
-                    hash: vec![],
-                    pre_hash: sha256::hash(buffer_ref).0.to_vec(),
-                    source_size: MAX_CHUNK_SIZE as u64,
-                });
+                                     chunk_num: index,
+                                     hash: vec![],
+                                     pre_hash: sha256::hash(buffer_ref).0.to_vec(),
+                                     source_size: MAX_CHUNK_SIZE as u64,
+                                 });
             }
         }
         data
@@ -197,17 +196,17 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
     fn encrypt_chunk(&mut self, data: &[u8], index: usize) -> Result<(), SelfEncryptionError<E>> {
         if index > 1 {
             self.chunks.push(ChunkDetails {
-                chunk_num: index as u32,
-                hash: vec![],
-                pre_hash: sha256::hash(data).0.to_vec(),
-                source_size: data.len() as u64,
-            });
+                                 chunk_num: index as u32,
+                                 hash: vec![],
+                                 pre_hash: sha256::hash(data).0.to_vec(),
+                                 source_size: data.len() as u64,
+                             });
         }
 
-        let encrypted_contents = try!(utils::encrypt_chunk(data,
-                                      utils::get_pad_key_and_iv(index, &self.chunks)));
+        let encrypted_contents =
+            utils::encrypt_chunk(data, utils::get_pad_key_and_iv(index, &self.chunks))?;
         let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
-        try!(self.storage.put(hash.to_vec(), encrypted_contents));
+        self.storage.put(hash.to_vec(), encrypted_contents)?;
         self.chunks[index].hash = hash.to_vec();
         Ok(())
     }

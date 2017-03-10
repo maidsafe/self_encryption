@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -48,11 +48,11 @@ fn write(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = SimpleStorage::new();
     let bytes = random_bytes(bytes_len as usize);
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None)
+                     let mut self_encryptor = SelfEncryptor::new(&mut storage, DataMap::None)
             .expect("Encryptor construction shouldn't fail.");
-        self_encryptor.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
-        let _ = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
-    });
+                     self_encryptor.write(&bytes, 0).expect("Writing to encryptor shouldn't fail.");
+                     let _ = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
+                 });
     bencher.bytes = bytes_len;
 }
 
@@ -67,11 +67,11 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
         data_map = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
     }
     bencher.iter(|| {
-        let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone())
+                     let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone())
             .expect("Encryptor construction shouldn't fail.");
-        assert!(self_encryptor.read(0, bytes_len)
+                     assert!(self_encryptor.read(0, bytes_len)
             .expect("Reading from encryptor shouldn't fail.") == bytes);
-    });
+                 });
     bencher.bytes = bytes_len;
 }
 

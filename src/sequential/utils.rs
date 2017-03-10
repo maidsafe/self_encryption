@@ -5,8 +5,8 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -14,7 +14,6 @@
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
-
 
 use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
@@ -43,9 +42,7 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let mut iv = [0u8; IV_SIZE];
 
     for (pad_iv_el, element) in
-        pad.iter_mut()
-            .chain(iv.iter_mut())
-            .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        pad.iter_mut().chain(iv.iter_mut()).zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
         *pad_iv_el = *element;
     }
 
@@ -77,7 +74,7 @@ pub fn decrypt_chunk<E: StorageError>(content: &[u8],
                                       -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
-    let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
+    let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
     let mut decompressor = BrotliDecoder::new(vec![]);
     if decompressor.write_all(&decrypted).is_err() {
         return Err(SelfEncryptionError::Compression);
@@ -87,7 +84,10 @@ pub fn decrypt_chunk<E: StorageError>(content: &[u8],
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)
 pub fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
-    data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
+    data.iter()
+        .zip(pad.iter().cycle())
+        .map(|(&a, &b)| a ^ b)
+        .collect()
 }
 
 pub fn initialise_rust_sodium() {

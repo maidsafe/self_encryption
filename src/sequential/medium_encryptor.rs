@@ -5,8 +5,8 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -14,7 +14,6 @@
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
-
 
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::small_encryptor::SmallEncryptor;
@@ -49,16 +48,16 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
 
         let mut buffer = Vec::with_capacity(MAX as usize);
         for (index, chunk) in chunks.iter().enumerate() {
-            let content = try!(storage.get(&chunk.hash));
-            buffer.extend(try!(utils::decrypt_chunk(&content,
-                                                    utils::get_pad_key_and_iv(index, &chunks))));
+            let content = storage.get(&chunk.hash)?;
+            buffer.extend(utils::decrypt_chunk(&content,
+                                               utils::get_pad_key_and_iv(index, &chunks))?);
         }
         Ok(MediumEncryptor {
-            storage: storage,
-            buffer: buffer,
-            original_chunks: Some(chunks),
-            phantom: PhantomData,
-        })
+               storage: storage,
+               buffer: buffer,
+               original_chunks: Some(chunks),
+               phantom: PhantomData,
+           })
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
@@ -87,22 +86,20 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
         let mut chunk_details = vec![];
         for (index, contents) in chunk_contents.iter().enumerate() {
             chunk_details.push(ChunkDetails {
-                chunk_num: index as u32,
-                hash: vec![],
-                pre_hash: sha256::hash(contents).0.to_vec(),
-                source_size: contents.len() as u64,
-            });
+                                   chunk_num: index as u32,
+                                   hash: vec![],
+                                   pre_hash: sha256::hash(contents).0.to_vec(),
+                                   source_size: contents.len() as u64,
+                               });
         }
         // Encrypt the chunks and note the post-encryption hashes
         let partial_details = chunk_details.clone();
         for (index, (contents, mut details)) in
-            chunk_contents.iter()
-                .zip(chunk_details.iter_mut())
-                .enumerate() {
-            let encrypted_contents = try!(utils::encrypt_chunk(contents,
-                                          utils::get_pad_key_and_iv(index, &partial_details)));
+            chunk_contents.iter().zip(chunk_details.iter_mut()).enumerate() {
+            let encrypted_contents =
+                utils::encrypt_chunk(contents, utils::get_pad_key_and_iv(index, &partial_details))?;
             let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
-            try!(self.storage.put(hash.to_vec(), encrypted_contents));
+            self.storage.put(hash.to_vec(), encrypted_contents)?;
             details.hash = hash.to_vec();
         }
         Ok(DataMap::Chunks(chunk_details))

@@ -5,16 +5,15 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
-
 
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
@@ -38,7 +37,10 @@ struct Pad(pub [u8; PAD_SIZE]);
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)
 fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
-    data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
+    data.iter()
+        .zip(pad.iter().cycle())
+        .map(|(&a, &b)| a ^ b)
+        .collect()
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -86,7 +88,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             Sequencer::new_as_vector()
         } else {
-            try!(Sequencer::new_as_mmap())
+            Sequencer::new_as_mmap()?
         };
 
         let sorted_map;
@@ -117,14 +119,14 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         }
 
         Ok(SelfEncryptor {
-            storage: storage,
-            sorted_map: sorted_map,
-            chunks: chunks,
-            sequencer: sequencer,
-            file_size: file_size,
-            map_size: map_size,
-            phantom: PhantomData,
-        })
+               storage: storage,
+               sorted_map: sorted_map,
+               chunks: chunks,
+               sequencer: sequencer,
+               file_size: file_size,
+               map_size: map_size,
+               phantom: PhantomData,
+           })
     }
 
     /// Write method mirrors a POSIX type write mechanism.  It loosely mimics a filesystem interface
@@ -132,8 +134,11 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// libraries for developers.  The input `data` will be written from the specified `position`
     /// (starts from 0).
     pub fn write(&mut self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError<E>> {
-        try!(self.prepare_window_for_writing(position, data.len() as u64));
-        for (p, byte) in self.sequencer.iter_mut().skip(position as usize).zip(data) {
+        self.prepare_window_for_writing(position, data.len() as u64)?;
+        for (p, byte) in self.sequencer
+                .iter_mut()
+                .skip(position as usize)
+                .zip(data) {
             *p = *byte;
         }
         Ok(())
@@ -144,8 +149,13 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
     /// in the gap (file size isn't affected).  Any other unwritten gaps will also be filled with
     /// '0u8's.
     pub fn read(&mut self, position: u64, length: u64) -> Result<Vec<u8>, SelfEncryptionError<E>> {
-        try!(self.prepare_window_for_reading(position, length));
-        Ok(self.sequencer.iter().skip(position as usize).take(length as usize).cloned().collect())
+        self.prepare_window_for_reading(position, length)?;
+        Ok(self.sequencer
+               .iter()
+               .skip(position as usize)
+               .take(length as usize)
+               .cloned()
+               .collect())
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
@@ -172,11 +182,11 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             self.chunks[0].flag_for_encryption();
             self.chunks[1].flag_for_encryption();
             let mut byte_end = get_start_end_positions(self.map_size, 1).1;
-            try!(self.prepare_window_for_reading(0, byte_end));
+            self.prepare_window_for_reading(0, byte_end)?;
 
             let byte_start = get_start_end_positions(self.map_size, resized_start).0;
             byte_end = self.map_size;
-            try!(self.prepare_window_for_reading(byte_start, byte_end - byte_start));
+            self.prepare_window_for_reading(byte_start, byte_end - byte_start)?;
             possibly_reusable_end = resized_start as usize;
         }
 
@@ -211,9 +221,9 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 assert!(this_size > 0);
 
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
-                let content = try!(encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki));
+                let content = encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki)?;
                 let sha256::Digest(name) = sha256::hash(&content);
-                try!(self.storage.put(name.to_vec(), content));
+                self.storage.put(name.to_vec(), content)?;
                 new_map[i].hash = name.to_vec();
             }
         }
@@ -233,12 +243,12 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 if !self.chunks[chunks_start].in_sequencer {
                     let byte_start = get_start_end_positions(self.map_size, chunks_start as u32).0;
                     if byte_start < new_size {
-                        try!(self.prepare_window_for_reading(byte_start, new_size - byte_start));
+                        self.prepare_window_for_reading(byte_start, new_size - byte_start)?;
                     }
                     self.chunks[0].flag_for_encryption();
                     self.chunks[1].flag_for_encryption();
                     let byte_end = get_start_end_positions(self.map_size, 1).1;
-                    try!(self.prepare_window_for_reading(0, byte_end));
+                    self.prepare_window_for_reading(0, byte_end)?;
                 }
                 for chunk in &mut self.chunks[chunks_start..chunks_end] {
                     chunk.status = ChunkStatus::ToBeHashed;
@@ -247,7 +257,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
             self.sequencer.truncate(new_size as usize);
         } else {
-            try!(self.extend_sequencer_up_to(new_size));
+            self.extend_sequencer_up_to(new_size)?;
         }
         self.file_size = new_size;
         Ok(())
@@ -271,7 +281,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
         if chunks_start == chunks_end {
-            try!(self.extend_sequencer_up_to(position + length));
+            self.extend_sequencer_up_to(position + length)?;
             return Ok(());
         }
 
@@ -287,7 +297,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                            get_start_end_positions(self.map_size, next_two[1] as u32).1);
             cmp::max(position + length, end)
         };
-        try!(self.extend_sequencer_up_to(required_len));
+        self.extend_sequencer_up_to(required_len)?;
 
         // Middle chunks don't need decrypting since they'll get overwritten.
         // TODO If first/last chunk gets completely overwritten, no need to decrypt.
@@ -297,8 +307,11 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
             self.chunks[i].in_sequencer = true;
             let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
-            let vec = try!(self.decrypt_chunk(i as u32));
-            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
+            let vec = self.decrypt_chunk(i as u32)?;
+            for (p, byte) in self.sequencer
+                    .iter_mut()
+                    .skip(pos)
+                    .zip(vec) {
                 *p = byte;
             }
         }
@@ -319,7 +332,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let (chunks_start, chunks_end) = overlapped_chunks(self.map_size, position, length);
 
         if chunks_start == chunks_end {
-            try!(self.extend_sequencer_up_to(position + length));
+            self.extend_sequencer_up_to(position + length)?;
             return Ok(());
         }
 
@@ -327,7 +340,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             let end = get_start_end_positions(self.map_size, chunks_end as u32 - 1).1;
             cmp::max(position + length, end)
         };
-        try!(self.extend_sequencer_up_to(required_len));
+        self.extend_sequencer_up_to(required_len)?;
 
         for i in chunks_start..chunks_end {
             if self.chunks[i].in_sequencer {
@@ -335,8 +348,11 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
             }
             self.chunks[i].in_sequencer = true;
             let pos = get_start_end_positions(self.map_size, i as u32).0 as usize;
-            let vec = try!(self.decrypt_chunk(i as u32));
-            for (p, byte) in self.sequencer.iter_mut().skip(pos).zip(vec) {
+            let vec = self.decrypt_chunk(i as u32)?;
+            for (p, byte) in self.sequencer
+                    .iter_mut()
+                    .skip(pos)
+                    .zip(vec) {
                 *p = byte
             }
         }
@@ -347,7 +363,7 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
             if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                try!(self.sequencer.create_mapping());
+                self.sequencer.create_mapping()?;
             } else {
                 self.sequencer.extend(iter::repeat(0).take((new_len - old_len) as usize));
             }
@@ -357,10 +373,10 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
     fn decrypt_chunk(&self, chunk_number: u32) -> Result<Vec<u8>, SelfEncryptionError<E>> {
         let name = &self.sorted_map[chunk_number as usize].hash;
-        let content = try!(self.storage.get(name));
+        let content = self.storage.get(name)?;
         let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &self.sorted_map, self.map_size);
         let xor_result = xor(&content, &pad);
-        let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
+        let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
         let mut decompressor = BrotliDecoder::new(vec![]);
         if decompressor.write_all(&decrypted).is_err() {
             return Err(SelfEncryptionError::Compression);
@@ -400,9 +416,7 @@ fn get_pad_key_and_iv(chunk_number: u32,
     let mut iv = [0u8; IV_SIZE];
 
     for (pad_iv_el, element) in
-        pad.iter_mut()
-            .chain(iv.iter_mut())
-            .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        pad.iter_mut().chain(iv.iter_mut()).zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
         *pad_iv_el = *element;
     }
 
@@ -556,14 +570,14 @@ fn get_chunk_number(file_size: u64, position: u64) -> u32 {
 
 impl<'a, E: StorageError, S: Storage<E>> Debug for SelfEncryptor<'a, E, S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
+        write!(formatter, "SelfEncryptor {{\n    chunks:\n")?;
         for (i, chunk) in self.chunks.iter().enumerate() {
-            try!(write!(formatter,
-                        "        {:?}   {:?}\n",
-                        self.sorted_map[i],
-                        chunk))
+            write!(formatter,
+                   "        {:?}   {:?}\n",
+                   self.sorted_map[i],
+                   chunk)?
         }
-        try!(write!(formatter, "    map_size: {}\n", self.map_size));
+        write!(formatter, "    map_size: {}\n", self.map_size)?;
         write!(formatter, "    file_size: {}\n}}", self.file_size)
     }
 }
@@ -757,9 +771,8 @@ mod tests {
                                                        expected_file_size: u64) {
         assert_eq!(se.file_size, expected_file_size);
         if !se.sorted_map.is_empty() {
-            let chunks_cumulated_size = se.sorted_map
-                .iter()
-                .fold(0u64, |acc, chunk| acc + chunk.source_size);
+            let chunks_cumulated_size =
+                se.sorted_map.iter().fold(0u64, |acc, chunk| acc + chunk.source_size);
             assert_eq!(chunks_cumulated_size, expected_file_size);
         }
     }
@@ -812,8 +825,8 @@ mod tests {
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = se.read(0, (size1 + size2) as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            se.read(0, (size1 + size2) as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..size1] == &part1[..]);
         assert_eq!(fetched[size1], part2[0]);
         assert!(&fetched[size1 + 1..size1 + 3] == &[4u8, 2][..]);
@@ -844,8 +857,8 @@ mod tests {
         // check read, write
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -909,8 +922,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -940,8 +953,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -973,8 +986,8 @@ mod tests {
         // check read and write
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -1004,8 +1017,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -1036,8 +1049,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -1068,8 +1081,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -1103,8 +1116,8 @@ mod tests {
         // check read and write
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == the_bytes);
     }
 
@@ -1165,8 +1178,8 @@ mod tests {
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = se.read(0, bytes_len as u64 - 24)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            se.read(0, bytes_len as u64 - 24).expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
     }
 
@@ -1195,7 +1208,8 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6); // old ones + new ones
+                // old ones + new ones
+                assert_eq!(storage.num_entries(), 6);
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1204,8 +1218,8 @@ mod tests {
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, bytes_len as u64 - 24)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            se.read(0, bytes_len as u64 - 24).expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
     }
 
@@ -1236,7 +1250,8 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6); // old ones + new ones
+                // old ones + new ones
+                assert_eq!(storage.num_entries(), 6);
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1276,7 +1291,8 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 6); // old ones + new ones
+                // old ones + new ones
+                assert_eq!(storage.num_entries(), 6);
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1285,8 +1301,8 @@ mod tests {
         }
         let mut se = SelfEncryptor::new(&mut storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
-        let fetched = se.read(0, bytes_len as u64 + 24)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            se.read(0, bytes_len as u64 + 24).expect("Reading from encryptor shouldn't fail.");
         assert!(&fetched[..bytes_len as usize] == &bytes[..]);
         assert!(&fetched[bytes_len as usize..] == &[0u8; 24]);
     }
@@ -1318,8 +1334,8 @@ mod tests {
         }
         let mut new_se = SelfEncryptor::new(&mut storage, data_map)
             .expect("Second encryptor construction shouldn't fail.");
-        let fetched = new_se.read(0, bytes_len as u64)
-            .expect("Reading from encryptor shouldn't fail.");
+        let fetched =
+            new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         assert!(fetched == bytes);
     }
 
@@ -1387,7 +1403,8 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 4);
-                assert_eq!(storage.num_entries(), 7); // old ones + new ones
+                // old ones + new ones
+                assert_eq!(storage.num_entries(), 7);
                 for chunk_detail in chunks.iter() {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
@@ -1438,8 +1455,8 @@ mod tests {
 
     fn create_vector_data_map(storage: &mut SimpleStorage, vec_len: usize) -> DataMap {
         let data: Vec<usize> = (0..vec_len).collect();
-        let serialised_data: Vec<u8> = serialisation::serialise(&data)
-            .expect("failed to serialise Vec<usize>");
+        let serialised_data: Vec<u8> =
+            serialisation::serialise(&data).expect("failed to serialise Vec<usize>");
         let mut self_encryptor = SelfEncryptor::new(storage, DataMap::None)
             .expect("Encryptor construction shouldn't fail.");
         self_encryptor.write(&serialised_data, 0).expect("Writing to encryptor shouldn't fail.");
@@ -1451,8 +1468,8 @@ mod tests {
         let mut self_encryptor = SelfEncryptor::new(storage, data_map.clone())
             .expect("Encryptor construction shouldn't fail.");
         let length = self_encryptor.len();
-        let data_to_deserialise: Vec<u8> = self_encryptor.read(0, length)
-            .expect("Reading from encryptor shouldn't fail.");
+        let data_to_deserialise: Vec<u8> =
+            self_encryptor.read(0, length).expect("Reading from encryptor shouldn't fail.");
         let data: Vec<usize> = serialisation::deserialise(&data_to_deserialise)
             .expect("failed to deserialise Vec<usize>");
         assert_eq!(data.len(), vec_len);

@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
-// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
+// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
+// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -129,9 +129,7 @@ fn write_random_sizes_at_random_positions() {
         rng.shuffle(slice_broken_data);
     }
 
-    match broken_data.iter()
-        .filter(|&x| x.0 != last_piece)
-        .last() {
+    match broken_data.iter().filter(|&x| x.0 != last_piece).last() {
         None => panic!("Should never occur. Error in test itself."),
         Some(overlap) => {
             let mut extra: Vec<u8> = overlap.1.to_vec();
@@ -215,8 +213,8 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         data_map = self_encryptor.close().expect("Closing encryptor shouldn't fail.");
     }
 
-    let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map)
-        .expect("Encryptor construction shouldn't fail.");
+    let mut self_encryptor =
+        SelfEncryptor::new(&mut storage, data_map).expect("Encryptor construction shouldn't fail.");
     let decrypted = self_encryptor.read(0u64, DATA_SIZE as u64)
         .expect("Reading all data again from encryptor shouldn't fail.");
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
