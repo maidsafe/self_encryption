@@ -827,10 +827,10 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             se.read(0, (size1 + size2) as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..size1] == &part1[..]);
+        assert_eq!(&fetched[..size1], &part1[..]);
         assert_eq!(fetched[size1], part2[0]);
-        assert!(&fetched[size1 + 1..size1 + 3] == &[4u8, 2][..]);
-        assert!(&fetched[size1 + 3..] == &part2[3..]);
+        assert_eq!(&fetched[size1 + 1..size1 + 3], &[4u8, 2][..]);
+        assert_eq!(&fetched[size1 + 3..], &part2[3..]);
     }
 
     #[test]
@@ -859,7 +859,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -874,7 +874,7 @@ mod tests {
             check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
             let fetched = se.read(0, MIN_CHUNK_SIZE as u64 * 3)
                 .expect("Reading from encryptor shouldn't fail.");
-            assert!(fetched == the_bytes);
+            assert_eq!(fetched, the_bytes);
             data_map = se.close().expect("Closing encryptor shouldn't fail.");
         }
         match data_map {
@@ -893,7 +893,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched = new_se.read(0, MIN_CHUNK_SIZE as u64 * 3)
             .expect("Reading again from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -924,7 +924,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -955,7 +955,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -988,7 +988,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1019,7 +1019,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1051,7 +1051,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1083,7 +1083,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1118,7 +1118,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1180,7 +1180,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             se.read(0, bytes_len as u64 - 24).expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
+        assert_eq!(&fetched[..], &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
@@ -1220,7 +1220,7 @@ mod tests {
             .expect("Third encryptor construction shouldn't fail.");
         let fetched =
             se.read(0, bytes_len as u64 - 24).expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
+        assert_eq!(&fetched[..], &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
@@ -1262,7 +1262,7 @@ mod tests {
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
         let matching_bytes = bytes_len as usize - 1;
-        assert!(&fetched[..matching_bytes] == &bytes[..matching_bytes]);
+        assert_eq!(&fetched[..matching_bytes], &bytes[..matching_bytes]);
         assert_eq!(fetched[matching_bytes], 0u8);
     }
 
@@ -1303,8 +1303,8 @@ mod tests {
             .expect("Third encryptor construction shouldn't fail.");
         let fetched =
             se.read(0, bytes_len as u64 + 24).expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..bytes_len as usize] == &bytes[..]);
-        assert!(&fetched[bytes_len as usize..] == &[0u8; 24]);
+        assert_eq!(&fetched[..bytes_len as usize], &bytes[..]);
+        assert_eq!(&fetched[bytes_len as usize..], &[0u8; 24]);
     }
 
     #[test]
@@ -1336,7 +1336,7 @@ mod tests {
             .expect("Second encryptor construction shouldn't fail.");
         let fetched =
             new_se.read(0, bytes_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == bytes);
+        assert_eq!(fetched, bytes);
     }
 
     #[test]
@@ -1370,8 +1370,8 @@ mod tests {
         let mut se = SelfEncryptor::new(&mut storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, full_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
-        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+        assert_eq!(&part1_bytes[..], &fetched[..part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize..]);
     }
 
     #[test]
@@ -1415,8 +1415,8 @@ mod tests {
         let mut se = SelfEncryptor::new(&mut storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, full_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
-        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+        assert_eq!(&part1_bytes[..], &fetched[..part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize..]);
     }
 
     #[test]
@@ -1448,9 +1448,9 @@ mod tests {
         let mut se = SelfEncryptor::new(&mut storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se.read(0, part1_len as u64).expect("Reading from encryptor shouldn't fail.");
-        assert!(&part1_bytes[..2] == &fetched[..2]);
-        assert!(&part2_bytes[..] == &fetched[2..2 + part2_len]);
-        assert!(&part1_bytes[2 + part2_len..] == &fetched[2 + part2_len..]);
+        assert_eq!(&part1_bytes[..2], &fetched[..2]);
+        assert_eq!(&part2_bytes[..], &fetched[2..2 + part2_len]);
+        assert_eq!(&part1_bytes[2 + part2_len..], &fetched[2 + part2_len..]);
     }
 
     fn create_vector_data_map(storage: &mut SimpleStorage, vec_len: usize) -> DataMap {

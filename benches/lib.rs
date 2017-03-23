@@ -69,8 +69,8 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
     bencher.iter(|| {
                      let mut self_encryptor = SelfEncryptor::new(&mut storage, data_map.clone())
             .expect("Encryptor construction shouldn't fail.");
-                     assert!(self_encryptor.read(0, bytes_len)
-            .expect("Reading from encryptor shouldn't fail.") == bytes);
+                     assert_eq!(self_encryptor.read(0, bytes_len)
+            .expect("Reading from encryptor shouldn't fail."), bytes);
                  });
     bencher.bytes = bytes_len;
 }

@@ -198,7 +198,7 @@ mod tests {
     fn read(expected_data: &[u8], storage: &mut SimpleStorage, data_map: &DataMap) {
         let mut self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
         let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64));
-        assert!(fetched == expected_data);
+        assert_eq!(fetched, expected_data);
     }
 
     fn write(data: &[u8],
