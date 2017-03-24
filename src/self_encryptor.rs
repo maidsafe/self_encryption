@@ -175,7 +175,7 @@ impl<S> SelfEncryptor<S>
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
-    #[cfg_attr(feature="clippy", allow(needless_range_loop))]
+    #[cfg_attr(feature="cargo-clippy", allow(needless_range_loop))]
     pub fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         let file_size = {
             let state = self.0.borrow();
@@ -361,6 +361,7 @@ impl<S> State<S>
         Ok(())
     }
 
+    #[cfg_attr(feature="cargo-clippy", allow(needless_range_loop))]
     fn create_data_map(&mut self,
                        possibly_reusable_end: usize)
                        -> BoxFuture<DataMap, SelfEncryptionError<S::Error>> {
@@ -406,7 +407,7 @@ impl<S> State<S>
 
                 put_futures.push(self.storage
                                      .put(name.to_vec(), content)
-                                     .map_err(|error| SelfEncryptionError::Storage(error)));
+                                     .map_err(SelfEncryptionError::Storage));
 
                 new_map[i].hash = name.to_vec();
             }
@@ -565,7 +566,7 @@ fn decrypt_chunk<S>(state: &State<S>,
 
     state.storage
         .get(name)
-        .map_err(|error| SelfEncryptionError::Storage(error))
+        .map_err(SelfEncryptionError::Storage)
         .and_then(move |content| {
                       let xor_result = xor(&content, &pad);
                       encryption::decrypt(&xor_result, &key, &iv)
@@ -1027,10 +1028,10 @@ mod tests {
         let storage = SimpleStorage::new();
         let se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(se.read(0, (size1 + size2) as u64).wait());
-        assert!(&fetched[..size1] == &part1[..]);
+        assert_eq!(&fetched[..size1], &part1[..]);
         assert_eq!(fetched[size1], part2[0]);
-        assert!(&fetched[size1 + 1..size1 + 3] == &[4u8, 2][..]);
-        assert!(&fetched[size1 + 3..] == &part2[3..]);
+        assert_eq!(&fetched[size1 + 1..size1 + 3], &[4u8, 2][..]);
+        assert_eq!(&fetched[size1 + 3..], &part2[3..]);
     }
 
     #[test]
@@ -1062,7 +1063,7 @@ mod tests {
         let storage = SimpleStorage::new();
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1074,7 +1075,7 @@ mod tests {
             unwrap!(se.write(&the_bytes, 0).wait());
             check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
             let fetched = unwrap!(se.read(0, MIN_CHUNK_SIZE as u64 * 3).wait());
-            assert!(fetched == the_bytes);
+            assert_eq!(fetched, the_bytes);
             unwrap!(se.close().wait())
         };
 
@@ -1092,7 +1093,7 @@ mod tests {
         // check read, write
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, MIN_CHUNK_SIZE as u64 * 3).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1120,7 +1121,7 @@ mod tests {
         }
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1148,7 +1149,7 @@ mod tests {
         }
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1178,7 +1179,7 @@ mod tests {
         // check read and write
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1206,7 +1207,7 @@ mod tests {
         }
         let new_se = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(new_se.read(0, bytes_len as u64).wait());
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1238,7 +1239,7 @@ mod tests {
         let fetched = new_se.read(0, bytes_len as u64)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1271,7 +1272,7 @@ mod tests {
         let fetched = new_se.read(0, bytes_len as u64)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1307,7 +1308,7 @@ mod tests {
         let fetched = new_se.read(0, bytes_len as u64)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == the_bytes);
+        assert_eq!(fetched, the_bytes);
     }
 
     #[test]
@@ -1369,7 +1370,7 @@ mod tests {
         let fetched = se.read(0, bytes_len as u64 - 24)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
+        assert_eq!(&fetched[..], &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
@@ -1410,7 +1411,7 @@ mod tests {
         let fetched = se.read(0, bytes_len as u64 - 24)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..] == &bytes[..(bytes_len - 24) as usize]);
+        assert_eq!(&fetched[..], &bytes[..(bytes_len - 24) as usize]);
     }
 
     #[test]
@@ -1454,7 +1455,7 @@ mod tests {
         let fetched =
             se.read(0, bytes_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
         let matching_bytes = bytes_len as usize - 1;
-        assert!(&fetched[..matching_bytes] == &bytes[..matching_bytes]);
+        assert_eq!(&fetched[..matching_bytes], &bytes[..matching_bytes]);
         assert_eq!(fetched[matching_bytes], 0u8);
     }
 
@@ -1496,8 +1497,8 @@ mod tests {
         let fetched = se.read(0, bytes_len as u64 + 24)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(&fetched[..bytes_len as usize] == &bytes[..]);
-        assert!(&fetched[bytes_len as usize..] == &[0u8; 24]);
+        assert_eq!(&fetched[..bytes_len as usize], &bytes[..]);
+        assert_eq!(&fetched[bytes_len as usize..], &[0u8; 24]);
     }
 
     #[test]
@@ -1530,7 +1531,7 @@ mod tests {
         let fetched = new_se.read(0, bytes_len as u64)
             .wait()
             .expect("Reading from encryptor shouldn't fail.");
-        assert!(fetched == bytes);
+        assert_eq!(fetched, bytes);
     }
 
     #[test]
@@ -1562,8 +1563,8 @@ mod tests {
 
         let se = unwrap!(SelfEncryptor::new(storage, data_map2));
         let fetched = unwrap!(se.read(0, full_len as u64).wait());
-        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
-        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+        assert_eq!(&part1_bytes[..], &fetched[..part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize..]);
     }
 
     #[test]
@@ -1605,8 +1606,8 @@ mod tests {
         let se = unwrap!(SelfEncryptor::new(storage, data_map2));
         let fetched =
             se.read(0, full_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
-        assert!(&part1_bytes[..] == &fetched[..part1_len as usize]);
-        assert!(&part2_bytes[..] == &fetched[part1_len as usize..]);
+        assert_eq!(&part1_bytes[..], &fetched[..part1_len as usize]);
+        assert_eq!(&part2_bytes[..], &fetched[part1_len as usize..]);
     }
 
     #[test]
@@ -1641,9 +1642,9 @@ mod tests {
             .expect("Third encryptor construction shouldn't fail.");
         let fetched =
             se.read(0, part1_len as u64).wait().expect("Reading from encryptor shouldn't fail.");
-        assert!(&part1_bytes[..2] == &fetched[..2]);
-        assert!(&part2_bytes[..] == &fetched[2..2 + part2_len]);
-        assert!(&part1_bytes[2 + part2_len..] == &fetched[2 + part2_len..]);
+        assert_eq!(&part1_bytes[..2], &fetched[..2]);
+        assert_eq!(&part2_bytes[..], &fetched[2..2 + part2_len]);
+        assert_eq!(&part1_bytes[2 + part2_len..], &fetched[2 + part2_len..]);
     }
 
     fn create_vector_data_map(vec_len: usize) -> (DataMap, SimpleStorage) {

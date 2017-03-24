@@ -92,7 +92,7 @@ pub enum DataMap {
     None,
 }
 
-#[cfg_attr(feature="clippy", allow(len_without_is_empty))]
+#[cfg_attr(feature="cargo-clippy", allow(len_without_is_empty))]
 impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
     pub fn len(&self) -> u64 {

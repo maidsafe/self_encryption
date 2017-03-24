@@ -44,7 +44,7 @@ impl<S> MediumEncryptor<S>
     pub fn new(storage: S,
                chunks: Vec<ChunkDetails>)
                -> BoxFuture<MediumEncryptor<S>, SelfEncryptionError<S::Error>> {
-        debug_assert!(chunks.len() == 3);
+        debug_assert_eq!(chunks.len(), 3);
         debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
         debug_assert!(chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size) <= MAX);
 
@@ -199,7 +199,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert!(fetched == data);
+        assert_eq!(fetched, data);
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -238,10 +238,10 @@ mod tests {
             let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
             assert_eq!(self_encryptor.len(), existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).wait());
-            assert!(fetched == existing_data);
+            assert_eq!(fetched, existing_data);
             storage = self_encryptor.into_storage();
         }
-        assert!(&existing_data[..] == data);
+        assert_eq!(&existing_data[..], data);
     }
 
     #[test]

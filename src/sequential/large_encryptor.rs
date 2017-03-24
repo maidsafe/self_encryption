@@ -328,7 +328,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert!(fetched == data);
+        assert_eq!(fetched, data);
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -349,7 +349,7 @@ mod tests {
                 };
                 encryptor = unwrap!(encryptor.write(data).wait());
                 existing_data.extend_from_slice(data);
-                assert!(encryptor.len() == existing_data.len() as u64);
+                assert_eq!(encryptor.len(), existing_data.len() as u64);
 
                 let (data_map, storage2) = unwrap!(encryptor.close().wait());
                 storage = storage2;
@@ -367,11 +367,11 @@ mod tests {
             let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
             assert_eq!(self_encryptor.len(), existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).wait());
-            assert!(fetched == existing_data);
+            assert_eq!(fetched, existing_data);
 
             storage = self_encryptor.into_storage();
         }
-        assert!(&existing_data[..] == data);
+        assert_eq!(&existing_data[..], data);
     }
 
     #[test]
@@ -410,6 +410,6 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert!(fetched == data);
+        assert_eq!(fetched, data);
     }
 }
