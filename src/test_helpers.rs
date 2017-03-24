@@ -17,10 +17,10 @@
 
 #![doc(hidden)]
 
+use super::{Storage, StorageError};
 use futures::{self, Future};
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
-use super::{Storage, StorageError};
 use util::BoxFuture;
 
 #[derive(Debug, Clone)]
@@ -79,9 +79,9 @@ impl Storage for SimpleStorage {
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
         self.entries.push(Entry {
-            name: name,
-            data: data,
-        });
+                              name: name,
+                              data: data,
+                          });
 
         futures::finished(()).boxed()
     }

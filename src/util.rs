@@ -19,14 +19,16 @@ use futures::Future;
 
 // Type alias for Box<Future>. Unlike `futures::BoxFuture` this doesn't require
 // the future to implement `Send`.
-pub type BoxFuture<T, E> = Box<Future<Item=T, Error=E>>;
+pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
 
 // Extension methods for Future.
 pub trait FutureExt: Future {
     fn into_box(self) -> BoxFuture<Self::Item, Self::Error>;
 }
 
-impl<F> FutureExt for F where F: Future + 'static {
+impl<F> FutureExt for F
+    where F: Future + 'static
+{
     fn into_box(self) -> BoxFuture<Self::Item, Self::Error> {
         Box::new(self)
     }

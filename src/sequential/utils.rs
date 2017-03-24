@@ -16,6 +16,7 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::ChunkDetails;
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
@@ -26,7 +27,6 @@ use rust_sodium;
 use std::cmp;
 use std::io::Write;
 use std::sync::{ONCE_INIT, Once};
-use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
@@ -42,9 +42,8 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let mut key = [0u8; KEY_SIZE];
     let mut iv = [0u8; IV_SIZE];
 
-    for (pad_iv_el, element) in pad.iter_mut()
-        .chain(iv.iter_mut())
-        .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+    for (pad_iv_el, element) in
+        pad.iter_mut().chain(iv.iter_mut()).zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
         *pad_iv_el = *element;
     }
 
@@ -86,7 +85,10 @@ pub fn decrypt_chunk<E: StorageError>(content: &[u8],
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)
 pub fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
-    data.iter().zip(pad.iter().cycle()).map(|(&a, &b)| a ^ b).collect()
+    data.iter()
+        .zip(pad.iter().cycle())
+        .map(|(&a, &b)| a ^ b)
+        .collect()
 }
 
 pub fn initialise_rust_sodium() {
