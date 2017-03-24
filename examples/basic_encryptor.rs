@@ -130,40 +130,38 @@ impl DiskBasedStorage {
 impl Storage for DiskBasedStorage {
     type Error = DiskBasedStorageError;
 
-    fn get(&self, name: &[u8])
-           -> Box<Future<Item=Vec<u8>, Error=DiskBasedStorageError>> {
+    fn get(&self, name: &[u8]) -> Box<Future<Item = Vec<u8>, Error = DiskBasedStorageError>> {
         let path = self.calculate_path(name);
         let mut file = match File::open(&path) {
             Ok(file) => file,
-            Err(error) => return futures::failed(From::from(error)).boxed()
+            Err(error) => return futures::failed(From::from(error)).boxed(),
         };
         let mut data = Vec::new();
-        let result = file.read_to_end(&mut data)
-                         .map(move |_| data)
-                         .map_err(From::from);
+        let result = file.read_to_end(&mut data).map(move |_| data).map_err(From::from);
         futures::done(result).boxed()
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>)
-           -> Box<Future<Item=(), Error=DiskBasedStorageError>> {
+    fn put(&mut self,
+           name: Vec<u8>,
+           data: Vec<u8>)
+           -> Box<Future<Item = (), Error = DiskBasedStorageError>> {
         let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Ok(file) => file,
-            Err(error) => return futures::failed(From::from(error)).boxed()
+            Err(error) => return futures::failed(From::from(error)).boxed(),
         };
 
         let result = file.write_all(&data[..])
-                         .map(|_| {
-                            println!("Chunk written to {:?}", path);
-                        }).map_err(From::from);
+            .map(|_| {
+                     println!("Chunk written to {:?}", path);
+                 })
+            .map_err(From::from);
         futures::done(result).boxed()
     }
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.decode())
-        .unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(|e| e.exit());
     if args.flag_help {
         println!("{:?}", args)
     }
@@ -171,9 +169,8 @@ fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let mut storage = DiskBasedStorage {
-        storage_path: unwrap!(chunk_store_dir.to_str()).to_owned()
-    };
+    let mut storage =
+        DiskBasedStorage { storage_path: unwrap!(chunk_store_dir.to_str()).to_owned() };
 
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
@@ -199,7 +196,8 @@ fn main() {
             let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("Encryptor construction shouldn't fail.");
             se.write(&data, 0).wait().expect("Writing to encryptor shouldn't fail.");
-            let (data_map, old_storage) = se.close().wait().expect("Closing encryptor shouldn't fail.");
+            let (data_map, old_storage) =
+                se.close().wait().expect("Closing encryptor shouldn't fail.");
             storage = old_storage;
 
             match File::create(data_map_file.clone()) {
@@ -235,9 +233,8 @@ fn main() {
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
-                    let content = se.read(0, length)
-                        .wait()
-                        .expect("Reading from encryptor shouldn't fail.");
+                    let content =
+                        se.read(0, length).wait().expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {
@@ -246,8 +243,7 @@ fn main() {
                         }
                     };
                 } else {
-                    println!("Failed to create {}",
-                             unwrap!(args.arg_destination.clone()));
+                    println!("Failed to create {}", unwrap!(args.arg_destination.clone()));
                 }
             } else {
                 println!("Failed to parse data map - possible corruption");
