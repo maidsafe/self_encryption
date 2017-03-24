@@ -32,7 +32,6 @@
          missing_debug_implementations, variant_size_differences)]
 
 extern crate docopt;
-#[macro_use]
 extern crate maidsafe_utilities;
 #[macro_use]
 extern crate unwrap;

@@ -288,7 +288,7 @@ mod tests {
 
         let mut self_encryptor = unwrap!(SelfEncryptor::new(&mut storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64));
-        assert!(fetched == data);
+        assert_eq!(fetched, data);
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -310,7 +310,7 @@ mod tests {
                 };
                 unwrap!(encryptor.write(data));
                 existing_data.extend_from_slice(data);
-                assert!(encryptor.len() == existing_data.len() as u64);
+                assert_eq!(encryptor.len(), existing_data.len() as u64);
                 data_map = unwrap!(encryptor.close());
             }
             match data_map {
@@ -324,9 +324,9 @@ mod tests {
             let mut self_encryptor = unwrap!(SelfEncryptor::new(&mut storage, data_map));
             assert_eq!(self_encryptor.len(), existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64));
-            assert!(fetched == existing_data);
+            assert_eq!(fetched, existing_data);
         }
-        assert!(&existing_data[..] == data);
+        assert_eq!(&existing_data[..], data);
     }
 
     #[test]
@@ -364,6 +364,6 @@ mod tests {
 
         let mut self_encryptor = unwrap!(SelfEncryptor::new(&mut storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64));
-        assert!(fetched == data);
+        assert_eq!(fetched, data);
     }
 }
