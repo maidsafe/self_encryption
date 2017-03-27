@@ -19,9 +19,26 @@
 
 use super::{Storage, StorageError};
 use futures::{self, Future};
+use std::cmp;
 use std::error::Error;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use util::BoxFuture;
+
+#[derive(PartialEq, Eq)]
+pub struct Blob<'a>(pub &'a [u8]);
+
+impl<'a> Debug for Blob<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for byte in self.0[..cmp::min(self.0.len(), 4)].iter() {
+            write!(f, "{:02x}", byte)?;
+        }
+        write!(f, "..")?;
+        for byte in self.0[cmp::max(4, self.0.len()) - 4..].iter() {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct SimpleStorageError;

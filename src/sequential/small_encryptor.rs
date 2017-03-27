@@ -81,7 +81,7 @@ mod tests {
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use test_helpers::SimpleStorage;
+    use test_helpers::{Blob, SimpleStorage};
 
     // Writes all of `data` to a new encryptor in a single call, then closes and reads back via
     // a `SelfEncryptor`.
@@ -104,7 +104,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert_eq!(fetched, data);
+        assert_eq!(Blob(&fetched), Blob(&data));
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -126,16 +126,16 @@ mod tests {
             };
 
             match data_map {
-                DataMap::Content(ref content) => assert_eq!(*content, existing_data),
+                DataMap::Content(ref content) => assert_eq!(Blob(&*content), Blob(&existing_data)),
                 _ => panic!("Wrong DataMap type returned."),
             }
 
             let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
             assert_eq!(self_encryptor.len(), existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).wait());
-            assert_eq!(fetched, existing_data);
+            assert_eq!(Blob(&fetched), Blob(&existing_data));
         }
-        assert_eq!(&existing_data[..], data);
+        assert_eq!(Blob(&existing_data[..]), Blob(&data));
     }
 
     #[test]
