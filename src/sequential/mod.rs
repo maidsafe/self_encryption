@@ -21,10 +21,10 @@ pub mod medium_encryptor;
 pub mod small_encryptor;
 pub mod utils;
 
-use encryption::{IV_SIZE, KEY_SIZE};
-use rust_sodium::crypto::hash::sha256;
 pub use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE, MIN_CHUNK_SIZE,
                 SelfEncryptionError, Storage, StorageError};
+use encryption::{IV_SIZE, KEY_SIZE};
+use rust_sodium::crypto::hash::sha256;
 
 pub const HASH_SIZE: usize = sha256::DIGESTBYTES;
 pub const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;

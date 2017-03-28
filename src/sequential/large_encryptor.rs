@@ -16,14 +16,14 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
+use super::medium_encryptor::MediumEncryptor;
+use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
 use futures::{self, Future};
 use rust_sodium::crypto::hash::sha256;
 use std::{cmp, mem};
 use std::convert::From;
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
-use super::medium_encryptor::MediumEncryptor;
-use super::small_encryptor::SmallEncryptor;
 use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
@@ -42,11 +42,14 @@ pub struct LargeEncryptor<S> {
     buffer: Vec<u8>,
 }
 
-impl<S> LargeEncryptor<S> where S: Storage + 'static {
+impl<S> LargeEncryptor<S>
+    where S: Storage + 'static
+{
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
     // its internal buffers.
-    pub fn new(storage: S, chunks: Vec<ChunkDetails>)
+    pub fn new(storage: S,
+               chunks: Vec<ChunkDetails>)
                -> BoxFuture<LargeEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert!(chunks.len() > 3);
         debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
@@ -64,20 +67,18 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
             let (index, mut chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
 
-            future_chunk_0_data = storage.get(&chunk.hash)
-                .map_err(SelfEncryptionError::Storage)
-                .and_then(move |data| {
-                utils::decrypt_chunk(&data, pad_key_iv)
-            });
+            future_chunk_0_data =
+                storage.get(&chunk.hash)
+                    .map_err(SelfEncryptionError::Storage)
+                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
             chunk.hash.clear();
 
             let (index, mut chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            future_chunk_1_data = storage.get(&chunk.hash)
-                .map_err(SelfEncryptionError::Storage)
-                .and_then(move |data| {
-                utils::decrypt_chunk(&data, pad_key_iv)
-            });
+            future_chunk_1_data =
+                storage.get(&chunk.hash)
+                    .map_err(SelfEncryptionError::Storage)
+                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
             chunk.hash.clear();
 
             // If the penultimate chunk is not at MAX_CHUNK_SIZE, decrypt it to `buffer`
@@ -88,9 +89,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
                 truncated_details_len -= 1;
                 let future = storage.get(&chunk.hash)
                     .map_err(SelfEncryptionError::Storage)
-                    .and_then(move |data| {
-                    utils::decrypt_chunk(&data, pad_key_iv)
-                });
+                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
                 Box::new(future)
             } else {
                 futures::finished(Vec::with_capacity(MAX_BUFFER_LEN)).into_box()
@@ -99,37 +98,33 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
             // Decrypt the last chunk to `buffer`
             let (index, chunk) = unwrap!(end_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            future_buffer_extension = storage.get(&chunk.hash)
-                .map_err(SelfEncryptionError::Storage)
-                .and_then(move |data| {
-                utils::decrypt_chunk(&data, pad_key_iv)
-            });
+            future_buffer_extension =
+                storage.get(&chunk.hash)
+                    .map_err(SelfEncryptionError::Storage)
+                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
         }
 
         // Remove the last one or two chunks' details since they're now in `buffer`
         partial_details.truncate(truncated_details_len);
 
-        future_chunk_0_data.join4(future_chunk_1_data,
-                                  future_buffer,
-                                  future_buffer_extension)
-                           .map(move |(chunk_0_data,
-                                       chunk_1_data,
-                                       mut buffer,
-                                       buffer_extension)| {
-            buffer.extend(buffer_extension);
+        future_chunk_0_data.join4(future_chunk_1_data, future_buffer, future_buffer_extension)
+            .map(move |(chunk_0_data, chunk_1_data, mut buffer, buffer_extension)| {
+                buffer.extend(buffer_extension);
 
-            LargeEncryptor {
-                storage: storage,
-                chunks: partial_details,
-                original_chunks: Some(chunks),
-                chunk_0_data: chunk_0_data,
-                chunk_1_data: chunk_1_data,
-                buffer: buffer,
-            }
-        }).into_box()
+                LargeEncryptor {
+                    storage: storage,
+                    chunks: partial_details,
+                    original_chunks: Some(chunks),
+                    chunk_0_data: chunk_0_data,
+                    chunk_1_data: chunk_1_data,
+                    buffer: buffer,
+                }
+            })
+            .into_box()
     }
 
-    pub fn from_medium(medium_encryptor: MediumEncryptor<S>) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
+    pub fn from_medium(medium_encryptor: MediumEncryptor<S>)
+                       -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
         let encryptor = LargeEncryptor {
             storage: medium_encryptor.storage,
             chunks: vec![],
@@ -180,8 +175,7 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
     // are stored.
     pub fn close(mut self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         if let Some(chunks) = self.original_chunks {
-            return futures::finished((DataMap::Chunks(chunks), self.storage))
-                           .into_box();
+            return futures::finished((DataMap::Chunks(chunks), self.storage)).into_box();
         }
 
         // Handle encrypting and storing the contents of `self.buffer`.
@@ -213,9 +207,9 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
         let mut swapped_chunks = vec![];
         mem::swap(&mut swapped_chunks, &mut self.chunks);
 
-        futures::collect(futures).map(move |_| {
-            (DataMap::Chunks(swapped_chunks), self.storage)
-        }).into_box()
+        futures::collect(futures)
+            .map(move |_| (DataMap::Chunks(swapped_chunks), self.storage))
+            .into_box()
     }
 
     pub fn len(&self) -> u64 {
@@ -240,24 +234,27 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
             if buffer_ref.len() == MAX_CHUNK_SIZE as usize {
                 self.chunks.push(ChunkDetails {
-                    chunk_num: index,
-                    hash: vec![],
-                    pre_hash: sha256::hash(buffer_ref).0.to_vec(),
-                    source_size: MAX_CHUNK_SIZE as u64,
-                });
+                                     chunk_num: index,
+                                     hash: vec![],
+                                     pre_hash: sha256::hash(buffer_ref).0.to_vec(),
+                                     source_size: MAX_CHUNK_SIZE as u64,
+                                 });
             }
         }
         data
     }
 
-    fn encrypt_chunk(&mut self, data: &[u8], index: usize) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
+    fn encrypt_chunk(&mut self,
+                     data: &[u8],
+                     index: usize)
+                     -> BoxFuture<(), SelfEncryptionError<S::Error>> {
         if index > 1 {
             self.chunks.push(ChunkDetails {
-                chunk_num: index as u32,
-                hash: vec![],
-                pre_hash: sha256::hash(data).0.to_vec(),
-                source_size: data.len() as u64,
-            });
+                                 chunk_num: index as u32,
+                                 hash: vec![],
+                                 pre_hash: sha256::hash(data).0.to_vec(),
+                                 source_size: data.len() as u64,
+                             });
         }
 
         let pad_key_iv = utils::get_pad_key_and_iv(index, &self.chunks);
@@ -269,9 +266,10 @@ impl<S> LargeEncryptor<S> where S: Storage + 'static {
         let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
         self.chunks[index].hash = hash.to_vec();
 
-        self.storage.put(hash.to_vec(), encrypted_contents)
-                    .map_err(SelfEncryptionError::Storage)
-                    .into_box()
+        self.storage
+            .put(hash.to_vec(), encrypted_contents)
+            .map_err(SelfEncryptionError::Storage)
+            .into_box()
     }
 }
 
@@ -290,17 +288,17 @@ impl<S: Storage> From<SmallEncryptor<S>> for LargeEncryptor<S> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use super::super::{MAX_CHUNK_SIZE, utils};
+    use super::super::medium_encryptor::{self, MediumEncryptor};
+    use super::super::small_encryptor::SmallEncryptor;
     use data_map::DataMap;
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use super::*;
-    use super::super::{MAX_CHUNK_SIZE, utils};
-    use super::super::medium_encryptor::{self, MediumEncryptor};
-    use super::super::small_encryptor::SmallEncryptor;
-    use test_helpers::SimpleStorage;
+    use test_helpers::{Blob, SimpleStorage};
 
 
     #[test]
@@ -313,9 +311,8 @@ mod tests {
     fn basic_write_and_close(data: &[u8]) {
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
-                                                       .map(LargeEncryptor::from)
-                                                       .wait());
+            let mut encryptor =
+                unwrap!(SmallEncryptor::new(storage, vec![]).map(LargeEncryptor::from).wait());
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = unwrap!(encryptor.write(data).wait());
@@ -331,7 +328,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert!(fetched == data);
+        assert_eq!(Blob(&fetched), Blob(&data));
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -346,15 +343,13 @@ mod tests {
         for data in data_pieces {
             let data_map = {
                 let mut encryptor = if current_chunks.is_empty() {
-                    unwrap!(SmallEncryptor::new(storage, vec![])
-                                           .map(LargeEncryptor::from)
-                                           .wait())
+                    unwrap!(SmallEncryptor::new(storage, vec![]).map(LargeEncryptor::from).wait())
                 } else {
                     unwrap!(LargeEncryptor::new(storage, current_chunks).wait())
                 };
                 encryptor = unwrap!(encryptor.write(data).wait());
                 existing_data.extend_from_slice(data);
-                assert!(encryptor.len() == existing_data.len() as u64);
+                assert_eq!(encryptor.len(), existing_data.len() as u64);
 
                 let (data_map, storage2) = unwrap!(encryptor.close().wait());
                 storage = storage2;
@@ -372,11 +367,11 @@ mod tests {
             let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
             assert_eq!(self_encryptor.len(), existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).wait());
-            assert!(fetched == existing_data);
+            assert_eq!(Blob(&fetched), Blob(&existing_data));
 
             storage = self_encryptor.into_storage();
         }
-        assert!(&existing_data[..] == data);
+        assert_eq!(Blob(&existing_data[..]), Blob(&data));
     }
 
     #[test]
@@ -395,9 +390,8 @@ mod tests {
         // Test converting from `MediumEncryptor`.
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut medium_encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
-                                                              .map(MediumEncryptor::from)
-                                                              .wait());
+            let mut medium_encryptor =
+                unwrap!(SmallEncryptor::new(storage, vec![]).map(MediumEncryptor::from).wait());
 
             medium_encryptor = unwrap!(medium_encryptor.write(&data[..(MIN as usize - 1)]).wait());
             let mut large_encryptor = unwrap!(LargeEncryptor::from_medium(medium_encryptor).wait());
@@ -416,6 +410,6 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert!(fetched == data);
+        assert_eq!(Blob(&fetched), Blob(&data));
     }
 }

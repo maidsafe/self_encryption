@@ -29,15 +29,7 @@
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
 
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-#![cfg_attr(feature="clippy", deny(clippy))]
-
 extern crate futures;
-#[macro_use]
-#[cfg_attr(feature="clippy", allow(useless_attribute))]
-#[allow(unused_extern_crates)]  // Only using macros from maidsafe_utilites
-extern crate maidsafe_utilities;
 extern crate rand;
 extern crate self_encryption;
 
@@ -121,8 +113,8 @@ fn write_random_sizes_at_random_positions() {
     let max_broken_size = 20 * 1024;
     let original = random_bytes(DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
-    let mut broken_data: Vec<(u32, &[u8])> =
-        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+    let mut broken_data: Vec<(u32, &[u8])> = Vec::with_capacity((DATA_SIZE / max_broken_size) as
+                                                                usize);
 
     let mut offset = 0;
     let mut last_piece = 0;
@@ -144,9 +136,7 @@ fn write_random_sizes_at_random_positions() {
         rng.shuffle(slice_broken_data);
     }
 
-    match broken_data.iter()
-        .filter(|&x| x.0 != last_piece)
-        .last() {
+    match broken_data.iter().filter(|&x| x.0 != last_piece).last() {
         None => panic!("Should never occur. Error in test itself."),
         Some(overlap) => {
             let mut extra: Vec<u8> = overlap.1.to_vec();
@@ -236,8 +226,8 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         self_encryptor.close().wait().expect("Closing encryptor shouldn't fail.")
     };
 
-    let self_encryptor = SelfEncryptor::new(storage, data_map)
-        .expect("Encryptor construction shouldn't fail.");
+    let self_encryptor =
+        SelfEncryptor::new(storage, data_map).expect("Encryptor construction shouldn't fail.");
     let decrypted = self_encryptor.read(0u64, DATA_SIZE as u64)
         .wait()
         .expect("Reading all data again from encryptor shouldn't fail.");
@@ -287,9 +277,7 @@ fn cross_platform_check() {
         self_encryptor.write(&chars2[..], chars0.len() as u64 + chars1.len() as u64)
             .wait()
             .expect("Writing third slice to encryptor shouldn't fail.");
-        self_encryptor.close()
-            .wait()
-            .expect("Closing encryptor shouldn't fail.")
+        self_encryptor.close().wait().expect("Closing encryptor shouldn't fail.")
     };
 
     assert_eq!(3, data_map.get_chunks().len());

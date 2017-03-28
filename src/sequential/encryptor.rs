@@ -16,16 +16,16 @@
 // relating to use of the SAFE Network Software.
 
 
+use super::{SelfEncryptionError, Storage, utils};
+use super::large_encryptor::{self, LargeEncryptor};
+use super::medium_encryptor::{self, MediumEncryptor};
+use super::small_encryptor::SmallEncryptor;
 use data_map::DataMap;
 use futures::{self, Future};
 use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
-use super::{SelfEncryptionError, Storage, utils};
-use super::large_encryptor::{self, LargeEncryptor};
-use super::medium_encryptor::{self, MediumEncryptor};
-use super::small_encryptor::SmallEncryptor;
 use util::{FutureExt, BoxFuture};
 
 enum State<S> {
@@ -35,7 +35,9 @@ enum State<S> {
     Transitioning,
 }
 
-impl<S> State<S> where S: Storage + 'static {
+impl<S> State<S>
+    where S: Storage + 'static
+{
     fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
         match self {
             State::Small(encryptor) => encryptor.write(data).map(From::from).into_box(),
@@ -119,38 +121,34 @@ pub struct Encryptor<S> {
     state: Rc<RefCell<State<S>>>,
 }
 
-impl<S> Encryptor<S> where S: Storage + 'static {
+impl<S> Encryptor<S>
+    where S: Storage + 'static
+{
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
-    pub fn new(storage: S, data_map: Option<DataMap>)
+    pub fn new(storage: S,
+               data_map: Option<DataMap>)
                -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
         utils::initialise_rust_sodium();
         match data_map {
             Some(DataMap::Content(content)) => {
-                SmallEncryptor::new(storage, content)
-                               .map(State::from)
-                               .map(Self::from)
-                               .into_box()
+                SmallEncryptor::new(storage, content).map(State::from).map(Self::from).into_box()
             }
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
                 if chunks.len() == 3 {
                     MediumEncryptor::new(storage, chunks)
-                                    .map(State::from)
-                                    .map(Self::from)
-                                    .into_box()
+                        .map(State::from)
+                        .map(Self::from)
+                        .into_box()
                 } else {
-                    LargeEncryptor::new(storage, chunks)
-                                   .map(State::from)
-                                   .map(Self::from)
-                                   .into_box()
+                    LargeEncryptor::new(storage, chunks).map(State::from).map(Self::from).into_box()
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),
-            None => SmallEncryptor::new(storage, vec![])
-                                   .map(State::from)
-                                   .map(Self::from)
-                                   .into_box()
+            None => {
+                SmallEncryptor::new(storage, vec![]).map(State::from).map(Self::from).into_box()
+            }
         }
     }
 
@@ -176,25 +174,19 @@ impl<S> Encryptor<S> where S: Storage + 'static {
             }
             State::Medium(medium) => {
                 if medium.len() + data.len() as u64 >= large_encryptor::MIN {
-                    LargeEncryptor::from_medium(medium)
-                                   .map(State::from)
-                                   .into_box()
+                    LargeEncryptor::from_medium(medium).map(State::from).into_box()
                 } else {
                     futures::finished(State::from(medium)).into_box()
                 }
             }
-            State::Large(large) => {
-                futures::finished(State::from(large)).into_box()
-            }
+            State::Large(large) => futures::finished(State::from(large)).into_box(),
             State::Transitioning => unreachable!(),
         };
 
         let data = data.to_vec();
-        future.and_then(move |next_state| {
-            next_state.write(&data)
-        }).map(move |next_state| {
-            *curr_state.borrow_mut() = next_state;
-        }).into_box()
+        future.and_then(move |next_state| next_state.write(&data))
+            .map(move |next_state| { *curr_state.borrow_mut() = next_state; })
+            .into_box()
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
@@ -221,28 +213,26 @@ impl<S> Encryptor<S> where S: Storage + 'static {
 
 impl<S> From<State<S>> for Encryptor<S> {
     fn from(s: State<S>) -> Self {
-        Encryptor {
-            state: Rc::new(RefCell::new(s)),
-        }
+        Encryptor { state: Rc::new(RefCell::new(s)) }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use super::super::*;
     use data_map::DataMap;
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use super::*;
-    use super::super::*;
-    use test_helpers::SimpleStorage;
+    use test_helpers::{SimpleStorage, Blob};
 
     fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
         let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).wait());
-        assert!(fetched == expected_data);
+        assert_eq!(Blob(&fetched), Blob(&expected_data));
         self_encryptor.into_storage()
     }
 

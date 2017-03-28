@@ -76,7 +76,7 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
         let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()),
                                                         data_map.clone()));
         let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).wait());
-        assert!(read_bytes == bytes);
+        assert_eq!(read_bytes, bytes);
         storage = Some(self_encryptor.into_storage());
     });
     bencher.bytes = bytes_len;

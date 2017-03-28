@@ -31,7 +31,7 @@ pub trait Storage {
 
     /// Retrieve data previously `put` under `name`.  If the data does not exist, an error should be
     /// returned.
-    fn get(&self, name: &[u8]) -> Box<Future<Item=Vec<u8>, Error=Self::Error>>;
+    fn get(&self, name: &[u8]) -> Box<Future<Item = Vec<u8>, Error = Self::Error>>;
     /// Store `data` under `name`.
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item=(), Error=Self::Error>>;
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item = (), Error = Self::Error>>;
 }
