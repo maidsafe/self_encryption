@@ -139,7 +139,9 @@ impl DataMap {
 
     /// Iterates through the chunks to figure out the total size, i.e. the file size
     fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
-        chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
+        chunks
+            .iter()
+            .fold(0, |acc, chunk| acc + chunk.source_size)
     }
 }
 

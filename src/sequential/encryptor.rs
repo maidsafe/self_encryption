@@ -132,7 +132,10 @@ impl<S> Encryptor<S>
         utils::initialise_rust_sodium();
         match data_map {
             Some(DataMap::Content(content)) => {
-                SmallEncryptor::new(storage, content).map(State::from).map(Self::from).into_box()
+                SmallEncryptor::new(storage, content)
+                    .map(State::from)
+                    .map(Self::from)
+                    .into_box()
             }
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
@@ -142,12 +145,18 @@ impl<S> Encryptor<S>
                         .map(Self::from)
                         .into_box()
                 } else {
-                    LargeEncryptor::new(storage, chunks).map(State::from).map(Self::from).into_box()
+                    LargeEncryptor::new(storage, chunks)
+                        .map(State::from)
+                        .map(Self::from)
+                        .into_box()
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),
             None => {
-                SmallEncryptor::new(storage, vec![]).map(State::from).map(Self::from).into_box()
+                SmallEncryptor::new(storage, vec![])
+                    .map(State::from)
+                    .map(Self::from)
+                    .into_box()
             }
         }
     }
@@ -174,7 +183,9 @@ impl<S> Encryptor<S>
             }
             State::Medium(medium) => {
                 if medium.len() + data.len() as u64 >= large_encryptor::MIN {
-                    LargeEncryptor::from_medium(medium).map(State::from).into_box()
+                    LargeEncryptor::from_medium(medium)
+                        .map(State::from)
+                        .into_box()
                 } else {
                     futures::finished(State::from(medium)).into_box()
                 }
@@ -184,7 +195,8 @@ impl<S> Encryptor<S>
         };
 
         let data = data.to_vec();
-        future.and_then(move |next_state| next_state.write(&data))
+        future
+            .and_then(move |next_state| next_state.write(&data))
             .map(move |next_state| { *curr_state.borrow_mut() = next_state; })
             .into_box()
     }
@@ -252,7 +264,9 @@ mod tests {
     #[test]
     fn transitions() {
         let mut rng = SeededRng::new();
-        let data = rng.gen_iter().take(4 * MAX_CHUNK_SIZE as usize + 1).collect_vec();
+        let data = rng.gen_iter()
+            .take(4 * MAX_CHUNK_SIZE as usize + 1)
+            .collect_vec();
 
         // Write 0 bytes.
         let (mut data_map, mut storage) = {

@@ -53,11 +53,11 @@ fn write(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = Some(SimpleStorage::new());
 
     bencher.iter(|| {
-        let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()),
-                                                        DataMap::None));
-        unwrap!(self_encryptor.write(&bytes, 0).wait());
-        storage = Some(unwrap!(self_encryptor.close().wait()).1);
-    });
+                     let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()),
+                                                                     DataMap::None));
+                     unwrap!(self_encryptor.write(&bytes, 0).wait());
+                     storage = Some(unwrap!(self_encryptor.close().wait()).1);
+                 });
     bencher.bytes = bytes_len;
 }
 
@@ -73,12 +73,12 @@ fn read(bencher: &mut Bencher, bytes_len: u64) {
     let mut storage = Some(storage);
 
     bencher.iter(|| {
-        let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()),
-                                                        data_map.clone()));
-        let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).wait());
-        assert_eq!(read_bytes, bytes);
-        storage = Some(self_encryptor.into_storage());
-    });
+                     let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()),
+                                                                     data_map.clone()));
+                     let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).wait());
+                     assert_eq!(read_bytes, bytes);
+                     storage = Some(self_encryptor.into_storage());
+                 });
     bencher.bytes = bytes_len;
 }
 
