@@ -11,18 +11,19 @@ version = "0.7.0"
 
 [dependencies]
 brotli2 = "~0.2.1"
-clippy = {version = "~0.0.79", optional = true}
-futures = "~0.1.2"
+futures = "~0.1.11"
 memmap = "~0.4.0"
 rand = "~0.3.14"
-rustc-serialize = "~0.3.19"
-rust_sodium = "~0.1.1"
+serde = "~0.9.12"
+serde_derive = "~0.9.12"
+rust_sodium = { git = "https://github.com/maidsafe/rust_sodium.git", branch = "master" }
 unwrap = "~1.1.0"
 
 [dev-dependencies]
+rustc-serialize = "~0.3.23"
 docopt = "~0.6.81"
 itertools = "~0.4.16"
-maidsafe_utilities = "~0.8.0"
+maidsafe_utilities = { git = "https://github.com/maidsafe/maidsafe_utilities.git", branch = "master" }
 
 [[example]]
 name = "basic_encryptor"
