@@ -42,7 +42,9 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let mut iv = [0u8; IV_SIZE];
 
     for (pad_iv_el, element) in
-        pad.iter_mut().chain(iv.iter_mut()).zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        pad.iter_mut()
+            .chain(iv.iter_mut())
+            .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
         *pad_iv_el = *element;
     }
 
@@ -79,7 +81,9 @@ pub fn decrypt_chunk<E: StorageError>(content: &[u8],
     if decompressor.write_all(&decrypted).is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    decompressor.finish().map_err(|_| SelfEncryptionError::Compression)
+    decompressor
+        .finish()
+        .map_err(|_| SelfEncryptionError::Compression)
 }
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)

@@ -49,7 +49,10 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
                chunks: Vec<ChunkDetails>)
                -> Result<LargeEncryptor<'a, E, S>, SelfEncryptionError<E>> {
         debug_assert!(chunks.len() > 3);
-        debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
+        debug_assert!(MIN <=
+                      chunks
+                          .iter()
+                          .fold(0, |acc, chunk| acc + chunk.source_size));
         let chunk_0_data;
         let chunk_1_data;
         let mut buffer = Vec::with_capacity(MAX_BUFFER_LEN);
@@ -182,12 +185,13 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
             data = &data[amount..];
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
             if buffer_ref.len() == MAX_CHUNK_SIZE as usize {
-                self.chunks.push(ChunkDetails {
-                                     chunk_num: index,
-                                     hash: vec![],
-                                     pre_hash: sha256::hash(buffer_ref).0.to_vec(),
-                                     source_size: MAX_CHUNK_SIZE as u64,
-                                 });
+                self.chunks
+                    .push(ChunkDetails {
+                              chunk_num: index,
+                              hash: vec![],
+                              pre_hash: sha256::hash(buffer_ref).0.to_vec(),
+                              source_size: MAX_CHUNK_SIZE as u64,
+                          });
             }
         }
         data
@@ -195,12 +199,13 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
 
     fn encrypt_chunk(&mut self, data: &[u8], index: usize) -> Result<(), SelfEncryptionError<E>> {
         if index > 1 {
-            self.chunks.push(ChunkDetails {
-                                 chunk_num: index as u32,
-                                 hash: vec![],
-                                 pre_hash: sha256::hash(data).0.to_vec(),
-                                 source_size: data.len() as u64,
-                             });
+            self.chunks
+                .push(ChunkDetails {
+                          chunk_num: index as u32,
+                          hash: vec![],
+                          pre_hash: sha256::hash(data).0.to_vec(),
+                          source_size: data.len() as u64,
+                      });
         }
 
         let encrypted_contents =
@@ -332,7 +337,9 @@ mod tests {
     #[test]
     fn all_unit() {
         let mut rng = SeededRng::new();
-        let data = rng.gen_iter().take(5 * MAX_CHUNK_SIZE as usize).collect_vec();
+        let data = rng.gen_iter()
+            .take(5 * MAX_CHUNK_SIZE as usize)
+            .collect_vec();
 
         basic_write_and_close(&data[..MIN as usize]);
         basic_write_and_close(&data[..(MAX_CHUNK_SIZE as usize * 4)]);

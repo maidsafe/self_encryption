@@ -43,8 +43,14 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
                chunks: Vec<ChunkDetails>)
                -> Result<MediumEncryptor<'a, E, S>, SelfEncryptionError<E>> {
         debug_assert_eq!(chunks.len(), 3);
-        debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
-        debug_assert!(chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size) <= MAX);
+        debug_assert!(MIN <=
+                      chunks
+                          .iter()
+                          .fold(0, |acc, chunk| acc + chunk.source_size));
+        debug_assert!(chunks
+                          .iter()
+                          .fold(0, |acc, chunk| acc + chunk.source_size) <=
+                      MAX);
 
         let mut buffer = Vec::with_capacity(MAX as usize);
         for (index, chunk) in chunks.iter().enumerate() {
@@ -95,7 +101,10 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
         // Encrypt the chunks and note the post-encryption hashes
         let partial_details = chunk_details.clone();
         for (index, (contents, mut details)) in
-            chunk_contents.iter().zip(chunk_details.iter_mut()).enumerate() {
+            chunk_contents
+                .iter()
+                .zip(chunk_details.iter_mut())
+                .enumerate() {
             let encrypted_contents =
                 utils::encrypt_chunk(contents, utils::get_pad_key_and_iv(index, &partial_details))?;
             let sha256::Digest(hash) = sha256::hash(&encrypted_contents);

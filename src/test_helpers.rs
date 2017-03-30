@@ -75,9 +75,10 @@ impl Storage<SimpleStorageError> for SimpleStorage {
     }
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
-        Ok(self.entries.push(Entry {
-                                 name: name,
-                                 data: data,
-                             }))
+        Ok(self.entries
+               .push(Entry {
+                         name: name,
+                         data: data,
+                     }))
     }
 }
