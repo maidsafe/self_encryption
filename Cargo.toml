@@ -13,14 +13,16 @@ version = "0.7.1"
 brotli2 = "~0.2.1"
 memmap = "~0.4.0"
 rand = "~0.3.14"
-rust_sodium = "~0.1.2"
-rustc-serialize = "~0.3.19"
+rust_sodium = { git = "https://github.com/maidsafe/rust_sodium", branch = "master" }
+serde = "~0.9.12"
+serde_derive = "~0.9.12"
 unwrap = "~1.1.0"
 
 [dev-dependencies]
 docopt = "~0.6.86"
+rustc-serialize = "~0.3.23"
 itertools = "~0.5.2"
-maidsafe_utilities = "~0.10.0"
+maidsafe_utilities = { git = "https://github.com/maidsafe/maidsafe_utilities", branch = "master" }
 
 [[example]]
 bench = false

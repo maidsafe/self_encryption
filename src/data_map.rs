@@ -19,7 +19,7 @@ use std::fmt::{Debug, Error, Formatter, Write};
 
 /// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
 /// chunk.
-#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
     pub chunk_num: u32,
@@ -80,7 +80,7 @@ impl Debug for ChunkDetails {
 
 /// Holds the information that is required to recover the content of the encrypted file.  Depending
 /// on the file size, this is held as a vector of `ChunkDetails`, or as raw data.
-#[derive(RustcEncodable, RustcDecodable, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
     /// holds the list of the file's chunks and corresponding hashes.
@@ -139,7 +139,9 @@ impl DataMap {
 
     /// Iterates through the chunks to figure out the total size, i.e. the file size
     fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
-        chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
+        chunks
+            .iter()
+            .fold(0, |acc, chunk| acc + chunk.source_size)
     }
 }
 

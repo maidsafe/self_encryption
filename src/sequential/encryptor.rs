@@ -215,7 +215,9 @@ mod tests {
     fn transitions() {
         let mut storage = SimpleStorage::new();
         let mut rng = SeededRng::new();
-        let data = rng.gen_iter().take(4 * MAX_CHUNK_SIZE as usize + 1).collect_vec();
+        let data = rng.gen_iter()
+            .take(4 * MAX_CHUNK_SIZE as usize + 1)
+            .collect_vec();
 
         let mut data_map;
         // Write 0 bytes.
