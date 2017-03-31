@@ -137,7 +137,9 @@ impl Storage for DiskBasedStorage {
             Err(error) => return futures::failed(From::from(error)).boxed(),
         };
         let mut data = Vec::new();
-        let result = file.read_to_end(&mut data).map(move |_| data).map_err(From::from);
+        let result = file.read_to_end(&mut data)
+            .map(move |_| data)
+            .map_err(From::from);
         futures::done(result).boxed()
     }
 
@@ -161,7 +163,9 @@ impl Storage for DiskBasedStorage {
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit());
     if args.flag_help {
         println!("{:?}", args)
     }
@@ -195,9 +199,12 @@ fn main() {
 
             let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("Encryptor construction shouldn't fail.");
-            se.write(&data, 0).wait().expect("Writing to encryptor shouldn't fail.");
-            let (data_map, old_storage) =
-                se.close().wait().expect("Closing encryptor shouldn't fail.");
+            se.write(&data, 0)
+                .wait()
+                .expect("Writing to encryptor shouldn't fail.");
+            let (data_map, old_storage) = se.close()
+                .wait()
+                .expect("Closing encryptor shouldn't fail.");
             storage = old_storage;
 
             match File::create(data_map_file.clone()) {
@@ -233,8 +240,9 @@ fn main() {
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
-                    let content =
-                        se.read(0, length).wait().expect("Reading from encryptor shouldn't fail.");
+                    let content = se.read(0, length)
+                        .wait()
+                        .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {
