@@ -1,5 +1,11 @@
 # Self-Encryption - Change Log
 
+## [0.8.0]
+- Update maidsafe_utilities 0.11.0
+- rustfmt 0.8.1
+- switch to serde instead of rustc-serialize
+- cleanup CI scripts
+
 ## [0.7.1]
 - Update maidsafe_utilities to v0.10.0 which removes deprecated API's.
 
