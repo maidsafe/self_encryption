@@ -26,6 +26,17 @@ use rust_sodium;
 use std::cmp;
 use std::io::Write;
 use std::sync::{ONCE_INIT, Once};
+use tiny_keccak::Keccak;
+
+pub const HASH_SIZE: usize = 32;
+
+pub fn sha3_256_hash(input: &[u8]) -> Vec<u8> {
+    let mut sha3 = Keccak::new_sha3_256();
+    sha3.update(input);
+    let mut name: [u8; HASH_SIZE] = [0; HASH_SIZE];
+    sha3.finalize(&mut name);
+    name.to_vec()
+}
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {

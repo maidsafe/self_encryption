@@ -15,11 +15,11 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
+use self::utils::sha3_256_hash;
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
-use rust_sodium::crypto::hash::sha256;
 use std::{cmp, mem};
 use std::convert::From;
 use std::marker::PhantomData;
@@ -189,7 +189,7 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
                     .push(ChunkDetails {
                               chunk_num: index,
                               hash: vec![],
-                              pre_hash: sha256::hash(buffer_ref).0.to_vec(),
+                              pre_hash: sha3_256_hash(buffer_ref),
                               source_size: MAX_CHUNK_SIZE as u64,
                           });
             }
@@ -203,16 +203,16 @@ impl<'a, E: StorageError, S: Storage<E>> LargeEncryptor<'a, E, S> {
                 .push(ChunkDetails {
                           chunk_num: index as u32,
                           hash: vec![],
-                          pre_hash: sha256::hash(data).0.to_vec(),
+                          pre_hash: sha3_256_hash(data),
                           source_size: data.len() as u64,
                       });
         }
 
         let encrypted_contents =
             utils::encrypt_chunk(data, utils::get_pad_key_and_iv(index, &self.chunks))?;
-        let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
-        self.storage.put(hash.to_vec(), encrypted_contents)?;
-        self.chunks[index].hash = hash.to_vec();
+        let hash = sha3_256_hash(&encrypted_contents);
+        self.storage.put(hash.clone(), encrypted_contents)?;
+        self.chunks[index].hash = hash;
         Ok(())
     }
 }
