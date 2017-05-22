@@ -18,10 +18,10 @@
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, StorageError, utils};
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
-use rust_sodium::crypto::hash::sha256;
 use std::convert::From;
 use std::marker::PhantomData;
 use std::mem;
+use tiny_keccak::sha3_256;
 
 pub const MIN: u64 = 3 * MIN_CHUNK_SIZE as u64;
 pub const MAX: u64 = 3 * MAX_CHUNK_SIZE as u64;
@@ -94,7 +94,7 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
             chunk_details.push(ChunkDetails {
                                    chunk_num: index as u32,
                                    hash: vec![],
-                                   pre_hash: sha256::hash(contents).0.to_vec(),
+                                   pre_hash: sha3_256(contents).to_vec(),
                                    source_size: contents.len() as u64,
                                });
         }
@@ -107,9 +107,9 @@ impl<'a, E: StorageError, S: Storage<E>> MediumEncryptor<'a, E, S> {
                 .enumerate() {
             let encrypted_contents =
                 utils::encrypt_chunk(contents, utils::get_pad_key_and_iv(index, &partial_details))?;
-            let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
-            self.storage.put(hash.to_vec(), encrypted_contents)?;
-            details.hash = hash.to_vec();
+            let hash = sha3_256(&encrypted_contents).to_vec();
+            self.storage.put(hash.clone(), encrypted_contents)?;
+            details.hash = hash;
         }
         Ok(DataMap::Chunks(chunk_details))
     }

@@ -21,7 +21,6 @@ use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
 use rust_sodium;
-use rust_sodium::crypto::hash::sha256;
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
@@ -29,8 +28,9 @@ use std::io::Write;
 use std::iter;
 use std::marker::PhantomData;
 use std::sync::{ONCE_INIT, Once};
+use tiny_keccak::sha3_256;
 
-const HASH_SIZE: usize = sha256::DIGESTBYTES;
+const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 struct Pad(pub [u8; PAD_SIZE]);
@@ -203,10 +203,10 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-                let sha256::Digest(name) = sha256::hash(&(*self.sequencer)[pos..pos + this_size]);
+                let name = sha3_256(&(*self.sequencer)[pos..pos + this_size]).to_vec();
                 new_chunk.chunk_num = i as u32;
                 new_chunk.hash.clear();
-                new_chunk.pre_hash = name.to_vec();
+                new_chunk.pre_hash = name;
                 new_chunk.source_size = this_size as u64;
             }
         }
@@ -222,9 +222,9 @@ impl<'a, E: StorageError, S: Storage<E>> SelfEncryptor<'a, E, S> {
 
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
                 let content = encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki)?;
-                let sha256::Digest(name) = sha256::hash(&content);
-                self.storage.put(name.to_vec(), content)?;
-                new_map[i].hash = name.to_vec();
+                let name = sha3_256(&content).to_vec();
+                self.storage.put(name.clone(), content)?;
+                new_map[i].hash = name;
             }
         }
         Ok(DataMap::Chunks(new_map))

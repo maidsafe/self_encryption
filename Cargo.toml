@@ -16,6 +16,7 @@ rand = "~0.3.14"
 rust_sodium = "~0.3.0"
 serde = "~1.0.7"
 serde_derive = "~1.0.7"
+tiny-keccak = "~1.2.1"
 unwrap = "~1.1.0"
 
 [dev-dependencies]
