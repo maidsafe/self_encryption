@@ -21,9 +21,9 @@ use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
 use futures::{self, Future};
-use rust_sodium::crypto::hash::sha256;
 use std::{cmp, mem};
 use std::convert::From;
+use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
@@ -245,7 +245,7 @@ impl<S> LargeEncryptor<S>
                     .push(ChunkDetails {
                               chunk_num: index,
                               hash: vec![],
-                              pre_hash: sha256::hash(buffer_ref).0.to_vec(),
+                              pre_hash: sha3_256(buffer_ref).to_vec(),
                               source_size: MAX_CHUNK_SIZE as u64,
                           });
             }
@@ -262,7 +262,7 @@ impl<S> LargeEncryptor<S>
                 .push(ChunkDetails {
                           chunk_num: index as u32,
                           hash: vec![],
-                          pre_hash: sha256::hash(data).0.to_vec(),
+                          pre_hash: sha3_256(data).to_vec(),
                           source_size: data.len() as u64,
                       });
         }
@@ -273,7 +273,7 @@ impl<S> LargeEncryptor<S>
             Err(error) => return futures::failed(error).into_box(),
         };
 
-        let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
+        let hash = sha3_256(&encrypted_contents);
         self.chunks[index].hash = hash.to_vec();
 
         self.storage
