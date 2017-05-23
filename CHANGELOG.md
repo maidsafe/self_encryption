@@ -1,5 +1,10 @@
 # Self-Encryption - Change Log
 
+## [0.9.0]
+- Use sha3_256 from tiny_keccak instead of rust_sodium
+- Travis uses cargo_install script from QA
+- Dependencies updated
+
 ## [0.8.0]
 - Update maidsafe_utilities 0.11.0
 - rustfmt 0.8.1
