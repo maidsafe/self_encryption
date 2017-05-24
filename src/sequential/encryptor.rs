@@ -244,7 +244,7 @@ mod tests {
     fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
         let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).wait());
-        assert_eq!(Blob(&fetched), Blob(&expected_data));
+        assert_eq!(Blob(&fetched), Blob(expected_data));
         self_encryptor.into_storage()
     }
 

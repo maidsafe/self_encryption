@@ -209,7 +209,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert_eq!(Blob(&fetched), Blob(&data));
+        assert_eq!(Blob(&fetched), Blob(data));
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -253,7 +253,7 @@ mod tests {
             assert_eq!(fetched, existing_data);
             storage = self_encryptor.into_storage();
         }
-        assert_eq!(Blob(&existing_data[..]), Blob(&data));
+        assert_eq!(Blob(&existing_data[..]), Blob(data));
     }
 
     #[test]
