@@ -104,7 +104,7 @@ mod tests {
 
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
         let fetched = unwrap!(self_encryptor.read(0, data.len() as u64).wait());
-        assert_eq!(Blob(&fetched), Blob(&data));
+        assert_eq!(Blob(&fetched), Blob(data));
     }
 
     // Splits `data` into several pieces, then for each piece:
@@ -135,7 +135,7 @@ mod tests {
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).wait());
             assert_eq!(Blob(&fetched), Blob(&existing_data));
         }
-        assert_eq!(Blob(&existing_data[..]), Blob(&data));
+        assert_eq!(Blob(&existing_data[..]), Blob(data));
     }
 
     #[test]
