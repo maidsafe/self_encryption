@@ -15,7 +15,6 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-
 use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage,
             StorageError};
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
@@ -23,7 +22,6 @@ use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
 use futures::{self, Future};
 use rust_sodium;
-use rust_sodium::crypto::hash::sha256;
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cell::RefCell;
 use std::cmp;
@@ -32,9 +30,10 @@ use std::io::Write;
 use std::iter;
 use std::rc::Rc;
 use std::sync::{ONCE_INIT, Once};
+use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
-const HASH_SIZE: usize = sha256::DIGESTBYTES;
+const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 struct Pad(pub [u8; PAD_SIZE]);
@@ -386,7 +385,7 @@ impl<S> State<S>
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-                let sha256::Digest(name) = sha256::hash(&(*self.sequencer)[pos..pos + this_size]);
+                let name = sha3_256(&(*self.sequencer)[pos..pos + this_size]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -411,7 +410,7 @@ impl<S> State<S>
                     Err(error) => return futures::failed(error).into_box(),
 
                 };
-                let sha256::Digest(name) = sha256::hash(&content);
+                let name = sha3_256(&content);
 
                 put_futures.push(self.storage
                                      .put(name.to_vec(), content)

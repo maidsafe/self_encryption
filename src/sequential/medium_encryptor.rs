@@ -20,8 +20,8 @@ use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils}
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
 use futures::{self, Future};
-use rust_sodium::crypto::hash::sha256;
 use std::convert::From;
+use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MIN_CHUNK_SIZE as u64;
@@ -113,7 +113,7 @@ impl<S> MediumEncryptor<S>
                 chunk_details.push(ChunkDetails {
                                        chunk_num: index as u32,
                                        hash: vec![],
-                                       pre_hash: sha256::hash(contents).0.to_vec(),
+                                       pre_hash: sha3_256(contents).to_vec(),
                                        source_size: contents.len() as u64,
                                    });
             }
@@ -128,7 +128,7 @@ impl<S> MediumEncryptor<S>
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let future = match utils::encrypt_chunk(contents, pad_key_iv) {
                     Ok(encrypted_contents) => {
-                        let sha256::Digest(hash) = sha256::hash(&encrypted_contents);
+                        let hash = sha3_256(&encrypted_contents);
                         details.hash = hash.to_vec();
                         self.storage
                             .put(hash.to_vec(), encrypted_contents)

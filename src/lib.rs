@@ -164,6 +164,7 @@ extern crate rand;
 #[macro_use]
 extern crate serde_derive;
 extern crate rust_sodium;
+extern crate tiny_keccak;
 #[macro_use]
 extern crate unwrap;
 

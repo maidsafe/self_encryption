@@ -1,22 +1,23 @@
 [package]
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
-documentation = "http://docs.maidsafe.net/self_encryption/latest"
-homepage = "http://maidsafe.net"
+documentation = "https://docs.rs/self_encryption"
+homepage = "https://maidsafe.net"
 license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.7.0"
+version = "0.8.0"
 
 [dependencies]
 brotli2 = "~0.2.1"
 futures = "~0.1.11"
 memmap = "~0.4.0"
 rand = "~0.3.14"
+rust_sodium = "~0.3.0"
 serde = "~1.0.8"
 serde_derive = "~1.0.8"
-rust_sodium = "~0.3.0"
+tiny-keccak = "~1.2.1"
 unwrap = "~1.1.0"
 
 [dev-dependencies]
