@@ -15,17 +15,21 @@
 // Please review the Licences for the specific language governing permissions and limitations
 // relating to use of the SAFE Network Software.
 
-pub mod encryptor;
-pub mod large_encryptor;
-pub mod medium_encryptor;
-pub mod small_encryptor;
-pub mod utils;
+use futures::Future;
 
-pub use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE, MIN_CHUNK_SIZE,
-                SelfEncryptionError, Storage, StorageError};
-use encryption::{IV_SIZE, KEY_SIZE};
+// Type alias for Box<Future>. Unlike `futures::BoxFuture` this doesn't require
+// the future to implement `Send`.
+pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
 
-pub const HASH_SIZE: usize = 32;
-pub const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
+// Extension methods for Future.
+pub trait FutureExt: Future {
+    fn into_box(self) -> BoxFuture<Self::Item, Self::Error>;
+}
 
-pub struct Pad(pub [u8; PAD_SIZE]);
+impl<F> FutureExt for F
+    where F: Future + 'static
+{
+    fn into_box(self) -> BoxFuture<Self::Item, Self::Error> {
+        Box::new(self)
+    }
+}

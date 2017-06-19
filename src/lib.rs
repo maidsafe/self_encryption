@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
-// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -39,7 +39,9 @@
 //! in the "examples" folder of this project.
 //!
 //! ```
-//! # #![allow(dead_code)]
+//! # extern crate futures;
+//! # extern crate self_encryption;
+//! use futures::Future;
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::{Storage, StorageError};
@@ -76,42 +78,55 @@
 //!     }
 //! }
 //!
-//! impl Storage<SimpleStorageError> for SimpleStorage {
-//!    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
-//!        match self.entries.iter().find(|ref entry| entry.name == name) {
+//! impl Storage for SimpleStorage {
+//!    type Error = SimpleStorageError;
+//!
+//!    fn get(&self, name: &[u8]) -> Box<Future<Item=Vec<u8>, Error=Self::Error>> {
+//!        let result = match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
-//!        }
+//!        };
+//!
+//!        futures::done(result).boxed()
 //!    }
 //!
-//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
-//!        Ok(self.entries.push(Entry {
+//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item=(), Error=Self::Error>> {
+//!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
-//!        }))
+//!        });
+//!
+//!        futures::finished(()).boxed()
 //!    }
 //! }
+//!
+//! # fn main() {}
 //! ```
 //!
 //! Using this `SimpleStorage`, a self-encryptor can be created and written to/read from:
 //!
 //! ```
+//! # extern crate futures;
+//! # extern crate self_encryption;
+//! use futures::Future;
 //! use self_encryption::{DataMap, SelfEncryptor};
 //! # use self_encryption::test_helpers::SimpleStorage;
 //!
-//! let mut storage = SimpleStorage::new();
-//! let mut encryptor = SelfEncryptor::new(&mut storage, DataMap::None).unwrap();
-//! let data = vec![0, 1, 2, 3, 4, 5];
-//! let mut offset = 0;
+//! fn main() {
+//!     let storage = SimpleStorage::new();
+//!     let mut encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
+//!     let data = vec![0, 1, 2, 3, 4, 5];
+//!     let mut offset = 0;
 //!
-//! encryptor.write(&data, offset).unwrap();
+//!     encryptor.write(&data, offset).wait().unwrap();
 //!
-//! offset = 2;
-//! let length = 3;
-//! assert_eq!(encryptor.read(offset, length).unwrap(), vec![2, 3, 4]);
+//!     offset = 2;
+//!     let length = 3;
+//!     assert_eq!(encryptor.read(offset, length).wait().unwrap(), vec![2, 3, 4]);
 //!
-//! let data_map = encryptor.close().unwrap();
-//! assert_eq!(data_map.len(), 6);
+//!     let data_map = encryptor.close().wait().unwrap().0;
+//!     assert_eq!(data_map.len(), 6);
+//! }
 //! ```
 //!
 //! The `close()` function returns a `DataMap` which can be used when creating a new encryptor to
@@ -120,8 +135,8 @@
 
 #![doc(html_logo_url =
            "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
-       html_favicon_url = "https://maidsafe.net/img/favicon.ico",
-       html_root_url = "https://docs.rs/self_encryption")]
+       html_favicon_url = "http://maidsafe.net/img/favicon.ico",
+       html_root_url = "http://maidsafe.github.io/self_encryption")]
 
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
@@ -138,6 +153,7 @@
          missing_debug_implementations, variant_size_differences, non_camel_case_types)]
 
 extern crate brotli2;
+extern crate futures;
 #[cfg(test)]
 extern crate itertools;
 #[cfg(test)]
@@ -160,6 +176,7 @@ mod sequencer;
 mod sequential;
 mod storage;
 pub mod test_helpers;
+mod util;
 
 pub use data_map::{ChunkDetails, DataMap};
 pub use error::SelfEncryptionError;

@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
-// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -31,14 +31,20 @@
 #![allow(box_pointers, fat_ptr_transmutes, missing_copy_implementations,
          missing_debug_implementations, variant_size_differences)]
 
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature="clippy", deny(clippy))]
+
 extern crate docopt;
+extern crate futures;
 extern crate maidsafe_utilities;
-#[macro_use]
-extern crate unwrap;
 extern crate rustc_serialize;
 extern crate self_encryption;
+#[macro_use]
+extern crate unwrap;
 
 use docopt::Docopt;
+use futures::Future;
 use maidsafe_utilities::serialisation;
 use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
 use std::env;
@@ -121,21 +127,38 @@ impl DiskBasedStorage {
     }
 }
 
-impl Storage<DiskBasedStorageError> for DiskBasedStorage {
-    fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
+impl Storage for DiskBasedStorage {
+    type Error = DiskBasedStorageError;
+
+    fn get(&self, name: &[u8]) -> Box<Future<Item = Vec<u8>, Error = DiskBasedStorageError>> {
         let path = self.calculate_path(name);
-        let mut file = File::open(&path)?;
+        let mut file = match File::open(&path) {
+            Ok(file) => file,
+            Err(error) => return futures::failed(From::from(error)).boxed(),
+        };
         let mut data = Vec::new();
-        let _ = file.read_to_end(&mut data)?;
-        Ok(data)
+        let result = file.read_to_end(&mut data)
+            .map(move |_| data)
+            .map_err(From::from);
+        futures::done(result).boxed()
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), DiskBasedStorageError> {
+    fn put(&mut self,
+           name: Vec<u8>,
+           data: Vec<u8>)
+           -> Box<Future<Item = (), Error = DiskBasedStorageError>> {
         let path = self.calculate_path(&name);
-        let mut file = File::create(&path)?;
-        file.write_all(&data[..])?;
-        println!("Chunk written to {:?}", path);
-        Ok(())
+        let mut file = match File::create(&path) {
+            Ok(file) => file,
+            Err(error) => return futures::failed(From::from(error)).boxed(),
+        };
+
+        let result = file.write_all(&data[..])
+            .map(|_| {
+                     println!("Chunk written to {:?}", path);
+                 })
+            .map_err(From::from);
+        futures::done(result).boxed()
     }
 }
 
@@ -151,12 +174,13 @@ fn main() {
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
     let mut storage =
-        DiskBasedStorage { storage_path: unwrap!(chunk_store_dir.to_str(), "").to_owned() };
+        DiskBasedStorage { storage_path: unwrap!(chunk_store_dir.to_str()).to_owned() };
+
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
 
     if args.flag_encrypt && args.arg_target.is_some() {
-        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone(), "")) {
+        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone())) {
             match file.metadata() {
                 Ok(metadata) => {
                     if metadata.len() > self_encryption::MAX_FILE_SIZE as u64 {
@@ -173,11 +197,15 @@ fn main() {
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
-            let mut se = SelfEncryptor::new(&mut storage, DataMap::None)
+            let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("Encryptor construction shouldn't fail.");
             se.write(&data, 0)
+                .wait()
                 .expect("Writing to encryptor shouldn't fail.");
-            let data_map = se.close().expect("Closing encryptor shouldn't fail.");
+            let (data_map, old_storage) = se.close()
+                .wait()
+                .expect("Closing encryptor shouldn't fail.");
+            storage = old_storage;
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
@@ -198,7 +226,7 @@ fn main() {
                 }
             }
         } else {
-            println!("Failed to open {}", unwrap!(args.arg_target.clone(), ""));
+            println!("Failed to open {}", unwrap!(args.arg_target.clone()));
         }
     }
 
@@ -208,22 +236,22 @@ fn main() {
             let _ = unwrap!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
-                let mut se = SelfEncryptor::new(&mut storage, data_map)
+                let se = SelfEncryptor::new(storage, data_map)
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
-                if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone(), "")) {
+                if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
                     let content = se.read(0, length)
+                        .wait()
                         .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
                         Ok(_) => {
                             println!("File decrypted to {:?}",
-                                     unwrap!(args.arg_destination.clone(), ""))
+                                     unwrap!(args.arg_destination.clone()))
                         }
                     };
                 } else {
-                    println!("Failed to create {}",
-                             unwrap!(args.arg_destination.clone(), ""));
+                    println!("Failed to create {}", unwrap!(args.arg_destination.clone()));
                 }
             } else {
                 println!("Failed to parse data map - possible corruption");

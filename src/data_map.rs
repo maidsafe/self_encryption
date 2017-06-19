@@ -5,10 +5,10 @@
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
-// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -94,7 +94,7 @@ pub enum DataMap {
 
 #[cfg_attr(feature="cargo-clippy", allow(len_without_is_empty))]
 impl DataMap {
-    /// Original (pre-encryption) size of file in `DataMap`.
+    /// Original (pre-encryption) size of file in DataMap.
     pub fn len(&self) -> u64 {
         match *self {
             DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
@@ -149,13 +149,13 @@ impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
         match *self {
             DataMap::Chunks(ref chunks) => {
-                write!(formatter, "DataMap::Chunks:\n")?;
+                try!(write!(formatter, "DataMap::Chunks:\n"));
                 let len = chunks.len();
                 for (index, chunk) in chunks.iter().enumerate() {
                     if index + 1 == len {
-                        write!(formatter, "        {:?}", chunk)?
+                        try!(write!(formatter, "        {:?}", chunk))
                     } else {
-                        write!(formatter, "        {:?}\n", chunk)?
+                        try!(write!(formatter, "        {:?}\n", chunk))
                     }
                 }
                 Ok(())

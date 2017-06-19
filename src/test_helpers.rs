@@ -1,14 +1,14 @@
-// Copyright 2015 MaidSafe.net limited.
+// Copyright 2016 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under (1) the MaidSafe.net Commercial License,
 // version 1.0 or later, or (2) The General Public License (GPL), version 3, depending on which
 // licence you accepted on initial access to the Software (the "Licences").
 //
 // By contributing code to the SAFE Network Software, or to this project generally, you agree to be
-// bound by the terms of the MaidSafe Contributor Agreement.  This, along with the Licenses can be
-// found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
+// bound by the terms of the MaidSafe Contributor Agreement, version 1.1.  This, along with the
+// Licenses can be found in the root directory of this project at LICENSE, COPYING and CONTRIBUTOR.
 //
-// Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
+// Unless required by applicable law or agreed to in writing, the Safe Network Software distributed
 // under the GPL Licence is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.
 //
@@ -17,13 +17,31 @@
 
 #![doc(hidden)]
 
-
 use super::{Storage, StorageError};
+use futures::{self, Future};
+use std::cmp;
 use std::error::Error;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
+use util::BoxFuture;
+
+#[derive(PartialEq, Eq)]
+pub struct Blob<'a>(pub &'a [u8]);
+
+impl<'a> Debug for Blob<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for byte in self.0[..cmp::min(self.0.len(), 4)].iter() {
+            write!(f, "{:02x}", byte)?;
+        }
+        write!(f, "..")?;
+        for byte in self.0[cmp::max(4, self.0.len()) - 4..].iter() {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone)]
-pub struct SimpleStorageError {}
+pub struct SimpleStorageError;
 
 impl Display for SimpleStorageError {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -38,8 +56,6 @@ impl Error for SimpleStorageError {
 }
 
 impl StorageError for SimpleStorageError {}
-
-
 
 struct Entry {
     name: Vec<u8>,
@@ -66,19 +82,25 @@ impl SimpleStorage {
     }
 }
 
-impl Storage<SimpleStorageError> for SimpleStorage {
-    fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
-        match self.entries.iter().find(|entry| entry.name == name) {
+impl Storage for SimpleStorage {
+    type Error = SimpleStorageError;
+
+    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, SimpleStorageError> {
+        let result = match self.entries.iter().find(|entry| entry.name == name) {
             Some(entry) => Ok(entry.data.clone()),
             None => Err(SimpleStorageError {}),
-        }
+        };
+
+        futures::done(result).boxed()
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
-        Ok(self.entries
-               .push(Entry {
-                         name: name,
-                         data: data,
-                     }))
+    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
+        self.entries
+            .push(Entry {
+                      name: name,
+                      data: data,
+                  });
+
+        futures::finished(()).boxed()
     }
 }
