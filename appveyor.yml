@@ -3,9 +3,6 @@ environment:
     RUST_BACKTRACE: 1
   matrix:
     - RUST_VERSION: stable
-branches:
-  only:
-    - dev
 
 cache:
   - '%USERPROFILE%\.cargo'
