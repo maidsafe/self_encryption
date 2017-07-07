@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.10.0]
+- Self-encrypt is now asyc using futures
+
 ## [0.9.0]
 - Use sha3_256 from tiny_keccak instead of rust_sodium
 - Travis uses cargo_install script from QA
