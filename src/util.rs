@@ -27,7 +27,8 @@ pub trait FutureExt: Future {
 }
 
 impl<F> FutureExt for F
-    where F: Future + 'static
+where
+    F: Future + 'static,
 {
     fn into_box(self) -> BoxFuture<Self::Item, Self::Error> {
         Box::new(self)

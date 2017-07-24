@@ -43,9 +43,10 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let mut iv = [0u8; IV_SIZE];
 
     for (pad_iv_el, element) in
-        pad.iter_mut()
-            .chain(iv.iter_mut())
-            .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter())) {
+        pad.iter_mut().chain(iv.iter_mut()).zip(
+            this_pre_hash.iter().chain(n_2_pre_hash.iter()),
+        )
+    {
         *pad_iv_el = *element;
     }
 
@@ -56,9 +57,10 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     (Pad(pad), Key(key), Iv(iv))
 }
 
-pub fn encrypt_chunk<E: StorageError>(content: &[u8],
-                                      pad_key_iv: (Pad, Key, Iv))
-                                      -> Result<Vec<u8>, SelfEncryptionError<E>> {
+pub fn encrypt_chunk<E: StorageError>(
+    content: &[u8],
+    pad_key_iv: (Pad, Key, Iv),
+) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let mut compressor = BrotliEncoder::new(vec![], COMPRESSION_QUALITY);
     if compressor.write_all(content).is_err() {
@@ -72,9 +74,10 @@ pub fn encrypt_chunk<E: StorageError>(content: &[u8],
     Ok(xor(&encrypted, &pad))
 }
 
-pub fn decrypt_chunk<E: StorageError>(content: &[u8],
-                                      pad_key_iv: (Pad, Key, Iv))
-                                      -> Result<Vec<u8>, SelfEncryptionError<E>> {
+pub fn decrypt_chunk<E: StorageError>(
+    content: &[u8],
+    pad_key_iv: (Pad, Key, Iv),
+) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
     let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
@@ -82,9 +85,9 @@ pub fn decrypt_chunk<E: StorageError>(content: &[u8],
     if decompressor.write_all(&decrypted).is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    decompressor
-        .finish()
-        .map_err(|_| SelfEncryptionError::Compression)
+    decompressor.finish().map_err(
+        |_| SelfEncryptionError::Compression,
+    )
 }
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)
@@ -101,10 +104,11 @@ pub fn initialise_rust_sodium() {
 }
 
 #[cfg(test)]
-pub fn make_random_pieces<'a, T: Rng>(rng: &mut T,
-                                      data: &'a [u8],
-                                      min_len_of_first_piece: usize)
-                                      -> Vec<&'a [u8]> {
+pub fn make_random_pieces<'a, T: Rng>(
+    rng: &mut T,
+    data: &'a [u8],
+    min_len_of_first_piece: usize,
+) -> Vec<&'a [u8]> {
     let mut pieces = vec![];
     let mut split_index = 0;
     loop {

@@ -43,19 +43,18 @@ pub struct LargeEncryptor<S> {
 }
 
 impl<S> LargeEncryptor<S>
-    where S: Storage + 'static
+where
+    S: Storage + 'static,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
     // its internal buffers.
-    pub fn new(storage: S,
-               chunks: Vec<ChunkDetails>)
-               -> BoxFuture<LargeEncryptor<S>, SelfEncryptionError<S::Error>> {
+    pub fn new(
+        storage: S,
+        chunks: Vec<ChunkDetails>,
+    ) -> BoxFuture<LargeEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert!(chunks.len() > 3);
-        debug_assert!(MIN <=
-                      chunks
-                          .iter()
-                          .fold(0, |acc, chunk| acc + chunk.source_size));
+        debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
         let mut partial_details = chunks.clone();
         let mut truncated_details_len = chunks.len() - 1;
 
@@ -116,7 +115,10 @@ impl<S> LargeEncryptor<S>
 
         future_chunk_0_data
             .join4(future_chunk_1_data, future_buffer, future_buffer_extension)
-            .map(move |(chunk_0_data, chunk_1_data, mut buffer, buffer_extension)| {
+            .map(move |(chunk_0_data,
+                   chunk_1_data,
+                   mut buffer,
+                   buffer_extension)| {
                 buffer.extend(buffer_extension);
 
                 LargeEncryptor {
@@ -131,8 +133,9 @@ impl<S> LargeEncryptor<S>
             .into_box()
     }
 
-    pub fn from_medium(medium_encryptor: MediumEncryptor<S>)
-                       -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
+    pub fn from_medium(
+        medium_encryptor: MediumEncryptor<S>,
+    ) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
         let encryptor = LargeEncryptor {
             storage: medium_encryptor.storage,
             chunks: vec![],
@@ -222,7 +225,7 @@ impl<S> LargeEncryptor<S>
 
     pub fn len(&self) -> u64 {
         self.chunk_0_data.len() as u64 + self.chunk_1_data.len() as u64 + self.buffer.len() as u64 +
-        ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE as usize) as u64
+            ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE as usize) as u64
     }
 
     pub fn is_empty(&self) -> bool {
@@ -241,30 +244,29 @@ impl<S> LargeEncryptor<S>
             data = &data[amount..];
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
             if buffer_ref.len() == MAX_CHUNK_SIZE as usize {
-                self.chunks
-                    .push(ChunkDetails {
-                              chunk_num: index,
-                              hash: vec![],
-                              pre_hash: sha3_256(buffer_ref).to_vec(),
-                              source_size: MAX_CHUNK_SIZE as u64,
-                          });
+                self.chunks.push(ChunkDetails {
+                    chunk_num: index,
+                    hash: vec![],
+                    pre_hash: sha3_256(buffer_ref).to_vec(),
+                    source_size: MAX_CHUNK_SIZE as u64,
+                });
             }
         }
         data
     }
 
-    fn encrypt_chunk(&mut self,
-                     data: &[u8],
-                     index: usize)
-                     -> BoxFuture<(), SelfEncryptionError<S::Error>> {
+    fn encrypt_chunk(
+        &mut self,
+        data: &[u8],
+        index: usize,
+    ) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
         if index > 1 {
-            self.chunks
-                .push(ChunkDetails {
-                          chunk_num: index as u32,
-                          hash: vec![],
-                          pre_hash: sha3_256(data).to_vec(),
-                          source_size: data.len() as u64,
-                      });
+            self.chunks.push(ChunkDetails {
+                chunk_num: index as u32,
+                hash: vec![],
+                pre_hash: sha3_256(data).to_vec(),
+                source_size: data.len() as u64,
+            });
         }
 
         let pad_key_iv = utils::get_pad_key_and_iv(index, &self.chunks);
@@ -321,9 +323,11 @@ mod tests {
     fn basic_write_and_close(data: &[u8]) {
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
-                                            .map(LargeEncryptor::from)
-                                            .wait());
+            let mut encryptor = unwrap!(
+                SmallEncryptor::new(storage, vec![])
+                    .map(LargeEncryptor::from)
+                    .wait()
+            );
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = unwrap!(encryptor.write(data).wait());
@@ -354,9 +358,11 @@ mod tests {
         for data in data_pieces {
             let data_map = {
                 let mut encryptor = if current_chunks.is_empty() {
-                    unwrap!(SmallEncryptor::new(storage, vec![])
-                                .map(LargeEncryptor::from)
-                                .wait())
+                    unwrap!(
+                        SmallEncryptor::new(storage, vec![])
+                            .map(LargeEncryptor::from)
+                            .wait()
+                    )
                 } else {
                     unwrap!(LargeEncryptor::new(storage, current_chunks).wait())
                 };
@@ -405,13 +411,13 @@ mod tests {
         // Test converting from `MediumEncryptor`.
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut medium_encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
-                                                   .map(MediumEncryptor::from)
-                                                   .wait());
+            let mut medium_encryptor = unwrap!(
+                SmallEncryptor::new(storage, vec![])
+                    .map(MediumEncryptor::from)
+                    .wait()
+            );
 
-            medium_encryptor = unwrap!(medium_encryptor
-                                           .write(&data[..(MIN as usize - 1)])
-                                           .wait());
+            medium_encryptor = unwrap!(medium_encryptor.write(&data[..(MIN as usize - 1)]).wait());
             let mut large_encryptor = unwrap!(LargeEncryptor::from_medium(medium_encryptor).wait());
             assert_eq!(large_encryptor.len(), MIN - 1);
             assert!(!large_encryptor.is_empty());

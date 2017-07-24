@@ -44,13 +44,15 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
         }
         return ret;
     }
-    format!("{:02x}{:02x}{:02x}..{:02x}{:02x}{:02x}",
-            input_ref[0],
-            input_ref[1],
-            input_ref[2],
-            input_ref[input_ref.len() - 3],
-            input_ref[input_ref.len() - 2],
-            input_ref[input_ref.len() - 1])
+    format!(
+        "{:02x}{:02x}{:02x}..{:02x}{:02x}{:02x}",
+        input_ref[0],
+        input_ref[1],
+        input_ref[2],
+        input_ref[input_ref.len() - 3],
+        input_ref[input_ref.len() - 2],
+        input_ref[input_ref.len() - 1]
+    )
 }
 
 impl ChunkDetails {
@@ -69,12 +71,14 @@ impl ChunkDetails {
 
 impl Debug for ChunkDetails {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
-        write!(formatter,
-               "ChunkDetails {{ chunk_num: {}, hash: {}, pre_hash: {}, source_size: {} }}",
-               self.chunk_num,
-               debug_bytes(&self.hash),
-               debug_bytes(&self.pre_hash),
-               self.source_size)
+        write!(
+            formatter,
+            "ChunkDetails {{ chunk_num: {}, hash: {}, pre_hash: {}, source_size: {} }}",
+            self.chunk_num,
+            debug_bytes(&self.hash),
+            debug_bytes(&self.pre_hash),
+            self.source_size
+        )
     }
 }
 
@@ -92,7 +96,7 @@ pub enum DataMap {
     None,
 }
 
-#[cfg_attr(feature="cargo-clippy", allow(len_without_is_empty))]
+#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
 impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
     pub fn len(&self) -> u64 {
@@ -139,9 +143,7 @@ impl DataMap {
 
     /// Iterates through the chunks to figure out the total size, i.e. the file size
     fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
-        chunks
-            .iter()
-            .fold(0, |acc, chunk| acc + chunk.source_size)
+        chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
     }
 }
 

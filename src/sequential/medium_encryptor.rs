@@ -37,40 +37,36 @@ pub struct MediumEncryptor<S> {
 }
 
 impl<S> MediumEncryptor<S>
-    where S: Storage + 'static
+where
+    S: Storage + 'static,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are exactly three chunks.
     // Retrieves the chunks from storage and decrypts them to its internal `buffer`.
-    pub fn new(storage: S,
-               chunks: Vec<ChunkDetails>)
-               -> BoxFuture<MediumEncryptor<S>, SelfEncryptionError<S::Error>> {
+    pub fn new(
+        storage: S,
+        chunks: Vec<ChunkDetails>,
+    ) -> BoxFuture<MediumEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert_eq!(chunks.len(), 3);
-        debug_assert!(MIN <=
-                      chunks
-                          .iter()
-                          .fold(0, |acc, chunk| acc + chunk.source_size));
-        debug_assert!(chunks
-                          .iter()
-                          .fold(0, |acc, chunk| acc + chunk.source_size) <=
-                      MAX);
+        debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
+        debug_assert!(chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size) <= MAX);
 
         let mut futures = Vec::with_capacity(chunks.len());
         for (index, chunk) in chunks.iter().enumerate() {
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            futures.push(storage
-                             .get(&chunk.hash)
-                             .map_err(From::from)
-                             .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv)));
+            futures.push(storage.get(&chunk.hash).map_err(From::from).and_then(
+                move |data| {
+                    utils::decrypt_chunk(&data, pad_key_iv)
+                },
+            ));
         }
 
         futures::collect(futures)
             .map(move |data| {
                 let init = Vec::with_capacity(MAX as usize);
-                let buffer = data.into_iter()
-                    .fold(init, |mut buffer, data| {
-                        buffer.extend(data);
-                        buffer
-                    });
+                let buffer = data.into_iter().fold(init, |mut buffer, data| {
+                    buffer.extend(data);
+                    buffer
+                });
 
                 MediumEncryptor {
                     storage: storage,
@@ -103,19 +99,21 @@ impl<S> MediumEncryptor<S>
 
         {
             // Third the contents, with the extra single or two bytes in the last chunk.
-            let chunk_contents = vec![&self.buffer[..(self.buffer.len() / 3)],
-                                      &self.buffer[(self.buffer.len() / 3)..
-                                       (2 * (self.buffer.len() / 3))],
-                                      &self.buffer[(2 * (self.buffer.len() / 3))..]];
+            let chunk_contents = vec![
+                &self.buffer[..(self.buffer.len() / 3)],
+                &self.buffer[(self.buffer.len() / 3)..
+                                 (2 * (self.buffer.len() / 3))],
+                &self.buffer[(2 * (self.buffer.len() / 3))..],
+            ];
             // Note the pre-encryption hashes and sizes.
             chunk_details = vec![];
             for (index, contents) in chunk_contents.iter().enumerate() {
                 chunk_details.push(ChunkDetails {
-                                       chunk_num: index as u32,
-                                       hash: vec![],
-                                       pre_hash: sha3_256(contents).to_vec(),
-                                       source_size: contents.len() as u64,
-                                   });
+                    chunk_num: index as u32,
+                    hash: vec![],
+                    pre_hash: sha3_256(contents).to_vec(),
+                    source_size: contents.len() as u64,
+                });
             }
             // Encrypt the chunks and note the post-encryption hashes
             let partial_details = chunk_details.clone();
@@ -124,7 +122,8 @@ impl<S> MediumEncryptor<S>
                 chunk_contents
                     .iter()
                     .zip(chunk_details.iter_mut())
-                    .enumerate() {
+                    .enumerate()
+            {
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let future = match utils::encrypt_chunk(contents, pad_key_iv) {
                     Ok(encrypted_contents) => {
@@ -191,9 +190,11 @@ mod tests {
     fn basic_write_and_close(data: &[u8]) {
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
-                                            .map(MediumEncryptor::from)
-                                            .wait());
+            let mut encryptor = unwrap!(
+                SmallEncryptor::new(storage, vec![])
+                    .map(MediumEncryptor::from)
+                    .wait()
+            );
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = unwrap!(encryptor.write(data).wait());
@@ -224,9 +225,11 @@ mod tests {
         for data in data_pieces {
             let data_map = {
                 let mut encryptor = if current_chunks.is_empty() {
-                    unwrap!(SmallEncryptor::new(storage, vec![])
-                                .map(MediumEncryptor::from)
-                                .wait())
+                    unwrap!(
+                        SmallEncryptor::new(storage, vec![])
+                            .map(MediumEncryptor::from)
+                            .wait()
+                    )
                 } else {
                     unwrap!(MediumEncryptor::new(storage, current_chunks).wait())
                 };
