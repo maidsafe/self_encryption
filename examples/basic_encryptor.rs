@@ -19,9 +19,9 @@
 
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
-#![forbid(bad_style, exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
+#![forbid(exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
           unknown_crate_types, warnings)]
-#![deny(deprecated, improper_ctypes, missing_docs,
+#![deny(bad_style, deprecated, improper_ctypes, missing_docs,
         non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
         private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
         unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
@@ -40,6 +40,8 @@ extern crate futures;
 extern crate maidsafe_utilities;
 extern crate rustc_serialize;
 extern crate self_encryption;
+#[macro_use]
+extern crate serde_derive;
 #[macro_use]
 extern crate unwrap;
 
@@ -68,7 +70,7 @@ Options:
     -d, --decrypt   Decrypt a file.
 ";
 
-#[derive(RustcDecodable, Debug)]
+#[derive(RustcDecodable, Debug, Deserialize)]
 struct Args {
     arg_target: Option<String>,
     arg_destination: Option<String>,
@@ -164,9 +166,9 @@ impl Storage for DiskBasedStorage {
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(
-        |e| e.exit(),
-    );
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
     if args.flag_help {
         println!("{:?}", args)
     }
