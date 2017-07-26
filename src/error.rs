@@ -16,7 +16,7 @@
 // relating to use of the SAFE Network Software.
 
 
-use brotli2::stream::Error as CompressionError;
+use brotli2::raw::Error as CompressionError;
 use encryption::DecryptionError;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter};

@@ -34,7 +34,7 @@ pub struct Sequencer {
     data: Data,
 }
 
-#[cfg_attr(feature="cargo-clippy", allow(len_without_is_empty))]
+#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
 impl Sequencer {
     /// Initialise as a vector.
     pub fn new_as_vector() -> Sequencer {
@@ -44,8 +44,8 @@ impl Sequencer {
     /// Initialise as a memory map
     pub fn new_as_mmap() -> Result<Sequencer, IoError> {
         Ok(Sequencer {
-               data: Data::Mmap(try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite))),
-           })
+            data: Data::Mmap(try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite))),
+        })
     }
 
     /// Return the current length of the sequencer.
@@ -134,7 +134,8 @@ impl DerefMut for Sequencer {
 
 impl Extend<u8> for Sequencer {
     fn extend<I>(&mut self, iterable: I)
-        where I: IntoIterator<Item = u8>
+    where
+        I: IntoIterator<Item = u8>,
     {
         if let Data::Vector(ref mut vector) = self.data {
             vector.extend(iterable);

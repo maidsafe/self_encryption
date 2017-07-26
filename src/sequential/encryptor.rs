@@ -36,7 +36,8 @@ enum State<S> {
 }
 
 impl<S> State<S>
-    where S: Storage + 'static
+where
+    S: Storage + 'static,
 {
     fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
         match self {
@@ -122,13 +123,15 @@ pub struct Encryptor<S> {
 }
 
 impl<S> Encryptor<S>
-    where S: Storage + 'static
+where
+    S: Storage + 'static,
 {
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
-    pub fn new(storage: S,
-               data_map: Option<DataMap>)
-               -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
+    pub fn new(
+        storage: S,
+        data_map: Option<DataMap>,
+    ) -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
         utils::initialise_rust_sodium();
         match data_map {
             Some(DataMap::Content(content)) => {
@@ -248,11 +251,12 @@ mod tests {
         self_encryptor.into_storage()
     }
 
-    fn write(data: &[u8],
-             storage: SimpleStorage,
-             data_map: &mut DataMap,
-             expected_len: usize)
-             -> SimpleStorage {
+    fn write(
+        data: &[u8],
+        storage: SimpleStorage,
+        data_map: &mut DataMap,
+        expected_len: usize,
+    ) -> SimpleStorage {
         let encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).wait());
         unwrap!(encryptor.write(data).wait());
         assert_eq!(encryptor.len(), expected_len as u64);
@@ -285,55 +289,67 @@ mod tests {
         // Write 1 byte.
         let mut index_start = 0;
         let mut index_end = 1;
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         storage = read(&data[..index_end], storage, &data_map);
 
         // Append as far as `small_encryptor::MAX` bytes.
         index_start = index_end;
         index_end = small_encryptor::MAX as usize;
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         storage = read(&data[..index_end], storage, &data_map);
 
         // Append a further single byte.
         index_start = index_end;
         index_end = small_encryptor::MAX as usize + 1;
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         storage = read(&data[..index_end], storage, &data_map);
 
         // Append as far as `medium_encryptor::MAX` bytes.
         index_start = index_end;
         index_end = medium_encryptor::MAX as usize;
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         storage = read(&data[..index_end], storage, &data_map);
 
         // Append a further single byte.
         index_start = index_end;
         index_end = medium_encryptor::MAX as usize + 1;
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         storage = read(&data[..index_end], storage, &data_map);
 
         // Append remaining bytes.
         index_start = index_end;
         index_end = data.len();
-        storage = write(&data[index_start..index_end],
-                        storage,
-                        &mut data_map,
-                        index_end);
+        storage = write(
+            &data[index_start..index_end],
+            storage,
+            &mut data_map,
+            index_end,
+        );
         let _ = read(&data[..index_end], storage, &data_map);
     }
 }

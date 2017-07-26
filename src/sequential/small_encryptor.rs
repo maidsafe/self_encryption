@@ -32,18 +32,19 @@ pub struct SmallEncryptor<S> {
 }
 
 impl<S> SmallEncryptor<S>
-    where S: Storage + 'static
+where
+    S: Storage + 'static,
 {
     // Constructor for use with pre-existing `DataMap::Content`, or for no pre-existing DataMap.
-    pub fn new(storage: S,
-               data: Vec<u8>)
-               -> BoxFuture<SmallEncryptor<S>, SelfEncryptionError<S::Error>> {
+    pub fn new(
+        storage: S,
+        data: Vec<u8>,
+    ) -> BoxFuture<SmallEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert!(data.len() as u64 <= MAX);
         futures::finished(SmallEncryptor {
-                              storage: storage,
-                              buffer: data,
-                          })
-                .into_box()
+            storage: storage,
+            buffer: data,
+        }).into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
@@ -117,8 +118,8 @@ mod tests {
         for data in data_pieces {
             let (data_map, storage) = {
                 let storage = SimpleStorage::new();
-                let mut encryptor = unwrap!(SmallEncryptor::new(storage, existing_data.clone())
-                                                .wait());
+                let mut encryptor =
+                    unwrap!(SmallEncryptor::new(storage, existing_data.clone()).wait());
                 encryptor = unwrap!(encryptor.write(data).wait());
                 existing_data.extend_from_slice(data);
                 assert_eq!(encryptor.len(), existing_data.len() as u64);
