@@ -23,7 +23,7 @@ use std::error::Error;
 pub trait StorageError: Error {}
 
 /// Trait which must be implemented by storage objects to be used in self-encryption.  Data is
-/// passed to the storage object encrypted with `name` being the SHA512 hash of `data`.  `Storage`
+/// passed to the storage object encrypted with `name` being the SHA3-256 hash of `data`.  `Storage`
 /// could be implemented as an in-memory `HashMap` or a disk-based container for example.
 pub trait Storage {
     /// Error type returned by `get` or `put`.
