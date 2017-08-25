@@ -41,7 +41,7 @@
 //! ```
 //! # extern crate futures;
 //! # extern crate self_encryption;
-//! use futures::Future;
+//! use futures::{future, Future};
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::{Storage, StorageError};
@@ -87,7 +87,7 @@
 //!            None => Err(SimpleStorageError {}),
 //!        };
 //!
-//!        futures::done(result).boxed()
+//!        Box::new(future::result(result))
 //!    }
 //!
 //!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item=(), Error=Self::Error>> {
@@ -96,7 +96,7 @@
 //!            data: data,
 //!        });
 //!
-//!        futures::finished(()).boxed()
+//!        Box::new(future::ok(()))
 //!    }
 //! }
 //!

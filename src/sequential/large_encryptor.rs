@@ -20,7 +20,7 @@ use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils}
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
-use futures::{self, Future};
+use futures::{future, Future};
 use std::{cmp, mem};
 use std::convert::From;
 use tiny_keccak::sha3_256;
@@ -97,7 +97,7 @@ where
                     .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
                 Box::new(future)
             } else {
-                futures::finished(Vec::with_capacity(MAX_BUFFER_LEN)).into_box()
+                future::ok(Vec::with_capacity(MAX_BUFFER_LEN)).into_box()
             };
 
             // Decrypt the last chunk to `buffer`
@@ -176,7 +176,7 @@ where
             }
         }
 
-        futures::collect(futures).map(move |_| self).into_box()
+        future::join_all(futures).map(move |_| self).into_box()
     }
 
     // This finalises the encryptor - it should not be used again after this call.  Either three or
@@ -186,7 +186,7 @@ where
     // are stored.
     pub fn close(mut self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         if let Some(chunks) = self.original_chunks {
-            return futures::finished((DataMap::Chunks(chunks), self.storage)).into_box();
+            return future::ok((DataMap::Chunks(chunks), self.storage)).into_box();
         }
 
         // Handle encrypting and storing the contents of `self.buffer`.
@@ -218,7 +218,7 @@ where
         let mut swapped_chunks = vec![];
         mem::swap(&mut swapped_chunks, &mut self.chunks);
 
-        futures::collect(futures)
+        future::join_all(futures)
             .map(move |_| (DataMap::Chunks(swapped_chunks), self.storage))
             .into_box()
     }
@@ -272,7 +272,7 @@ where
         let pad_key_iv = utils::get_pad_key_and_iv(index, &self.chunks);
         let encrypted_contents = match utils::encrypt_chunk(data, pad_key_iv) {
             Ok(contents) => contents,
-            Err(error) => return futures::failed(error).into_box(),
+            Err(error) => return future::err(error).into_box(),
         };
 
         let hash = sha3_256(&encrypted_contents);

@@ -18,11 +18,11 @@
 #![doc(hidden)]
 
 use super::{Storage, StorageError};
-use futures::{self, Future};
+use futures::future;
 use std::cmp;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use util::BoxFuture;
+use util::{FutureExt, BoxFuture};
 
 #[derive(PartialEq, Eq)]
 pub struct Blob<'a>(pub &'a [u8]);
@@ -91,7 +91,7 @@ impl Storage for SimpleStorage {
             None => Err(SimpleStorageError {}),
         };
 
-        futures::done(result).boxed()
+        future::result(result).into_box()
     }
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
@@ -100,6 +100,6 @@ impl Storage for SimpleStorage {
             data: data,
         });
 
-        futures::finished(()).boxed()
+        future::ok(()).into_box()
     }
 }

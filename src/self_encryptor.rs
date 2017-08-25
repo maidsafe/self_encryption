@@ -20,7 +20,7 @@ use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionE
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
-use futures::{self, Future};
+use futures::{future, Future};
 use rust_sodium;
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cell::RefCell;
@@ -185,7 +185,7 @@ where
 
         if file_size == 0 {
             let storage = take_state(self.0).storage;
-            return futures::finished((DataMap::None, storage)).into_box();
+            return future::ok((DataMap::None, storage)).into_box();
         }
 
         if file_size < 3 * MIN_CHUNK_SIZE as u64 {
@@ -193,7 +193,7 @@ where
             let content = (*state.sequencer)[..state.file_size as usize].to_vec();
             let storage = state.storage;
 
-            return futures::finished((DataMap::Content(content), storage)).into_box();
+            return future::ok((DataMap::Content(content), storage)).into_box();
         }
 
         // Decrypt:
@@ -249,13 +249,13 @@ where
         {
             let mut state = self.0.borrow_mut();
             if state.file_size == new_size {
-                return futures::finished(()).into_box();
+                return future::ok(()).into_box();
             }
 
             if new_size >= state.file_size {
                 let result = state.extend_sequencer_up_to(new_size);
                 state.file_size = new_size;
-                return futures::done(result).into_box();
+                return future::result(result).into_box();
             }
         }
 
@@ -281,7 +281,7 @@ where
                     let state = self.0.clone();
                     prepare_window_for_reading(state, byte_start, new_size - byte_start)
                 } else {
-                    futures::finished(()).into_box()
+                    future::ok(()).into_box()
                 };
 
                 let state = self.0.clone();
@@ -298,7 +298,7 @@ where
                     })
                     .into_box()
             } else {
-                futures::finished(()).into_box()
+                future::ok(()).into_box()
             };
 
             let state = self.0.clone();
@@ -312,7 +312,7 @@ where
                 })
                 .into_box()
         } else {
-            futures::finished(()).into_box()
+            future::ok(()).into_box()
         };
 
         let state = self.0.clone();
@@ -411,7 +411,7 @@ where
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
                 let content = match encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki) {
                     Ok(content) => content,
-                    Err(error) => return futures::failed(error).into_box(),
+                    Err(error) => return future::err(error).into_box(),
 
                 };
                 let name = sha3_256(&content);
@@ -424,7 +424,7 @@ where
             }
         }
 
-        futures::collect(put_futures)
+        future::join_all(put_futures)
             .map(move |_| DataMap::Chunks(new_map))
             .into_box()
     }
@@ -451,7 +451,7 @@ where
         let (chunks_start, chunks_end) = overlapped_chunks(state.map_size, position, length);
         if chunks_start == chunks_end {
             let result = state.extend_sequencer_up_to(position + length).map(|_| ());
-            return futures::done(result).into_box();
+            return future::result(result).into_box();
         }
 
         // Two more chunks need to be decrypted for re-encryption.
@@ -474,7 +474,7 @@ where
         };
 
         if let Err(error) = state.extend_sequencer_up_to(required_len) {
-            return futures::failed(error).into_box();
+            return future::err(error).into_box();
         }
 
         (chunks_start, chunks_end, next_two)
@@ -496,7 +496,7 @@ where
         }
     }
 
-    futures::collect(futures)
+    future::join_all(futures)
         .map(move |decrypted_chunks| {
             let mut state = state.borrow_mut();
             for (vec, pos) in decrypted_chunks {
@@ -532,7 +532,7 @@ where
 
     if chunks_start == chunks_end {
         let mut state = state.borrow_mut();
-        return futures::done(state.extend_sequencer_up_to(position + length)).into_box();
+        return future::result(state.extend_sequencer_up_to(position + length)).into_box();
     }
 
     {
@@ -543,7 +543,7 @@ where
         };
 
         if let Err(error) = state.extend_sequencer_up_to(required_len) {
-            return futures::failed(error).into_box();
+            return future::err(error).into_box();
         }
     }
 
@@ -561,7 +561,7 @@ where
         }
     }
 
-    futures::collect(futures)
+    future::join_all(futures)
         .map(move |decrypted_chunks| {
             let mut state = state.borrow_mut();
             for (vec, pos) in decrypted_chunks {

@@ -21,7 +21,7 @@ use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
 use data_map::DataMap;
-use futures::{self, Future};
+use futures::{future, Future};
 use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem;
@@ -182,7 +182,7 @@ where
                     State::from(small)
                 };
 
-                futures::finished(new_state).into_box()
+                future::ok(new_state).into_box()
             }
             State::Medium(medium) => {
                 if medium.len() + data.len() as u64 >= large_encryptor::MIN {
@@ -190,10 +190,10 @@ where
                         .map(State::from)
                         .into_box()
                 } else {
-                    futures::finished(State::from(medium)).into_box()
+                    future::ok(State::from(medium)).into_box()
                 }
             }
-            State::Large(large) => futures::finished(State::from(large)).into_box(),
+            State::Large(large) => future::ok(State::from(large)).into_box(),
             State::Transitioning => unreachable!(),
         };
 

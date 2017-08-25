@@ -19,7 +19,7 @@
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
-use futures::{self, Future};
+use futures::{future, Future};
 use std::convert::From;
 use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
@@ -60,7 +60,7 @@ where
             ));
         }
 
-        futures::collect(futures)
+        future::join_all(futures)
             .map(move |data| {
                 let init = Vec::with_capacity(MAX as usize);
                 let buffer = data.into_iter().fold(init, |mut buffer, data| {
@@ -83,7 +83,7 @@ where
         debug_assert!(data.len() as u64 + self.len() <= MAX);
         self.original_chunks = None;
         self.buffer.extend_from_slice(data);
-        futures::finished(self).into_box()
+        future::ok(self).into_box()
     }
 
     // This finalises the encryptor - it should not be used again after this call.  Exactly three
@@ -91,7 +91,7 @@ where
     // `write()` calls.
     pub fn close(mut self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         if let Some(chunks) = self.original_chunks {
-            return futures::finished((DataMap::Chunks(chunks), self.storage)).into_box();
+            return future::ok((DataMap::Chunks(chunks), self.storage)).into_box();
         }
 
         let mut futures;
@@ -134,14 +134,14 @@ where
                             .map_err(From::from)
                             .into_box()
                     }
-                    Err(error) => futures::failed(error).into_box(),
+                    Err(error) => future::err(error).into_box(),
                 };
 
                 futures.push(future);
             }
         }
 
-        futures::collect(futures)
+        future::join_all(futures)
             .map(move |_| (DataMap::Chunks(chunk_details), self.storage))
             .into_box()
     }
