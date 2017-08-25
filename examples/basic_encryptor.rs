@@ -46,7 +46,7 @@ extern crate serde_derive;
 extern crate unwrap;
 
 use docopt::Docopt;
-use futures::Future;
+use futures::{future, Future};
 use maidsafe_utilities::serialisation;
 use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
 use std::env;
@@ -57,6 +57,7 @@ use std::io::{Read, Write};
 use std::io::Error as IoError;
 use std::path::PathBuf;
 use std::string::String;
+
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static USAGE: &'static str = "
@@ -136,13 +137,13 @@ impl Storage for DiskBasedStorage {
         let path = self.calculate_path(name);
         let mut file = match File::open(&path) {
             Ok(file) => file,
-            Err(error) => return futures::failed(From::from(error)).boxed(),
+            Err(error) => return Box::new(future::err(From::from(error))),
         };
         let mut data = Vec::new();
         let result = file.read_to_end(&mut data).map(move |_| data).map_err(
             From::from,
         );
-        futures::done(result).boxed()
+        Box::new(future::result(result))
     }
 
     fn put(
@@ -153,7 +154,7 @@ impl Storage for DiskBasedStorage {
         let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Ok(file) => file,
-            Err(error) => return futures::failed(From::from(error)).boxed(),
+            Err(error) => return Box::new(future::err(From::from(error))),
         };
 
         let result = file.write_all(&data[..])
@@ -161,7 +162,7 @@ impl Storage for DiskBasedStorage {
                 println!("Chunk written to {:?}", path);
             })
             .map_err(From::from);
-        futures::done(result).boxed()
+        Box::new(future::result(result))
     }
 }
 
