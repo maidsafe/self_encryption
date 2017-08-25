@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.11.1]
+- Update futures to latest version and fix deprecated function calls
+
 ## [0.11.0]
 - Use rust 1.19 stable / 2017-07-20 nightly
 - rustfmt 0.9.0 and clippy-0.0.144

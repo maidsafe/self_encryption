@@ -18,9 +18,9 @@
 //! A file **content** self-encryptor.
 //!
 //! This library provides convergent encryption on file-based data and produce a `DataMap` type and
-//! several chunks of data. Each chunk is up to 1MB in size and has a name.  This name is the SHA512
-//! hash of the content, which allows the chunks to be self-validating.  If size and hash checks are
-//! utilised, a high degree of certainty in the validity of the data can be expected.
+//! several chunks of data. Each chunk is up to 1MB in size and has a name.  This name is the
+//! SHA3-256 hash of the content, which allows the chunks to be self-validating.  If size and hash
+//! checks are utilised, a high degree of certainty in the validity of the data can be expected.
 //!
 //! [Project GitHub page](https://github.com/maidsafe/self_encryption).
 //!
