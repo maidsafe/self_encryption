@@ -1,5 +1,8 @@
 # Self-Encryption - Change Log
 
+## [0.11.2]
+- Update rust_sodium to 0.6.0
+
 ## [0.11.1]
 - Update futures to latest version and fix deprecated function calls
 
