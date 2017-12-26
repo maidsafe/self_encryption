@@ -118,6 +118,8 @@ where
             // Encrypt the chunks and note the post-encryption hashes
             let partial_details = chunk_details.clone();
             futures = Vec::with_capacity(chunk_contents.len());
+            // FIXME: rust-nightly requires this to be mutable while rust-stable does not
+            #[allow(unused)]
             for (index, (contents, mut details)) in
                 chunk_contents
                     .iter()

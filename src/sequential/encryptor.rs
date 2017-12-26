@@ -168,7 +168,7 @@ where
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
     pub fn write(&self, data: &[u8]) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
-        let curr_state = self.state.clone();
+        let curr_state = Rc::clone(&self.state);
         let prev_state = mem::replace(&mut *curr_state.borrow_mut(), State::Transitioning);
 
         let future = match prev_state {
