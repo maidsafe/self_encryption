@@ -136,10 +136,10 @@ where
         data: &[u8],
         position: u64,
     ) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
-        let state = self.0.clone();
+        let state = Rc::clone(&self.0);
         let data = data.to_vec();
 
-        prepare_window_for_writing(self.0.clone(), position, data.len() as u64)
+        prepare_window_for_writing(Rc::clone(&self.0), position, data.len() as u64)
             .map(move |_| {
                 let mut state = state.borrow_mut();
                 for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
@@ -158,8 +158,8 @@ where
         position: u64,
         length: u64,
     ) -> BoxFuture<Vec<u8>, SelfEncryptionError<S::Error>> {
-        let state = self.0.clone();
-        prepare_window_for_reading(self.0.clone(), position, length)
+        let state = Rc::clone(&self.0);
+        prepare_window_for_reading(Rc::clone(&self.0), position, length)
             .map(move |_| {
                 let state = state.borrow();
                 state
@@ -217,10 +217,10 @@ where
                 get_start_end_positions(state.map_size, 1).1
             };
 
-            let state0 = self.0.clone();
-            let state1 = self.0.clone();
+            let state0 = Rc::clone(&self.0);
+            let state1 = Rc::clone(&self.0);
 
-            prepare_window_for_reading(self.0.clone(), 0, byte_end)
+            prepare_window_for_reading(Rc::clone(&self.0), 0, byte_end)
                 .and_then(move |_| {
                     let (byte_start, byte_end) = {
                         let state = state0.borrow();
@@ -278,13 +278,13 @@ where
                 };
 
                 let future = if byte_start < new_size {
-                    let state = self.0.clone();
+                    let state = Rc::clone(&self.0);
                     prepare_window_for_reading(state, byte_start, new_size - byte_start)
                 } else {
                     future::ok(()).into_box()
                 };
 
-                let state = self.0.clone();
+                let state = Rc::clone(&self.0);
                 future
                     .and_then(move |_| {
                         let byte_end = {
@@ -301,7 +301,7 @@ where
                 future::ok(()).into_box()
             };
 
-            let state = self.0.clone();
+            let state = Rc::clone(&self.0);
             future
                 .map(move |_| {
                     let mut state = state.borrow_mut();
@@ -315,7 +315,7 @@ where
             future::ok(()).into_box()
         };
 
-        let state = self.0.clone();
+        let state = Rc::clone(&self.0);
         future
             .map(move |_| {
                 let mut state = state.borrow_mut();
@@ -1861,7 +1861,7 @@ mod tests {
         // extra bytes appended to last chunk.
         min_test_size = max_test_size;
         max_test_size = (3 * MAX_CHUNK_SIZE) + 1;
-        let mut range = Range::new(90000, 100000);
+        let mut range = Range::new(90_000, 100_000);
         let mut rng = rand::thread_rng();
         let step = range.sample(&mut rng);
         for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {

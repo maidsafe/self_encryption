@@ -66,7 +66,7 @@ where
         {
             // Decrypt first two chunks
             let mut start_iter = partial_details.iter_mut().enumerate();
-            let (index, mut chunk) = unwrap!(start_iter.next());
+            let (index, chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
 
             future_chunk_0_data =
@@ -76,7 +76,7 @@ where
                     .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
             chunk.hash.clear();
 
-            let (index, mut chunk) = unwrap!(start_iter.next());
+            let (index, chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
             future_chunk_1_data =
                 storage
@@ -233,7 +233,7 @@ where
     }
 
     fn fill_chunk_buffer<'b>(&mut self, mut data: &'b [u8], index: u32) -> &'b [u8] {
-        let mut buffer_ref = if index == 0 {
+        let buffer_ref = if index == 0 {
             &mut self.chunk_0_data
         } else {
             &mut self.chunk_1_data
