@@ -22,7 +22,7 @@ use futures::future;
 use std::cmp;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use util::{FutureExt, BoxFuture};
+use util::{BoxFuture, FutureExt};
 
 #[derive(PartialEq, Eq)]
 pub struct Blob<'a>(pub &'a [u8]);

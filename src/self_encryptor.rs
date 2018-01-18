@@ -20,7 +20,7 @@ use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionE
 use brotli2::write::{BrotliDecoder, BrotliEncoder};
 use data_map::{ChunkDetails, DataMap};
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
-use futures::{future, Future};
+use futures::{Future, future};
 use rust_sodium;
 use sequencer::{MAX_IN_MEMORY_SIZE, Sequencer};
 use std::cell::RefCell;
@@ -87,7 +87,7 @@ where
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             Sequencer::new_as_vector()
         } else {
-            try!(Sequencer::new_as_mmap())
+            Sequencer::new_as_mmap()?
         };
 
         let sorted_map;
@@ -361,7 +361,7 @@ where
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
             if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                try!(self.sequencer.create_mapping());
+                self.sequencer.create_mapping()?;
             } else {
                 self.sequencer.extend(iter::repeat(0).take(
                     (new_len - old_len) as usize,
@@ -800,16 +800,16 @@ fn take_state<S>(state: Rc<RefCell<State<S>>>) -> State<S> {
 impl<S: Storage> Debug for SelfEncryptor<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         let state = self.0.borrow();
-        try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
+        write!(formatter, "SelfEncryptor {{\n    chunks:\n")?;
         for (i, chunk) in state.chunks.iter().enumerate() {
-            try!(write!(
+            write!(
                 formatter,
                 "        {:?}   {:?}\n",
                 state.sorted_map[i],
                 chunk
-            ))
+            )?
         }
-        try!(write!(formatter, "    map_size: {}\n", state.map_size));
+        write!(formatter, "    map_size: {}\n", state.map_size)?;
         write!(formatter, "    file_size: {}\n}}", state.file_size)
     }
 }

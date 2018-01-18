@@ -80,7 +80,7 @@ pub fn decrypt_chunk<E: StorageError>(
 ) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
-    let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
+    let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
     let mut decompressor = BrotliDecoder::new(vec![]);
     if decompressor.write_all(&decrypted).is_err() {
         return Err(SelfEncryptionError::Compression);

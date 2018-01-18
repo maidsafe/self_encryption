@@ -19,7 +19,7 @@
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
 use super::small_encryptor::SmallEncryptor;
 use data_map::{ChunkDetails, DataMap};
-use futures::{future, Future};
+use futures::{Future, future};
 use std::convert::From;
 use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};

@@ -42,7 +42,7 @@ extern crate serde_derive;
 extern crate unwrap;
 
 use docopt::Docopt;
-use futures::{future, Future};
+use futures::{Future, future};
 use maidsafe_utilities::serialisation;
 use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
 use std::env;

@@ -21,12 +21,12 @@ use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
 use data_map::DataMap;
-use futures::{future, Future};
+use futures::{Future, future};
 use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
-use util::{FutureExt, BoxFuture};
+use util::{BoxFuture, FutureExt};
 
 enum State<S> {
     Small(SmallEncryptor<S>),
@@ -242,7 +242,7 @@ mod tests {
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
-    use test_helpers::{SimpleStorage, Blob};
+    use test_helpers::{Blob, SimpleStorage};
 
     fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));

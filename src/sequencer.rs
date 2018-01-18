@@ -43,7 +43,7 @@ impl Sequencer {
     /// Initialise as a memory map
     pub fn new_as_mmap() -> Result<Sequencer, IoError> {
         Ok(Sequencer {
-            data: Data::Mmap(try!(MmapMut::map_anon(MAX_FILE_SIZE))),
+            data: Data::Mmap(MmapMut::map_anon(MAX_FILE_SIZE)?),
         })
     }
 
@@ -76,7 +76,7 @@ impl Sequencer {
         self.data = match self.data {
             Data::Mmap(_) => return Ok(()),
             Data::Vector(ref mut vector) => {
-                let mut mmap = try!(MmapMut::map_anon(MAX_FILE_SIZE));
+                let mut mmap = MmapMut::map_anon(MAX_FILE_SIZE)?;
                 (&mut mmap[..]).write_all(&vector[..])?;
                 Data::Mmap(mmap)
             }
