@@ -95,7 +95,7 @@ where
         let map_size;
         match data_map {
             DataMap::Content(content) => {
-                sequencer.init(&content);
+                sequencer.init(&content)?;
                 sorted_map = vec![];
                 chunks = vec![];
                 map_size = 0;
