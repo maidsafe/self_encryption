@@ -49,7 +49,7 @@ fn random_bytes(size: usize) -> Vec<u8> {
 
 #[test]
 fn new_read() {
-    let read_size: usize = 4096;
+    let read_size: usize = 0x1000;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
     let storage = SimpleStorage::new();
@@ -289,7 +289,7 @@ fn cross_platform_check() {
     let mut chars2 = Vec::<u8>::new();
 
     // 1Mb of data for each chunk...
-    for _ in 0..8192 {
+    for _ in 0..0x2000 {
         for j in 0..128 {
             chars0.push(j);
             chars1.push(j);

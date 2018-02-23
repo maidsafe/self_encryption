@@ -11,3 +11,4 @@ target/
 /.project
 *.sublime-*
 /bin/
+.DS_Store
