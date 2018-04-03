@@ -26,11 +26,11 @@
         unused_comparisons, unused_features, unused_parens, while_true)]
 #![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
         unused_qualifications, unused_results)]
-#![allow(box_pointers, missing_copy_implementations,
-         missing_debug_implementations, variant_size_differences)]
+#![allow(box_pointers, missing_copy_implementations, missing_debug_implementations,
+         variant_size_differences)]
 // Doesn't allow casts on constants yet, remove when issue is fixed:
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
-#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, decimal_literal_representation))]
 
 extern crate futures;
 extern crate rand;
