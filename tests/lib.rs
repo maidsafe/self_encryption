@@ -26,11 +26,11 @@
         unused_comparisons, unused_features, unused_parens, while_true)]
 #![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
         unused_qualifications, unused_results)]
-#![allow(box_pointers, missing_copy_implementations,
-         missing_debug_implementations, variant_size_differences)]
+#![allow(box_pointers, missing_copy_implementations, missing_debug_implementations,
+         variant_size_differences)]
 // Doesn't allow casts on constants yet, remove when issue is fixed:
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
-#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, decimal_literal_representation))]
 
 extern crate futures;
 extern crate rand;
@@ -49,7 +49,7 @@ fn random_bytes(size: usize) -> Vec<u8> {
 
 #[test]
 fn new_read() {
-    let read_size: usize = 0x1000;
+    let read_size: usize = 4096;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
     let storage = SimpleStorage::new();
@@ -289,7 +289,7 @@ fn cross_platform_check() {
     let mut chars2 = Vec::<u8>::new();
 
     // 1Mb of data for each chunk...
-    for _ in 0..0x2000 {
+    for _ in 0..8192 {
         for j in 0..128 {
             chars0.push(j);
             chars1.push(j);
