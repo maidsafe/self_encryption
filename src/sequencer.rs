@@ -58,7 +58,10 @@ impl Sequencer {
     /// Initialise with the Sequencer with 'content'.
     pub fn init(&mut self, content: &[u8]) -> Result<(), IoError> {
         match self.data {
-            Data::Vector(ref mut vector) => Ok(vector.extend_from_slice(content)),
+            Data::Vector(ref mut vector) => {
+                vector.extend_from_slice(content);
+                Ok(())
+            }
             Data::Mmap(ref mut mmap) => (&mut mmap[..]).write_all(&content[..]),
         }
     }
