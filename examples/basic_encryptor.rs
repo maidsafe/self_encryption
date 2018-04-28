@@ -59,7 +59,7 @@ use std::string::String;
 static USAGE: &'static str = "
 Usage: basic_encryptor -h
        basic_encryptor -e <target>
-       basic_encryptor -d <destination>
+       basic_encryptor -d <target> <destination>
 
 Options:
     -h, --help      Display this message.
@@ -237,8 +237,8 @@ fn main() {
         }
     }
 
-    if args.flag_decrypt && args.arg_destination.is_some() {
-        if let Ok(mut file) = File::open(data_map_file.clone()) {
+    if args.flag_decrypt && args.arg_target.is_some() && args.arg_destination.is_some() {
+        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone())) {
             let mut data = Vec::new();
             let _ = unwrap!(file.read_to_end(&mut data));
 
