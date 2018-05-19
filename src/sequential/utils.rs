@@ -7,7 +7,8 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
-use brotli2::write::{BrotliDecoder, BrotliEncoder};
+use brotli;
+use brotli::enc::BrotliEncoderParams;
 use data_map::ChunkDetails;
 use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
 #[cfg(test)]
@@ -15,7 +16,7 @@ use rand::Rng;
 use rust_sodium;
 #[cfg(test)]
 use std::cmp;
-use std::io::Write;
+use std::io::Cursor;
 use std::sync::{ONCE_INIT, Once};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
@@ -52,14 +53,13 @@ pub fn encrypt_chunk<E: StorageError>(
     pad_key_iv: (Pad, Key, Iv),
 ) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
-    let mut compressor = BrotliEncoder::new(vec![], COMPRESSION_QUALITY);
-    if compressor.write_all(content).is_err() {
+    let mut compressed = vec![];
+    let mut enc_params: BrotliEncoderParams = Default::default();
+    enc_params.quality = COMPRESSION_QUALITY;
+    let result = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params);
+    if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let compressed = match compressor.finish() {
-        Ok(data) => data,
-        Err(_) => return Err(SelfEncryptionError::Compression),
-    };
     let encrypted = encryption::encrypt(&compressed, &key, &iv);
     Ok(xor(&encrypted, &pad))
 }
@@ -71,13 +71,12 @@ pub fn decrypt_chunk<E: StorageError>(
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
     let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
-    let mut decompressor = BrotliDecoder::new(vec![]);
-    if decompressor.write_all(&decrypted).is_err() {
+    let mut decompressed = vec![];
+    let result = brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed);
+    if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    decompressor.finish().map_err(
-        |_| SelfEncryptionError::Compression,
-    )
+    Ok(decompressed)
 }
 
 // Helper function to XOR a data with a pad (pad will be rotated to fill the length)

@@ -6,7 +6,6 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use brotli2::raw::Error as CompressionError;
 use encryption::DecryptionError;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter};
@@ -51,12 +50,6 @@ impl<E: StorageError> StdError for SelfEncryptionError<E> {
             SelfEncryptionError::Io(_) => "I/O error",
             SelfEncryptionError::Storage(ref error) => error.description(),
         }
-    }
-}
-
-impl<E: StorageError> From<CompressionError> for SelfEncryptionError<E> {
-    fn from(_error: CompressionError) -> SelfEncryptionError<E> {
-        SelfEncryptionError::Compression
     }
 }
 

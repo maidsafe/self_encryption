@@ -146,7 +146,7 @@
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
 #![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, decimal_literal_representation))]
 
-extern crate brotli2;
+extern crate brotli;
 extern crate futures;
 #[cfg(test)]
 extern crate itertools;
@@ -186,4 +186,4 @@ pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
 pub const MIN_CHUNK_SIZE: u32 = 1024;
 /// Controls the compression-speed vs compression-density tradeoffs.  The higher the quality, the
 /// slower the compression.  Range is 0 to 11.
-pub const COMPRESSION_QUALITY: u32 = 6;
+pub const COMPRESSION_QUALITY: i32 = 6;
