@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{MIN_CHUNK_SIZE, SelfEncryptionError, Storage};
+use super::{SelfEncryptionError, Storage, MIN_CHUNK_SIZE};
 use data_map::DataMap;
 use futures::future;
 use util::{BoxFuture, FutureExt};
@@ -60,12 +60,10 @@ where
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::utils;
+    use super::*;
     use data_map::DataMap;
     use futures::Future;
     use itertools::Itertools;

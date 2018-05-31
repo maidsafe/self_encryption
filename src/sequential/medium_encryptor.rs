@@ -6,8 +6,8 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
 use super::small_encryptor::SmallEncryptor;
+use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use data_map::{ChunkDetails, DataMap};
 use futures::{future, Future};
 use std::convert::From;
@@ -43,11 +43,12 @@ where
         let mut futures = Vec::with_capacity(chunks.len());
         for (index, chunk) in chunks.iter().enumerate() {
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            futures.push(storage.get(&chunk.hash).map_err(From::from).and_then(
-                move |data| {
-                    utils::decrypt_chunk(&data, pad_key_iv)
-                },
-            ));
+            futures.push(
+                storage
+                    .get(&chunk.hash)
+                    .map_err(From::from)
+                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv)),
+            );
         }
 
         future::join_all(futures)
@@ -91,8 +92,7 @@ where
             // Third the contents, with the extra single or two bytes in the last chunk.
             let chunk_contents = vec![
                 &self.buffer[..(self.buffer.len() / 3)],
-                &self.buffer[(self.buffer.len() / 3)..
-                                 (2 * (self.buffer.len() / 3))],
+                &self.buffer[(self.buffer.len() / 3)..(2 * (self.buffer.len() / 3))],
                 &self.buffer[(2 * (self.buffer.len() / 3))..],
             ];
             // Note the pre-encryption hashes and sizes.
@@ -110,11 +110,10 @@ where
             futures = Vec::with_capacity(chunk_contents.len());
             // FIXME: rust-nightly requires this to be mutable while rust-stable does not
             #[allow(unused)]
-            for (index, (contents, mut details)) in
-                chunk_contents
-                    .iter()
-                    .zip(chunk_details.iter_mut())
-                    .enumerate()
+            for (index, (contents, mut details)) in chunk_contents
+                .iter()
+                .zip(chunk_details.iter_mut())
+                .enumerate()
             {
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let future = match utils::encrypt_chunk(contents, pad_key_iv) {
@@ -157,13 +156,11 @@ impl<S: Storage> From<SmallEncryptor<S>> for MediumEncryptor<S> {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::{MAX_CHUNK_SIZE, utils};
     use super::super::small_encryptor::{self, SmallEncryptor};
+    use super::super::{utils, MAX_CHUNK_SIZE};
+    use super::*;
     use data_map::DataMap;
     use futures::Future;
     use itertools::Itertools;

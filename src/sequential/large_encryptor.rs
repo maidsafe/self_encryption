@@ -6,13 +6,13 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, SelfEncryptionError, Storage, utils};
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
+use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use data_map::{ChunkDetails, DataMap};
 use futures::{future, Future};
-use std::{cmp, mem};
 use std::convert::From;
+use std::{cmp, mem};
 use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
@@ -59,20 +59,18 @@ where
             let (index, chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
 
-            future_chunk_0_data =
-                storage
-                    .get(&chunk.hash)
-                    .map_err(SelfEncryptionError::Storage)
-                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
+            future_chunk_0_data = storage
+                .get(&chunk.hash)
+                .map_err(SelfEncryptionError::Storage)
+                .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
             chunk.hash.clear();
 
             let (index, chunk) = unwrap!(start_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            future_chunk_1_data =
-                storage
-                    .get(&chunk.hash)
-                    .map_err(SelfEncryptionError::Storage)
-                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
+            future_chunk_1_data = storage
+                .get(&chunk.hash)
+                .map_err(SelfEncryptionError::Storage)
+                .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
             chunk.hash.clear();
 
             // If the penultimate chunk is not at MAX_CHUNK_SIZE, decrypt it to `buffer`
@@ -93,11 +91,10 @@ where
             // Decrypt the last chunk to `buffer`
             let (index, chunk) = unwrap!(end_iter.next());
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            future_buffer_extension =
-                storage
-                    .get(&chunk.hash)
-                    .map_err(SelfEncryptionError::Storage)
-                    .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
+            future_buffer_extension = storage
+                .get(&chunk.hash)
+                .map_err(SelfEncryptionError::Storage)
+                .and_then(move |data| utils::decrypt_chunk(&data, pad_key_iv));
         }
 
         // Remove the last one or two chunks' details since they're now in `buffer`
@@ -105,21 +102,20 @@ where
 
         future_chunk_0_data
             .join4(future_chunk_1_data, future_buffer, future_buffer_extension)
-            .map(move |(chunk_0_data,
-                   chunk_1_data,
-                   mut buffer,
-                   buffer_extension)| {
-                buffer.extend(buffer_extension);
+            .map(
+                move |(chunk_0_data, chunk_1_data, mut buffer, buffer_extension)| {
+                    buffer.extend(buffer_extension);
 
-                LargeEncryptor {
-                    storage,
-                    chunks: partial_details,
-                    original_chunks: Some(chunks),
-                    chunk_0_data,
-                    chunk_1_data,
-                    buffer,
-                }
-            })
+                    LargeEncryptor {
+                        storage,
+                        chunks: partial_details,
+                        original_chunks: Some(chunks),
+                        chunk_0_data,
+                        chunk_1_data,
+                        buffer,
+                    }
+                },
+            )
             .into_box()
     }
 
@@ -214,8 +210,10 @@ where
     }
 
     pub fn len(&self) -> u64 {
-        self.chunk_0_data.len() as u64 + self.chunk_1_data.len() as u64 + self.buffer.len() as u64 +
-            ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE as usize) as u64
+        self.chunk_0_data.len() as u64
+            + self.chunk_1_data.len() as u64
+            + self.buffer.len() as u64
+            + ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE as usize) as u64
     }
 
     pub fn is_empty(&self) -> bool {
@@ -290,10 +288,10 @@ impl<S: Storage> From<SmallEncryptor<S>> for LargeEncryptor<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::{MAX_CHUNK_SIZE, utils};
     use super::super::medium_encryptor::{self, MediumEncryptor};
     use super::super::small_encryptor::SmallEncryptor;
+    use super::super::{utils, MAX_CHUNK_SIZE};
+    use super::*;
     use data_map::DataMap;
     use futures::Future;
     use itertools::Itertools;
@@ -301,7 +299,6 @@ mod tests {
     use rand::Rng;
     use self_encryptor::SelfEncryptor;
     use test_helpers::{Blob, SimpleStorage};
-
 
     #[test]
     fn consts() {
@@ -386,7 +383,8 @@ mod tests {
     #[test]
     fn all_unit() {
         let mut rng = SeededRng::new();
-        let data = rng.gen_iter()
+        let data = rng
+            .gen_iter()
             .take(5 * MAX_CHUNK_SIZE as usize)
             .collect_vec();
 

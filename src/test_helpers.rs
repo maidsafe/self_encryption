@@ -13,7 +13,7 @@ use futures::future;
 use std::cmp;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use util::{FutureExt, BoxFuture};
+use util::{BoxFuture, FutureExt};
 
 #[derive(PartialEq, Eq)]
 pub struct Blob<'a>(pub &'a [u8]);
@@ -53,7 +53,6 @@ struct Entry {
     data: Vec<u8>,
 }
 
-
 #[derive(Default)]
 pub struct SimpleStorage {
     entries: Vec<Entry>,
@@ -86,10 +85,7 @@ impl Storage for SimpleStorage {
     }
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
-        self.entries.push(Entry {
-            name,
-            data,
-        });
+        self.entries.push(Entry { name, data });
 
         future::ok(()).into_box()
     }

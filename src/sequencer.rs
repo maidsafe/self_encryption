@@ -28,13 +28,15 @@ pub struct Sequencer {
 impl Sequencer {
     /// Initialise as a vector.
     pub fn new_as_vector() -> Sequencer {
-        Sequencer { data: Data::Vector(Vec::with_capacity(MAX_IN_MEMORY_SIZE)) }
+        Sequencer {
+            data: Data::Vector(Vec::with_capacity(MAX_IN_MEMORY_SIZE)),
+        }
     }
 
     /// Initialise as a memory map
     pub fn new_as_mmap() -> Result<Sequencer, IoError> {
         Ok(Sequencer {
-            data: Data::Mmap(try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite))),
+            data: Data::Mmap(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite)?),
         })
     }
 
@@ -71,7 +73,7 @@ impl Sequencer {
         self.data = match self.data {
             Data::Mmap(_) => return Ok(()),
             Data::Vector(ref mut vector) => {
-                let mut mmap = try!(Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite));
+                let mut mmap = Mmap::anonymous(MAX_FILE_SIZE, Protection::ReadWrite)?;
                 let _ = unsafe { mmap.as_mut_slice() }.write_all(&vector[..]);
                 Data::Mmap(mmap)
             }
