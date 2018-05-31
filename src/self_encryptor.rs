@@ -110,12 +110,12 @@ where
         }
 
         Ok(SelfEncryptor(Rc::new(RefCell::new(State {
-            storage: storage,
-            sorted_map: sorted_map,
-            chunks: chunks,
-            sequencer: sequencer,
-            file_size: file_size,
-            map_size: map_size,
+            storage,
+            sorted_map,
+            chunks,
+            sequencer,
+            file_size,
+            map_size,
         }))))
     }
 
@@ -790,17 +790,17 @@ fn take_state<S>(state: Rc<RefCell<State<S>>>) -> State<S> {
 impl<S: Storage> Debug for SelfEncryptor<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         let state = self.0.borrow();
-        try!(write!(formatter, "SelfEncryptor {{\n    chunks:\n"));
+        try!(writeln!(formatter, "SelfEncryptor {{\n    chunks:"));
         for (i, chunk) in state.chunks.iter().enumerate() {
-            try!(write!(
+            try!(writeln!(
                 formatter,
-                "        {:?}   {:?}\n",
+                "        {:?}   {:?}",
                 state.sorted_map[i],
                 chunk
             ))
         }
-        try!(write!(formatter, "    map_size: {}\n", state.map_size));
-        write!(formatter, "    file_size: {}\n}}", state.file_size)
+        try!(writeln!(formatter, "    map_size: {}", state.map_size));
+        writeln!(formatter, "    file_size: {}}}", state.file_size)
     }
 }
 

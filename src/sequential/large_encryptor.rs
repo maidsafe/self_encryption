@@ -112,12 +112,12 @@ where
                 buffer.extend(buffer_extension);
 
                 LargeEncryptor {
-                    storage: storage,
+                    storage,
                     chunks: partial_details,
                     original_chunks: Some(chunks),
-                    chunk_0_data: chunk_0_data,
-                    chunk_1_data: chunk_1_data,
-                    buffer: buffer,
+                    chunk_0_data,
+                    chunk_1_data,
+                    buffer,
                 }
             })
             .into_box()

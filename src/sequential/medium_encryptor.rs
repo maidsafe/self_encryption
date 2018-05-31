@@ -59,8 +59,8 @@ where
                 });
 
                 MediumEncryptor {
-                    storage: storage,
-                    buffer: buffer,
+                    storage,
+                    buffer,
                     original_chunks: Some(chunks),
                 }
             })

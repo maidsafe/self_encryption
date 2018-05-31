@@ -87,8 +87,8 @@ impl Storage for SimpleStorage {
 
     fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
         self.entries.push(Entry {
-            name: name,
-            data: data,
+            name,
+            data,
         });
 
         future::ok(()).into_box()

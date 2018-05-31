@@ -32,7 +32,7 @@ where
     ) -> BoxFuture<SmallEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert!(data.len() as u64 <= MAX);
         future::ok(SmallEncryptor {
-            storage: storage,
+            storage,
             buffer: data,
         }).into_box()
     }

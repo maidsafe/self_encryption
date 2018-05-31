@@ -142,13 +142,13 @@ impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
         match *self {
             DataMap::Chunks(ref chunks) => {
-                try!(write!(formatter, "DataMap::Chunks:\n"));
+                try!(writeln!(formatter, "DataMap::Chunks:"));
                 let len = chunks.len();
                 for (index, chunk) in chunks.iter().enumerate() {
                     if index + 1 == len {
                         try!(write!(formatter, "        {:?}", chunk))
                     } else {
-                        try!(write!(formatter, "        {:?}\n", chunk))
+                        try!(writeln!(formatter, "        {:?}", chunk))
                     }
                 }
                 Ok(())
