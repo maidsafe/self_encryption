@@ -6,18 +6,18 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{COMPRESSION_QUALITY, PAD_SIZE, Pad, SelfEncryptionError, StorageError};
+use super::{Pad, SelfEncryptionError, StorageError, COMPRESSION_QUALITY, PAD_SIZE};
 use brotli;
 use brotli::enc::BrotliEncoderParams;
 use data_map::ChunkDetails;
-use encryption::{self, IV_SIZE, Iv, KEY_SIZE, Key};
+use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 #[cfg(test)]
 use rand::Rng;
 use rust_sodium;
 #[cfg(test)]
 use std::cmp;
 use std::io::Cursor;
-use std::sync::{ONCE_INIT, Once};
+use std::sync::{Once, ONCE_INIT};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
@@ -33,10 +33,10 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     let mut key = [0u8; KEY_SIZE];
     let mut iv = [0u8; IV_SIZE];
 
-    for (pad_iv_el, element) in
-        pad.iter_mut().chain(iv.iter_mut()).zip(
-            this_pre_hash.iter().chain(n_2_pre_hash.iter()),
-        )
+    for (pad_iv_el, element) in pad
+        .iter_mut()
+        .chain(iv.iter_mut())
+        .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter()))
     {
         *pad_iv_el = *element;
     }
@@ -70,7 +70,7 @@ pub fn decrypt_chunk<E: StorageError>(
 ) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
-    let decrypted = try!(encryption::decrypt(&xor_result, &key, &iv));
+    let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
     let mut decompressed = vec![];
     let result = brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed);
     if result.is_err() {

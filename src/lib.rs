@@ -124,24 +124,30 @@
 //! access the content previously written.  Storage of the `DataMap` is outwith the scope of this
 //! library and must be implemented by the user.
 
-#![doc(html_logo_url =
-           "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
-       html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-       html_root_url = "http://maidsafe.github.io/self_encryption")]
-
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
+    html_favicon_url = "http://maidsafe.net/img/favicon.ico",
+    html_root_url = "http://maidsafe.github.io/self_encryption"
+)]
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
-#![forbid(exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
-          unknown_crate_types, warnings)]
-#![deny(bad_style, deprecated, improper_ctypes, missing_docs,
-        non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
-        private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
-        unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
-        unused_comparisons, unused_features, unused_parens, while_true)]
-#![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-        unused_qualifications, unused_results)]
-#![allow(box_pointers, missing_copy_implementations, missing_debug_implementations,
-         variant_size_differences, non_camel_case_types)]
+#![forbid(
+    exceeding_bitshifts, mutable_transmutes, no_mangle_const_items, unknown_crate_types, warnings
+)]
+#![deny(
+    bad_style, deprecated, improper_ctypes, missing_docs, non_shorthand_field_patterns,
+    overflowing_literals, plugin_as_library, private_no_mangle_fns, private_no_mangle_statics,
+    stable_features, unconditional_recursion, unknown_lints, unsafe_code, unused, unused_allocation,
+    unused_attributes, unused_comparisons, unused_features, unused_parens, while_true
+)]
+#![warn(
+    trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+    unused_qualifications, unused_results
+)]
+#![allow(
+    box_pointers, missing_copy_implementations, missing_debug_implementations,
+    variant_size_differences, non_camel_case_types
+)]
 // Doesn't allow casts on constants yet, remove when issue is fixed:
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
 #![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, decimal_literal_representation))]

@@ -10,17 +10,23 @@
 
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
-#![forbid(exceeding_bitshifts, mutable_transmutes, no_mangle_const_items,
-          unknown_crate_types, warnings)]
-#![deny(bad_style, deprecated, improper_ctypes, missing_docs,
-        non_shorthand_field_patterns, overflowing_literals, plugin_as_library,
-        private_no_mangle_fns, private_no_mangle_statics, stable_features, unconditional_recursion,
-        unknown_lints, unsafe_code, unused, unused_allocation, unused_attributes,
-        unused_comparisons, unused_features, unused_parens, while_true)]
-#![warn(trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-        unused_qualifications, unused_results)]
-#![allow(box_pointers, missing_copy_implementations, missing_debug_implementations,
-         variant_size_differences)]
+#![forbid(
+    exceeding_bitshifts, mutable_transmutes, no_mangle_const_items, unknown_crate_types, warnings
+)]
+#![deny(
+    bad_style, deprecated, improper_ctypes, missing_docs, non_shorthand_field_patterns,
+    overflowing_literals, plugin_as_library, private_no_mangle_fns, private_no_mangle_statics,
+    stable_features, unconditional_recursion, unknown_lints, unsafe_code, unused, unused_allocation,
+    unused_attributes, unused_comparisons, unused_features, unused_parens, while_true
+)]
+#![warn(
+    trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+    unused_qualifications, unused_results
+)]
+#![allow(
+    box_pointers, missing_copy_implementations, missing_debug_implementations,
+    variant_size_differences
+)]
 
 extern crate docopt;
 extern crate futures;
@@ -40,11 +46,10 @@ use std::env;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter};
 use std::fs::{self, File};
-use std::io::{Read, Write};
 use std::io::Error as IoError;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
-
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static USAGE: &'static str = "
@@ -66,7 +71,6 @@ struct Args {
     flag_decrypt: bool,
     flag_help: bool,
 }
-
 
 fn to_hex(ch: u8) -> String {
     fmt::format(format_args!("{:02x}", ch))
@@ -127,9 +131,10 @@ impl Storage for DiskBasedStorage {
             Err(error) => return Box::new(future::err(From::from(error))),
         };
         let mut data = Vec::new();
-        let result = file.read_to_end(&mut data).map(move |_| data).map_err(
-            From::from,
-        );
+        let result = file
+            .read_to_end(&mut data)
+            .map(move |_| data)
+            .map_err(From::from);
         Box::new(future::result(result))
     }
 
@@ -144,7 +149,8 @@ impl Storage for DiskBasedStorage {
             Err(error) => return Box::new(future::err(From::from(error))),
         };
 
-        let result = file.write_all(&data[..])
+        let result = file
+            .write_all(&data[..])
             .map(|_| {
                 println!("Chunk written to {:?}", path);
             })
@@ -164,8 +170,9 @@ fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let mut storage =
-        DiskBasedStorage { storage_path: unwrap!(chunk_store_dir.to_str()).to_owned() };
+    let mut storage = DiskBasedStorage {
+        storage_path: unwrap!(chunk_store_dir.to_str()).to_owned(),
+    };
 
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
@@ -190,15 +197,15 @@ fn main() {
                 Err(error) => return println!("{}", error.description().to_string()),
             }
 
-            let se = SelfEncryptor::new(storage, DataMap::None).expect(
-                "Encryptor construction shouldn't fail.",
-            );
-            se.write(&data, 0).wait().expect(
-                "Writing to encryptor shouldn't fail.",
-            );
-            let (data_map, old_storage) = se.close().wait().expect(
-                "Closing encryptor shouldn't fail.",
-            );
+            let se = SelfEncryptor::new(storage, DataMap::None)
+                .expect("Encryptor construction shouldn't fail.");
+            se.write(&data, 0)
+                .wait()
+                .expect("Writing to encryptor shouldn't fail.");
+            let (data_map, old_storage) = se
+                .close()
+                .wait()
+                .expect("Closing encryptor shouldn't fail.");
             storage = old_storage;
 
             match File::create(data_map_file.clone()) {
@@ -209,8 +216,7 @@ fn main() {
                         Err(error) => {
                             println!(
                                 "Failed to write data map to {:?} - {:?}",
-                                data_map_file,
-                                error
+                                data_map_file, error
                             );
                         }
                     }
@@ -218,8 +224,7 @@ fn main() {
                 Err(error) => {
                     println!(
                         "Failed to create data map at {:?} - {:?}",
-                        data_map_file,
-                        error
+                        data_map_file, error
                     );
                 }
             }
@@ -234,22 +239,20 @@ fn main() {
             let _ = unwrap!(file.read_to_end(&mut data));
 
             if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
-                let se = SelfEncryptor::new(storage, data_map).expect(
-                    "Encryptor construction shouldn't fail.",
-                );
+                let se = SelfEncryptor::new(storage, data_map)
+                    .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
-                    let content = se.read(0, length).wait().expect(
-                        "Reading from encryptor shouldn't fail.",
-                    );
+                    let content = se
+                        .read(0, length)
+                        .wait()
+                        .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),
-                        Ok(_) => {
-                            println!(
-                                "File decrypted to {:?}",
-                                unwrap!(args.arg_destination.clone())
-                            )
-                        }
+                        Ok(_) => println!(
+                            "File decrypted to {:?}",
+                            unwrap!(args.arg_destination.clone())
+                        ),
                     };
                 } else {
                     println!("Failed to create {}", unwrap!(args.arg_destination.clone()));

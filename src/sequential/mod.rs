@@ -12,8 +12,10 @@ pub mod medium_encryptor;
 pub mod small_encryptor;
 pub mod utils;
 
-pub use super::{COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE, MIN_CHUNK_SIZE,
-                SelfEncryptionError, Storage, StorageError};
+pub use super::{
+    SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE,
+    MIN_CHUNK_SIZE,
+};
 use encryption::{IV_SIZE, KEY_SIZE};
 
 pub const HASH_SIZE: usize = 32;
