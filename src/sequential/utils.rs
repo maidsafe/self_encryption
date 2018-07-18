@@ -10,10 +10,11 @@ use super::{Pad, SelfEncryptionError, StorageError, COMPRESSION_QUALITY, PAD_SIZ
 use brotli;
 use brotli::enc::BrotliEncoderParams;
 use data_map::ChunkDetails;
-use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 #[cfg(test)]
 use rand::Rng;
-use rust_sodium;
+use safe_crypto::{
+    self, Nonce as Iv, SymmetricKey as Key, NONCE_SIZE as IV_SIZE, SYMMETRIC_KEY_SIZE as KEY_SIZE,
+};
 #[cfg(test)]
 use std::cmp;
 use std::io::Cursor;
@@ -44,7 +45,7 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
         *key_el = *element;
     }
 
-    (Pad(pad), Key(key), Iv(iv))
+    (Pad(pad), Key::from_bytes(key), iv)
 }
 
 pub fn encrypt_chunk<E: StorageError>(
@@ -59,7 +60,7 @@ pub fn encrypt_chunk<E: StorageError>(
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = encryption::encrypt(&compressed, &key, &iv);
+    let encrypted = key.encrypt_bytes_with_nonce(&compressed, iv);
     Ok(xor(&encrypted, &pad))
 }
 
@@ -69,7 +70,7 @@ pub fn decrypt_chunk<E: StorageError>(
 ) -> Result<Vec<u8>, SelfEncryptionError<E>> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
-    let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
+    let decrypted = key.decrypt_bytes_with_nonce(&xor_result, iv)?;
     let mut decompressed = vec![];
     let result = brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed);
     if result.is_err() {
@@ -86,8 +87,9 @@ pub fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
         .collect()
 }
 
-pub fn initialise_rust_sodium() {
-    assert!(rust_sodium::init().is_ok());
+pub(crate) fn initialise_crypto() {
+    static INITIALISE_CRYPTO: Once = ONCE_INIT;
+    INITIALISE_CRYPTO.call_once(|| assert!(safe_crypto::init().is_ok()));
 }
 
 #[cfg(test)]

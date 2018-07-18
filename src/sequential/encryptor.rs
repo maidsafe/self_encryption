@@ -122,7 +122,7 @@ where
         storage: S,
         data_map: Option<DataMap>,
     ) -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
-        utils::initialise_rust_sodium();
+        utils::initialise_crypto();
         match data_map {
             Some(DataMap::Content(content)) => SmallEncryptor::new(storage, content)
                 .map(State::from)

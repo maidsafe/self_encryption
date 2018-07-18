@@ -194,13 +194,11 @@ extern crate memmap;
 extern crate rand;
 #[macro_use]
 extern crate serde_derive;
-extern crate rust_sodium;
-extern crate tiny_keccak;
+extern crate safe_crypto;
 #[macro_use]
 extern crate unwrap;
 
 mod data_map;
-mod encryption;
 mod error;
 mod self_encryptor;
 mod sequencer;

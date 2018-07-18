@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use encryption::DecryptionError;
+use safe_crypto::Error as SafeCryptoError;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter};
 use std::io::Error as IoError;
@@ -53,8 +53,8 @@ impl<E: StorageError> StdError for SelfEncryptionError<E> {
     }
 }
 
-impl<E: StorageError> From<DecryptionError> for SelfEncryptionError<E> {
-    fn from(_error: DecryptionError) -> SelfEncryptionError<E> {
+impl<E: StorageError> From<SafeCryptoError> for SelfEncryptionError<E> {
+    fn from(_error: SafeCryptoError) -> SelfEncryptionError<E> {
         SelfEncryptionError::Decryption
     }
 }
