@@ -12,9 +12,11 @@ use super::{
 use brotli;
 use brotli::enc::BrotliEncoderParams;
 use data_map::{ChunkDetails, DataMap};
-use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 use futures::{future, Future};
-use rust_sodium;
+use safe_crypto::{
+    self, hash, Nonce as Iv, SymmetricKey as Key, NONCE_SIZE as IV_SIZE,
+    SYMMETRIC_KEY_SIZE as KEY_SIZE,
+};
 use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use std::cell::RefCell;
 use std::cmp;
@@ -23,7 +25,6 @@ use std::io::Cursor;
 use std::iter;
 use std::rc::Rc;
 use std::sync::{Once, ONCE_INIT};
-use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
 const HASH_SIZE: usize = 32;
@@ -75,7 +76,7 @@ where
         storage: S,
         data_map: DataMap,
     ) -> Result<SelfEncryptor<S>, SelfEncryptionError<S::Error>> {
-        initialise_rust_sodium();
+        initialise_crypto();
         let file_size = data_map.len();
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             Sequencer::new_as_vector()
@@ -381,7 +382,7 @@ where
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-                let name = sha3_256(&(*self.sequencer)[pos..pos + this_size]);
+                let name = hash(&(*self.sequencer)[pos..pos + this_size]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -405,7 +406,7 @@ where
                     Ok(content) => content,
                     Err(error) => return future::err(error).into_box(),
                 };
-                let name = sha3_256(&content);
+                let name = hash(&content);
 
                 put_futures.push(
                     self.storage
@@ -582,7 +583,7 @@ where
         .map_err(SelfEncryptionError::Storage)
         .and_then(move |content| {
             let xor_result = xor(&content, &pad);
-            encryption::decrypt(&xor_result, &key, &iv).map_err(|_| SelfEncryptionError::Decryption)
+            Ok(key.decrypt_bytes_with_nonce(&xor_result, iv)?)
         })
         .and_then(|decrypted| {
             let mut decompressed = vec![];
@@ -605,7 +606,7 @@ fn encrypt_chunk<E: StorageError>(
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = encryption::encrypt(&compressed, &key, &iv);
+    let encrypted = key.encrypt_bytes_with_nonce(&compressed, iv);
     Ok(xor(&encrypted, &pad))
 }
 
@@ -636,7 +637,7 @@ fn get_pad_key_and_iv(
         *key_el = *element;
     }
 
-    (Pad(pad), Key(key), Iv(iv))
+    (Pad(pad), Key::from_bytes(key), iv)
 }
 
 // Returns the chunk range [start, end) that is overlapped by the byte range defined by `position`
@@ -801,9 +802,9 @@ impl<S: Storage> Debug for SelfEncryptor<S> {
     }
 }
 
-fn initialise_rust_sodium() {
-    static INITIALISE_SODIUMOXIDE: Once = ONCE_INIT;
-    INITIALISE_SODIUMOXIDE.call_once(|| assert!(rust_sodium::init()));
+fn initialise_crypto() {
+    static INITIALISE_CRYPTO: Once = ONCE_INIT;
+    INITIALISE_CRYPTO.call_once(|| assert!(safe_crypto::init().is_ok()));
 }
 
 #[cfg(test)]

@@ -10,8 +10,8 @@ use super::small_encryptor::SmallEncryptor;
 use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use data_map::{ChunkDetails, DataMap};
 use futures::{future, Future};
+use safe_crypto::hash;
 use std::convert::From;
-use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MIN_CHUNK_SIZE as u64;
@@ -101,7 +101,7 @@ where
                 chunk_details.push(ChunkDetails {
                     chunk_num: index as u32,
                     hash: vec![],
-                    pre_hash: sha3_256(contents).to_vec(),
+                    pre_hash: hash(contents).to_vec(),
                     source_size: contents.len() as u64,
                 });
             }
@@ -118,7 +118,7 @@ where
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let future = match utils::encrypt_chunk(contents, pad_key_iv) {
                     Ok(encrypted_contents) => {
-                        let hash = sha3_256(&encrypted_contents);
+                        let hash = hash(&encrypted_contents);
                         details.hash = hash.to_vec();
                         self.storage
                             .put(hash.to_vec(), encrypted_contents)
