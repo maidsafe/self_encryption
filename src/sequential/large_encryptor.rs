@@ -115,8 +115,7 @@ where
                         buffer,
                     }
                 },
-            )
-            .into_box()
+            ).into_box()
     }
 
     pub fn from_medium(

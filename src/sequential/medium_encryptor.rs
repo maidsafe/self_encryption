@@ -64,8 +64,7 @@ where
                     buffer,
                     original_chunks: Some(chunks),
                 }
-            })
-            .into_box()
+            }).into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
