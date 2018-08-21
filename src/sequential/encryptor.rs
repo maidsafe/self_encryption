@@ -188,8 +188,7 @@ where
             .and_then(move |next_state| next_state.write(&data))
             .map(move |next_state| {
                 *curr_state.borrow_mut() = next_state;
-            })
-            .into_box()
+            }).into_box()
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
