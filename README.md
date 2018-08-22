@@ -1,7 +1,5 @@
 # self_encryption
 
-**Maintainer:** Spandan Sharma (spandan.sharma@maidsafe.net)
-
 Self encrypting files (convergent encryption plus obfuscation)
 
 |Crate|Documentation|Linux/OS X|Windows|Issues|
