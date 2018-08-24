@@ -64,6 +64,7 @@
 //! }
 //!
 //! impl SimpleStorage {
+//!     # #[allow(dead_code)]
 //!     fn new() -> SimpleStorage {
 //!         SimpleStorage { entries: vec![] }
 //!     }
