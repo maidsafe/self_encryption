@@ -17,7 +17,6 @@ use rust_sodium;
 #[cfg(test)]
 use std::cmp;
 use std::io::Cursor;
-use std::sync::{Once, ONCE_INIT};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
@@ -88,8 +87,7 @@ pub fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
 }
 
 pub fn initialise_rust_sodium() {
-    static INITIALISE_SODIUMOXIDE: Once = ONCE_INIT;
-    INITIALISE_SODIUMOXIDE.call_once(|| assert!(rust_sodium::init()));
+    assert!(rust_sodium::init().is_ok());
 }
 
 #[cfg(test)]
