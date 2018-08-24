@@ -105,7 +105,7 @@
 //!
 //! fn main() {
 //!     let storage = SimpleStorage::new();
-//!     let mut encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
+//!     let encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
 //!     let data = vec![0, 1, 2, 3, 4, 5];
 //!     let mut offset = 0;
 //!
