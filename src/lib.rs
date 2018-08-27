@@ -64,6 +64,7 @@
 //! }
 //!
 //! impl SimpleStorage {
+//!     # #[allow(dead_code)]
 //!     fn new() -> SimpleStorage {
 //!         SimpleStorage { entries: vec![] }
 //!     }
@@ -105,7 +106,7 @@
 //!
 //! fn main() {
 //!     let storage = SimpleStorage::new();
-//!     let mut encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
+//!     let encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
 //!     let data = vec![0, 1, 2, 3, 4, 5];
 //!     let mut offset = 0;
 //!
@@ -127,7 +128,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
     html_favicon_url = "http://maidsafe.net/img/favicon.ico",
-    html_root_url = "http://maidsafe.github.io/self_encryption"
+    test(attr(forbid(warnings)))
 )]
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md

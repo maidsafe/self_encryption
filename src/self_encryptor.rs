@@ -22,7 +22,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::io::Cursor;
 use std::iter;
 use std::rc::Rc;
-use std::sync::{Once, ONCE_INIT};
 use tiny_keccak::sha3_256;
 use util::{BoxFuture, FutureExt};
 
@@ -791,8 +790,7 @@ impl<S: Storage> Debug for SelfEncryptor<S> {
 }
 
 fn initialise_rust_sodium() {
-    static INITIALISE_SODIUMOXIDE: Once = ONCE_INIT;
-    INITIALISE_SODIUMOXIDE.call_once(|| assert!(rust_sodium::init()));
+    assert!(rust_sodium::init().is_ok());
 }
 
 #[cfg(test)]
