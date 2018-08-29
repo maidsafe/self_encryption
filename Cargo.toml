@@ -7,7 +7,7 @@ license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.12.0"
+version = "0.13.0"
 
 [dependencies]
 brotli = "~2.1.0"

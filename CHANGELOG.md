@@ -1,5 +1,12 @@
 # Self-Encryption - Change Log
 
+## [0.13.0]
+- Upgrade unwrap version to 1.2.0
+- Use rust 1.28.0 stable / 2018-07-07 nightly
+- rustfmt 0.99.2 and clippy-0.0.212
+- Update license to mention GPL3 only
+- Replace the brotli2 library with a pure Rust version
+
 ## [0.12.0]
 - Use rust 1.22.1 stable / 2017-11-23 nightly
 - rustfmt 0.9.0 and clippy-0.0.174
