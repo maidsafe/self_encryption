@@ -13,11 +13,12 @@ use data_map::ChunkDetails;
 #[cfg(test)]
 use rand::Rng;
 use safe_crypto::{
-    self, Nonce as Iv, SymmetricKey as Key, NONCE_SIZE as IV_SIZE, SYMMETRIC_KEY_SIZE as KEY_SIZE,
+    self, Nonce as Iv, SymmetricKey as Key, NONCE_BYTES as IV_SIZE, SYMMETRIC_KEY_BYTES as KEY_SIZE,
 };
 #[cfg(test)]
 use std::cmp;
 use std::io::Cursor;
+use std::sync::{Once, ONCE_INIT};
 
 pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
@@ -45,7 +46,7 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
         *key_el = *element;
     }
 
-    (Pad(pad), Key::from_bytes(key), iv)
+    (Pad(pad), Key::from_bytes(key), Iv::from_bytes(iv))
 }
 
 pub fn encrypt_chunk<E: StorageError>(
@@ -56,11 +57,13 @@ pub fn encrypt_chunk<E: StorageError>(
     let mut compressed = vec![];
     let mut enc_params: BrotliEncoderParams = Default::default();
     enc_params.quality = COMPRESSION_QUALITY;
+
     let result = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params);
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = key.encrypt_bytes_with_nonce(&compressed, iv);
+    let encrypted = key.encrypt_bytes_with_nonce(&compressed, &iv)?;
+
     Ok(xor(&encrypted, &pad))
 }
 
@@ -68,9 +71,9 @@ pub fn decrypt_chunk<E: StorageError>(
     content: &[u8],
     pad_key_iv: (Pad, Key, Iv),
 ) -> Result<Vec<u8>, SelfEncryptionError<E>> {
-    let (pad, key, iv) = pad_key_iv;
+    let (pad, key, _) = pad_key_iv;
     let xor_result = xor(content, &pad);
-    let decrypted = key.decrypt_bytes_with_nonce(&xor_result, iv)?;
+    let decrypted = key.decrypt_bytes(&xor_result)?;
     let mut decompressed = vec![];
     let result = brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed);
     if result.is_err() {

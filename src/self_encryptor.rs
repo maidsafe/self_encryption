@@ -14,8 +14,7 @@ use brotli::enc::BrotliEncoderParams;
 use data_map::{ChunkDetails, DataMap};
 use futures::{future, Future};
 use safe_crypto::{
-    self, hash, Nonce as Iv, SymmetricKey as Key, NONCE_SIZE as IV_SIZE,
-    SYMMETRIC_KEY_SIZE as KEY_SIZE,
+    self, Nonce as Iv, SymmetricKey as Key, NONCE_BYTES as IV_SIZE, SYMMETRIC_KEY_BYTES as KEY_SIZE,
 };
 use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use std::cell::RefCell;
@@ -375,7 +374,7 @@ where
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-                let name = hash(&(*self.sequencer)[pos..pos + this_size]);
+                let name = safe_crypto::hash(&(*self.sequencer)[pos..pos + this_size]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -399,7 +398,7 @@ where
                     Ok(content) => content,
                     Err(error) => return future::err(error).into_box(),
                 };
-                let name = hash(&content);
+                let name = safe_crypto::hash(&content);
 
                 put_futures.push(
                     self.storage
@@ -566,7 +565,7 @@ where
     S: Storage + 'static,
 {
     let name = &state.sorted_map[chunk_number as usize].hash;
-    let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &state.sorted_map, state.map_size);
+    let (pad, key, _) = get_pad_key_and_iv(chunk_number, &state.sorted_map, state.map_size);
 
     state
         .storage
@@ -574,9 +573,8 @@ where
         .map_err(SelfEncryptionError::Storage)
         .and_then(move |content| {
             let xor_result = xor(&content, &pad);
-            Ok(key.decrypt_bytes_with_nonce(&xor_result, iv)?)
-        })
-        .and_then(|decrypted| {
+            Ok(key.decrypt_bytes(&xor_result)?)
+        }).and_then(|decrypted| {
             let mut decompressed = vec![];
             brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed)
                 .map(|_| decompressed)
@@ -592,11 +590,13 @@ fn encrypt_chunk<E: StorageError>(
     let mut compressed = vec![];
     let mut enc_params: BrotliEncoderParams = Default::default();
     enc_params.quality = COMPRESSION_QUALITY;
+
     let result = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params);
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = key.encrypt_bytes_with_nonce(&compressed, iv);
+    let encrypted = key.encrypt_bytes_with_nonce(&compressed, &iv)?;
+
     Ok(xor(&encrypted, &pad))
 }
 
@@ -627,7 +627,7 @@ fn get_pad_key_and_iv(
         *key_el = *element;
     }
 
-    (Pad(pad), Key::from_bytes(key), iv)
+    (Pad(pad), Key::from_bytes(key), Iv::from_bytes(iv))
 }
 
 // Returns the chunk range [start, end) that is overlapped by the byte range defined by `position`
