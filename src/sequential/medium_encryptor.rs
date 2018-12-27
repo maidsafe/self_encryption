@@ -32,6 +32,7 @@ where
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are exactly three chunks.
     // Retrieves the chunks from storage and decrypts them to its internal `buffer`.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         chunks: Vec<ChunkDetails>,
@@ -64,7 +65,8 @@ where
                     buffer,
                     original_chunks: Some(chunks),
                 }
-            }).into_box()
+            })
+            .into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
@@ -178,11 +180,9 @@ mod tests {
     fn basic_write_and_close(data: &[u8]) {
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut encryptor = unwrap!(
-                SmallEncryptor::new(storage, vec![])
-                    .map(MediumEncryptor::from)
-                    .wait()
-            );
+            let mut encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
+                .map(MediumEncryptor::from)
+                .wait());
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = unwrap!(encryptor.write(data).wait());
@@ -213,11 +213,9 @@ mod tests {
         for data in data_pieces {
             let data_map = {
                 let mut encryptor = if current_chunks.is_empty() {
-                    unwrap!(
-                        SmallEncryptor::new(storage, vec![])
-                            .map(MediumEncryptor::from)
-                            .wait()
-                    )
+                    unwrap!(SmallEncryptor::new(storage, vec![])
+                        .map(MediumEncryptor::from)
+                        .wait())
                 } else {
                     unwrap!(MediumEncryptor::new(storage, current_chunks).wait())
                 };

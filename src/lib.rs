@@ -147,8 +147,6 @@
     non_shorthand_field_patterns,
     overflowing_literals,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -178,10 +176,7 @@
 )]
 // Doesn't allow casts on constants yet, remove when issue is fixed:
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(cast_lossless, decimal_literal_representation)
-)]
+#![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
 extern crate brotli;
 extern crate futures;

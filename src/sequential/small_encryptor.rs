@@ -26,6 +26,7 @@ where
     S: Storage + 'static,
 {
     // Constructor for use with pre-existing `DataMap::Content`, or for no pre-existing DataMap.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         data: Vec<u8>,
@@ -34,7 +35,8 @@ where
         future::ok(SmallEncryptor {
             storage,
             buffer: data,
-        }).into_box()
+        })
+        .into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
