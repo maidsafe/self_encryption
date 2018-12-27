@@ -9,13 +9,14 @@
 use super::{
     SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
+use crate::data_map::{ChunkDetails, DataMap};
+use crate::encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
+use crate::sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
+use crate::util::{BoxFuture, FutureExt};
 use brotli;
 use brotli::enc::BrotliEncoderParams;
-use data_map::{ChunkDetails, DataMap};
-use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 use futures::{future, Future};
 use rust_sodium;
-use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use std::cell::RefCell;
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
@@ -23,7 +24,6 @@ use std::io::Cursor;
 use std::iter;
 use std::rc::Rc;
 use tiny_keccak::sha3_256;
-use util::{BoxFuture, FutureExt};
 
 const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -812,11 +812,11 @@ mod tests {
         get_chunk_number, get_chunk_size, get_num_chunks, get_previous_chunk_number,
         get_start_end_positions, SelfEncryptor,
     };
+    use crate::test_helpers::SimpleStorage;
     use futures::Future;
     use maidsafe_utilities::serialisation;
     use rand::distributions::{Range, Sample};
     use rand::{self, Rng};
-    use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
         rand::thread_rng().gen_iter().take(size).collect()

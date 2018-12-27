@@ -6,11 +6,11 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use encryption::DecryptionError;
+use crate::encryption::DecryptionError;
+use crate::storage::StorageError;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter};
 use std::io::Error as IoError;
-use storage::StorageError;
 
 /// Errors which can arise during self-encryption or -decryption.
 #[derive(Debug)]

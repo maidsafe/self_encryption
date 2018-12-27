@@ -52,11 +52,7 @@
     variant_size_differences
 )]
 
-extern crate docopt;
-extern crate futures;
-extern crate maidsafe_utilities;
-extern crate rustc_serialize;
-extern crate self_encryption;
+use self_encryption;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]

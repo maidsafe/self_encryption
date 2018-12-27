@@ -9,12 +9,12 @@
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
-use data_map::{ChunkDetails, DataMap};
+use crate::data_map::{ChunkDetails, DataMap};
+use crate::util::{BoxFuture, FutureExt};
 use futures::{future, Future};
 use std::convert::From;
 use std::{cmp, mem};
 use tiny_keccak::sha3_256;
-use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
 const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
@@ -293,13 +293,13 @@ mod tests {
     use super::super::small_encryptor::SmallEncryptor;
     use super::super::{utils, MAX_CHUNK_SIZE};
     use super::*;
-    use data_map::DataMap;
+    use crate::data_map::DataMap;
+    use crate::self_encryptor::SelfEncryptor;
+    use crate::test_helpers::{Blob, SimpleStorage};
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
-    use self_encryptor::SelfEncryptor;
-    use test_helpers::{Blob, SimpleStorage};
 
     #[test]
     fn consts() {

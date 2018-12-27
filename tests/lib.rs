@@ -56,9 +56,7 @@
     allow(cast_lossless, decimal_literal_representation)
 )]
 
-extern crate futures;
-extern crate rand;
-extern crate self_encryption;
+use rand;
 
 use futures::Future;
 use rand::Rng;
