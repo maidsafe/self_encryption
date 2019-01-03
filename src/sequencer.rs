@@ -24,7 +24,7 @@ pub struct Sequencer {
     data: Data,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
+#[allow(clippy::len_without_is_empty)]
 impl Sequencer {
     /// Initialise as a vector.
     pub fn new_as_vector() -> Sequencer {

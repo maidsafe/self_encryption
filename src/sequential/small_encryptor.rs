@@ -7,9 +7,9 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{SelfEncryptionError, Storage, MIN_CHUNK_SIZE};
-use data_map::DataMap;
+use crate::data_map::DataMap;
+use crate::util::{BoxFuture, FutureExt};
 use futures::future;
-use util::{BoxFuture, FutureExt};
 
 pub const MAX: u64 = (3 * MIN_CHUNK_SIZE as u64) - 1;
 
@@ -26,6 +26,7 @@ where
     S: Storage + 'static,
 {
     // Constructor for use with pre-existing `DataMap::Content`, or for no pre-existing DataMap.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         data: Vec<u8>,
@@ -34,7 +35,8 @@ where
         future::ok(SmallEncryptor {
             storage,
             buffer: data,
-        }).into_box()
+        })
+        .into_box()
     }
 
     // Simply appends to internal buffer assuming the size limit is not exceeded.  No chunks are
@@ -64,13 +66,13 @@ where
 mod tests {
     use super::super::utils;
     use super::*;
-    use data_map::DataMap;
+    use crate::data_map::DataMap;
+    use crate::self_encryptor::SelfEncryptor;
+    use crate::test_helpers::{Blob, SimpleStorage};
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
-    use self_encryptor::SelfEncryptor;
-    use test_helpers::{Blob, SimpleStorage};
 
     // Writes all of `data` to a new encryptor in a single call, then closes and reads back via
     // a `SelfEncryptor`.

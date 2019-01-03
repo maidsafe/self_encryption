@@ -25,8 +25,6 @@
     non_shorthand_field_patterns,
     overflowing_literals,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -54,11 +52,7 @@
     variant_size_differences
 )]
 
-extern crate docopt;
-extern crate futures;
-extern crate maidsafe_utilities;
-extern crate rustc_serialize;
-extern crate self_encryption;
+use self_encryption;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
@@ -179,7 +173,8 @@ impl Storage for DiskBasedStorage {
             .write_all(&data[..])
             .map(|_| {
                 println!("Chunk written to {:?}", path);
-            }).map_err(From::from);
+            })
+            .map_err(From::from);
         Box::new(future::result(result))
     }
 }

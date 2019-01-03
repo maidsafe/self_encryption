@@ -147,8 +147,6 @@
     non_shorthand_field_patterns,
     overflowing_literals,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -178,26 +176,16 @@
 )]
 // Doesn't allow casts on constants yet, remove when issue is fixed:
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(cast_lossless, decimal_literal_representation)
-)]
+#![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
-extern crate brotli;
-extern crate futures;
-#[cfg(test)]
-extern crate itertools;
-#[cfg(test)]
-extern crate maidsafe_utilities;
-extern crate memmap;
 #[cfg(test)]
 extern crate rand;
 #[macro_use]
 extern crate serde_derive;
-extern crate rust_sodium;
-extern crate tiny_keccak;
 #[macro_use]
 extern crate unwrap;
+
+use brotli;
 
 mod data_map;
 mod encryption;
@@ -209,11 +197,11 @@ mod storage;
 pub mod test_helpers;
 mod util;
 
-pub use data_map::{ChunkDetails, DataMap};
-pub use error::SelfEncryptionError;
-pub use self_encryptor::SelfEncryptor;
-pub use sequential::encryptor::Encryptor as SequentialEncryptor;
-pub use storage::{Storage, StorageError};
+pub use crate::data_map::{ChunkDetails, DataMap};
+pub use crate::error::SelfEncryptionError;
+pub use crate::self_encryptor::SelfEncryptor;
+pub use crate::sequential::encryptor::Encryptor as SequentialEncryptor;
+pub use crate::storage::{Storage, StorageError};
 
 /// The maximum size of file which can be self-encrypted, defined as 1GB.
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;

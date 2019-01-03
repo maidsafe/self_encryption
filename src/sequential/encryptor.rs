@@ -10,13 +10,13 @@ use super::large_encryptor::{self, LargeEncryptor};
 use super::medium_encryptor::{self, MediumEncryptor};
 use super::small_encryptor::SmallEncryptor;
 use super::{utils, SelfEncryptionError, Storage};
-use data_map::DataMap;
+use crate::data_map::DataMap;
+use crate::util::{BoxFuture, FutureExt};
 use futures::{future, Future};
 use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
-use util::{BoxFuture, FutureExt};
 
 enum State<S> {
     Small(SmallEncryptor<S>),
@@ -118,6 +118,7 @@ where
 {
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         data_map: Option<DataMap>,
@@ -188,7 +189,8 @@ where
             .and_then(move |next_state| next_state.write(&data))
             .map(move |next_state| {
                 *curr_state.borrow_mut() = next_state;
-            }).into_box()
+            })
+            .into_box()
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
@@ -225,13 +227,13 @@ impl<S> From<State<S>> for Encryptor<S> {
 mod tests {
     use super::super::*;
     use super::*;
-    use data_map::DataMap;
+    use crate::data_map::DataMap;
+    use crate::self_encryptor::SelfEncryptor;
+    use crate::test_helpers::{Blob, SimpleStorage};
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
-    use self_encryptor::SelfEncryptor;
-    use test_helpers::{Blob, SimpleStorage};
 
     fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));

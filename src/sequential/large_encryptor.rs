@@ -9,12 +9,12 @@
 use super::medium_encryptor::MediumEncryptor;
 use super::small_encryptor::SmallEncryptor;
 use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
-use data_map::{ChunkDetails, DataMap};
+use crate::data_map::{ChunkDetails, DataMap};
+use crate::util::{BoxFuture, FutureExt};
 use futures::{future, Future};
 use std::convert::From;
 use std::{cmp, mem};
 use tiny_keccak::sha3_256;
-use util::{BoxFuture, FutureExt};
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
 const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
@@ -39,6 +39,7 @@ where
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
     // its internal buffers.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         chunks: Vec<ChunkDetails>,
@@ -115,7 +116,8 @@ where
                         buffer,
                     }
                 },
-            ).into_box()
+            )
+            .into_box()
     }
 
     pub fn from_medium(
@@ -291,13 +293,13 @@ mod tests {
     use super::super::small_encryptor::SmallEncryptor;
     use super::super::{utils, MAX_CHUNK_SIZE};
     use super::*;
-    use data_map::DataMap;
+    use crate::data_map::DataMap;
+    use crate::self_encryptor::SelfEncryptor;
+    use crate::test_helpers::{Blob, SimpleStorage};
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
-    use self_encryptor::SelfEncryptor;
-    use test_helpers::{Blob, SimpleStorage};
 
     #[test]
     fn consts() {
@@ -309,11 +311,9 @@ mod tests {
     fn basic_write_and_close(data: &[u8]) {
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut encryptor = unwrap!(
-                SmallEncryptor::new(storage, vec![])
-                    .map(LargeEncryptor::from)
-                    .wait()
-            );
+            let mut encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
+                .map(LargeEncryptor::from)
+                .wait());
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = unwrap!(encryptor.write(data).wait());
@@ -344,11 +344,9 @@ mod tests {
         for data in data_pieces {
             let data_map = {
                 let mut encryptor = if current_chunks.is_empty() {
-                    unwrap!(
-                        SmallEncryptor::new(storage, vec![])
-                            .map(LargeEncryptor::from)
-                            .wait()
-                    )
+                    unwrap!(SmallEncryptor::new(storage, vec![])
+                        .map(LargeEncryptor::from)
+                        .wait())
                 } else {
                     unwrap!(LargeEncryptor::new(storage, current_chunks).wait())
                 };
@@ -389,7 +387,7 @@ mod tests {
 
         basic_write_and_close(&data[..MIN as usize]);
         basic_write_and_close(&data[..(MAX_CHUNK_SIZE as usize * 4)]);
-        basic_write_and_close(&data[..(MAX_CHUNK_SIZE as usize * 4 + 1)]);
+        basic_write_and_close(&data[..=(MAX_CHUNK_SIZE as usize * 4)]);
         basic_write_and_close(&data);
 
         multiple_writes_then_close(&mut rng, &data[..(MIN as usize + 100)]);
@@ -398,11 +396,9 @@ mod tests {
         // Test converting from `MediumEncryptor`.
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
-            let mut medium_encryptor = unwrap!(
-                SmallEncryptor::new(storage, vec![])
-                    .map(MediumEncryptor::from)
-                    .wait()
-            );
+            let mut medium_encryptor = unwrap!(SmallEncryptor::new(storage, vec![])
+                .map(MediumEncryptor::from)
+                .wait());
 
             medium_encryptor = unwrap!(medium_encryptor.write(&data[..(MIN as usize - 1)]).wait());
             let mut large_encryptor = unwrap!(LargeEncryptor::from_medium(medium_encryptor).wait());

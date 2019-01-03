@@ -9,13 +9,14 @@
 use super::{
     SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
+use crate::data_map::{ChunkDetails, DataMap};
+use crate::encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
+use crate::sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
+use crate::util::{BoxFuture, FutureExt};
 use brotli;
 use brotli::enc::BrotliEncoderParams;
-use data_map::{ChunkDetails, DataMap};
-use encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
 use futures::{future, Future};
 use rust_sodium;
-use sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
 use std::cell::RefCell;
 use std::cmp;
 use std::fmt::{self, Debug, Formatter};
@@ -23,7 +24,6 @@ use std::io::Cursor;
 use std::iter;
 use std::rc::Rc;
 use tiny_keccak::sha3_256;
-use util::{BoxFuture, FutureExt};
 
 const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -70,6 +70,7 @@ where
     /// This is the only constructor for an encryptor object.  Each `SelfEncryptor` is used for a
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
     /// not previously been self-encrypted, use `DataMap::None`.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,
         data_map: DataMap,
@@ -137,7 +138,8 @@ where
                 for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
                     *p = byte;
                 }
-            }).into_box()
+            })
+            .into_box()
     }
 
     /// The returned content is read from the specified `position` with specified `length`.  Trying
@@ -160,13 +162,14 @@ where
                     .take(length as usize)
                     .cloned()
                     .collect()
-            }).into_box()
+            })
+            .into_box()
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
+    #[allow(clippy::needless_range_loop)]
     pub fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
         let file_size = {
             let state = self.0.borrow();
@@ -221,10 +224,12 @@ where
                     };
 
                     prepare_window_for_reading(state0, byte_start, byte_end - byte_start)
-                }).and_then(move |_| {
+                })
+                .and_then(move |_| {
                     let mut state = state1.borrow_mut();
                     state.create_data_map(resized_start as usize)
-                }).into_box()
+                })
+                .into_box()
         };
 
         future_data_map
@@ -283,7 +288,8 @@ where
                         };
 
                         prepare_window_for_reading(state, 0, byte_end)
-                    }).into_box()
+                    })
+                    .into_box()
             } else {
                 future::ok(()).into_box()
             };
@@ -296,7 +302,8 @@ where
                         chunk.status = ChunkStatus::ToBeHashed;
                         chunk.in_sequencer = true;
                     }
-                }).into_box()
+                })
+                .into_box()
         } else {
             future::ok(()).into_box()
         };
@@ -307,7 +314,8 @@ where
                 let mut state = state.borrow_mut();
                 state.sequencer.truncate(new_size as usize);
                 state.file_size = new_size;
-            }).into_box()
+            })
+            .into_box()
     }
 
     /// Current file size as is known by encryptor.
@@ -355,7 +363,7 @@ where
         Ok(())
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
+    #[allow(clippy::needless_range_loop)]
     fn create_data_map(
         &mut self,
         possibly_reusable_end: usize,
@@ -498,7 +506,8 @@ where
             for &i in &next_two {
                 state.chunks[i].flag_for_encryption();
             }
-        }).into_box()
+        })
+        .into_box()
 }
 
 fn prepare_window_for_reading<S>(
@@ -553,7 +562,8 @@ where
                     *p = byte
                 }
             }
-        }).into_box()
+        })
+        .into_box()
 }
 
 fn decrypt_chunk<S>(
@@ -573,12 +583,14 @@ where
         .and_then(move |content| {
             let xor_result = xor(&content, &pad);
             encryption::decrypt(&xor_result, &key, &iv).map_err(|_| SelfEncryptionError::Decryption)
-        }).and_then(|decrypted| {
+        })
+        .and_then(|decrypted| {
             let mut decompressed = vec![];
             brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed)
                 .map(|_| decompressed)
                 .map_err(|_| SelfEncryptionError::Compression)
-        }).into_box()
+        })
+        .into_box()
 }
 
 fn encrypt_chunk<E: StorageError>(
@@ -800,17 +812,19 @@ mod tests {
         get_chunk_number, get_chunk_size, get_num_chunks, get_previous_chunk_number,
         get_start_end_positions, SelfEncryptor,
     };
+    use crate::test_helpers::SimpleStorage;
     use futures::Future;
     use maidsafe_utilities::serialisation;
     use rand::distributions::{Range, Sample};
     use rand::{self, Rng};
-    use test_helpers::SimpleStorage;
 
     fn random_bytes(size: usize) -> Vec<u8> {
         rand::thread_rng().gen_iter().take(size).collect()
     }
 
     #[test]
+    // Sorry
+    #[allow(clippy::cyclomatic_complexity)]
     fn helper_functions() {
         let mut file_size = MIN_CHUNK_SIZE as u64 * 3;
         assert_eq!(get_num_chunks(file_size), 3);

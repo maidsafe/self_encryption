@@ -23,8 +23,6 @@
     non_shorthand_field_patterns,
     overflowing_literals,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -51,7 +49,6 @@
     missing_copy_implementations,
     missing_debug_implementations
 )]
-#![feature(test)]
 
 extern crate futures;
 extern crate rand;

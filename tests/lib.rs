@@ -23,8 +23,6 @@
     non_shorthand_field_patterns,
     overflowing_literals,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -58,9 +56,7 @@
     allow(cast_lossless, decimal_literal_representation)
 )]
 
-extern crate futures;
-extern crate rand;
-extern crate self_encryption;
+use rand;
 
 use futures::Future;
 use rand::Rng;
@@ -141,7 +137,8 @@ fn new_read() {
                         .expect(&format!(
                             "Reading attempt {} from encryptor shouldn't fail",
                             i
-                        )).iter()
+                        ))
+                        .iter()
                         .cloned(),
                 );
                 assert_eq!(original[0..(read_position + read_size)].to_vec(), decrypted);
