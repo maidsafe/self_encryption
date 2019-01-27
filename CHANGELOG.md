@@ -1,5 +1,9 @@
 # Self-Encryption - Change Log
 
+[Unreleased]
+- Removes memmap dependency
+- Leaves mmap behavior to system allocator, now that jemalloc is no longer default
+
 ## [0.13.0]
 - Upgrade unwrap version to 1.2.0
 - Use rust 1.28.0 stable / 2018-07-07 nightly

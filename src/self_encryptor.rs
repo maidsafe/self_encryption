@@ -9,11 +9,11 @@
 use super::{
     SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
+use crate::brotli;
 use crate::data_map::{ChunkDetails, DataMap};
 use crate::encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
-use crate::sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
+use crate::sequencer::Sequencer;
 use crate::util::{BoxFuture, FutureExt};
-use brotli;
 use brotli::enc::BrotliEncoderParams;
 use futures::{future, Future};
 use rust_sodium;
@@ -77,11 +77,7 @@ where
     ) -> Result<SelfEncryptor<S>, SelfEncryptionError<S::Error>> {
         initialise_rust_sodium();
         let file_size = data_map.len();
-        let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
-            Sequencer::new_as_vector()
-        } else {
-            Sequencer::new_as_mmap()?
-        };
+        let mut sequencer = Sequencer::new();
 
         let sorted_map;
         let chunks;
@@ -353,12 +349,8 @@ where
     ) -> Result<(), SelfEncryptionError<S::Error>> {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
-            if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                self.sequencer.create_mapping()?;
-            } else {
-                self.sequencer
-                    .extend(iter::repeat(0).take((new_len - old_len) as usize));
-            }
+            self.sequencer
+                .extend(iter::repeat(0).take((new_len - old_len) as usize));
         }
         Ok(())
     }
