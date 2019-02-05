@@ -185,8 +185,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate unwrap;
 
-use brotli;
-
 mod data_map;
 mod encryption;
 mod error;
