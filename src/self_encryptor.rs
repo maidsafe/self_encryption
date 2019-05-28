@@ -824,7 +824,7 @@ mod tests {
 
     #[test]
     // Sorry
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn helper_functions() {
         let mut file_size = MIN_CHUNK_SIZE as u64 * 3;
         assert_eq!(get_num_chunks(file_size), 3);
