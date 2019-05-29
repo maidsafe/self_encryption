@@ -1,5 +1,9 @@
 # Self-Encryption - Change Log
 
+## [0.14.0]
+
+- Update tiny_keccak version to 1.4.0
+
 ## [0.13.0]
 - Upgrade unwrap version to 1.2.0
 - Use rust 1.28.0 stable / 2018-07-07 nightly
