@@ -11,11 +11,18 @@
 use super::{Storage, StorageError};
 use crate::util::{BoxFuture, FutureExt};
 use futures::future;
+use rand::{self, Rng, SeedableRng};
+use rand_chacha::ChaChaRng;
+use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    cmp,
+    cmp, env,
     error::Error,
     fmt::{self, Debug, Display, Formatter},
+    thread,
 };
+use unwrap::unwrap;
+
+pub type TestRng = ChaChaRng;
 
 #[derive(PartialEq, Eq)]
 pub struct Blob<'a>(pub &'a [u8]);
@@ -91,4 +98,44 @@ impl Storage for SimpleStorage {
 
         future::ok(()).into_box()
     }
+}
+
+// Create new random number generator suitable for tests. To provide repeatable results, the seed
+// can be overridden using the "SEED" env variable. If this variable is not provided, a random one
+// is used (to support soak testing). The current seed is printed to stdout.
+pub fn new_test_rng() -> TestRng {
+    let seed = if let Ok(seed) = env::var("SEED") {
+        unwrap!(seed.parse(), "SEED must contain a valid u64 value")
+    } else {
+        rand::thread_rng().gen()
+    };
+
+    println!(
+        "RNG seed for thread {:?}: {}",
+        unwrap!(thread::current().name()),
+        seed
+    );
+
+    TestRng::seed_from_u64(seed)
+}
+
+pub fn from_rng(rng: &mut TestRng) -> TestRng {
+    unwrap!(TestRng::from_rng(rng))
+}
+
+pub fn serialise<T: Serialize>(data: &T) -> Vec<u8> {
+    unwrap!(bincode::serialize(data))
+}
+
+pub fn deserialise<T>(data: &[u8]) -> Option<T>
+where
+    T: Serialize + DeserializeOwned,
+{
+    bincode::deserialize(data).ok()
+}
+
+pub fn random_bytes<T: Rng>(rng: &mut T, size: usize) -> Vec<u8> {
+    let mut bytes = vec![0_u8; size];
+    rng.fill(bytes.as_mut_slice());
+    bytes
 }

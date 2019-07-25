@@ -303,11 +303,9 @@ mod tests {
     use crate::{
         data_map::DataMap,
         self_encryptor::SelfEncryptor,
-        test_helpers::{Blob, SimpleStorage},
+        test_helpers::{new_test_rng, random_bytes, Blob, SimpleStorage},
     };
     use futures::Future;
-    use itertools::Itertools;
-    use maidsafe_utilities::SeededRng;
     use rand::Rng;
 
     #[test]
@@ -388,11 +386,8 @@ mod tests {
 
     #[test]
     fn all_unit() {
-        let mut rng = SeededRng::new();
-        let data = rng
-            .gen_iter()
-            .take(5 * MAX_CHUNK_SIZE as usize)
-            .collect_vec();
+        let mut rng = new_test_rng();
+        let data = random_bytes(&mut rng, 5 * MAX_CHUNK_SIZE as usize);
 
         basic_write_and_close(&data[..MIN as usize]);
         basic_write_and_close(&data[..(MAX_CHUNK_SIZE as usize * 4)]);

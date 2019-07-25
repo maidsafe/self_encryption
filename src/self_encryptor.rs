@@ -816,19 +816,10 @@ mod tests {
         get_chunk_number, get_chunk_size, get_num_chunks, get_previous_chunk_number,
         get_start_end_positions, SelfEncryptor,
     };
-    use crate::test_helpers::SimpleStorage;
+    use crate::test_helpers::{self, new_test_rng, random_bytes, SimpleStorage};
     use futures::Future;
-    use maidsafe_utilities::serialisation;
-    use rand::{
-        self,
-        distributions::{Range, Sample},
-        Rng,
-    };
+    use rand::{self, Rng};
     use unwrap::unwrap;
-
-    fn random_bytes(size: usize) -> Vec<u8> {
-        rand::thread_rng().gen_iter().take(size).collect()
-    }
 
     #[test]
     // Sorry
@@ -1111,7 +1102,8 @@ mod tests {
             .expect("Encryptor construction shouldn't fail.");
         let size = 3;
         let offset = 5u32;
-        let the_bytes = random_bytes(size);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, size);
         se.write(&the_bytes, offset as u64)
             .wait()
             .expect("Writing to encryptor shouldn't fail.");
@@ -1122,8 +1114,9 @@ mod tests {
     fn multiple_writes() {
         let size1 = 3;
         let size2 = 4;
-        let part1 = random_bytes(size1);
-        let part2 = random_bytes(size2);
+        let mut rng = new_test_rng();
+        let part1 = random_bytes(&mut rng, size1);
+        let part2 = random_bytes(&mut rng, size2);
         let data_map;
 
         {
@@ -1151,7 +1144,8 @@ mod tests {
     fn three_min_chunks_minus_one() {
         let data_map: DataMap;
         let bytes_len = (MIN_CHUNK_SIZE * 3) - 1;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
 
         {
             let storage = SimpleStorage::new();
@@ -1181,7 +1175,8 @@ mod tests {
 
     #[test]
     fn three_min_chunks() {
-        let the_bytes = random_bytes(MIN_CHUNK_SIZE as usize * 3);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, MIN_CHUNK_SIZE as usize * 3);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1212,7 +1207,8 @@ mod tests {
     #[test]
     fn three_min_chunks_plus_one() {
         let bytes_len = (MIN_CHUNK_SIZE * 3) + 1;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1240,7 +1236,8 @@ mod tests {
     #[test]
     fn three_max_chunks() {
         let bytes_len = MAX_CHUNK_SIZE * 3;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1268,7 +1265,8 @@ mod tests {
     #[test]
     fn three_max_chunks_plus_one() {
         let bytes_len = (MAX_CHUNK_SIZE * 3) + 1;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1298,7 +1296,8 @@ mod tests {
     #[test]
     fn seven_and_a_bit_max_chunks() {
         let bytes_len = (MAX_CHUNK_SIZE * 7) + 1024;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1327,7 +1326,8 @@ mod tests {
     fn large_file_one_byte_under_eleven_chunks() {
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) - 1;
-        let the_bytes = random_bytes(bytes_len);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1360,7 +1360,8 @@ mod tests {
     fn large_file_one_byte_over_eleven_chunks() {
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1;
-        let the_bytes = random_bytes(bytes_len);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1397,7 +1398,8 @@ mod tests {
         // has been tested for 50 chunks
         let number_of_chunks: u32 = 11;
         let bytes_len = (MAX_CHUNK_SIZE as usize * number_of_chunks as usize) + 1024;
-        let the_bytes = random_bytes(bytes_len);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1434,7 +1436,8 @@ mod tests {
     #[test]
     fn five_and_extend_to_seven_plus_one() {
         let bytes_len = MAX_CHUNK_SIZE * 5;
-        let the_bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let the_bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
@@ -1461,7 +1464,8 @@ mod tests {
     #[test]
     fn truncate_three_max_chunks() {
         let bytes_len = MAX_CHUNK_SIZE * 3;
-        let bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1500,7 +1504,8 @@ mod tests {
     #[test]
     fn truncate_from_data_map() {
         let bytes_len = MAX_CHUNK_SIZE * 3;
-        let bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1545,7 +1550,8 @@ mod tests {
     #[test]
     fn truncate_from_data_map2() {
         let bytes_len = MAX_CHUNK_SIZE * 3;
-        let bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1595,7 +1601,8 @@ mod tests {
     #[test]
     fn truncate_to_extend_from_data_map() {
         let bytes_len = MAX_CHUNK_SIZE * 3 - 24;
-        let bytes = random_bytes(bytes_len as usize);
+        let mut rng = new_test_rng();
+        let bytes = random_bytes(&mut rng, bytes_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1642,7 +1649,8 @@ mod tests {
     fn large_100mb_file() {
         let number_of_chunks: u32 = 100;
         let bytes_len = MAX_CHUNK_SIZE as usize * number_of_chunks as usize;
-        let bytes = random_bytes(bytes_len);
+        let mut rng = new_test_rng();
+        let bytes = random_bytes(&mut rng, bytes_len);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1677,7 +1685,8 @@ mod tests {
     #[test]
     fn write_starting_with_existing_data_map() {
         let part1_len = MIN_CHUNK_SIZE * 3;
-        let part1_bytes = random_bytes(part1_len as usize);
+        let mut rng = new_test_rng();
+        let part1_bytes = random_bytes(&mut rng, part1_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1690,7 +1699,7 @@ mod tests {
         };
 
         let part2_len = 1024;
-        let part2_bytes = random_bytes(part2_len as usize);
+        let part2_bytes = random_bytes(&mut rng, part2_len as usize);
         let full_len = part1_len + part2_len;
         let (data_map2, storage) = {
             // Start with an existing data_map.
@@ -1711,7 +1720,8 @@ mod tests {
     #[test]
     fn write_starting_with_existing_data_map2() {
         let part1_len = MAX_CHUNK_SIZE * 3 - 24;
-        let part1_bytes = random_bytes(part1_len as usize);
+        let mut rng = new_test_rng();
+        let part1_bytes = random_bytes(&mut rng, part1_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1724,7 +1734,7 @@ mod tests {
         };
 
         let part2_len = 1024;
-        let part2_bytes = random_bytes(part2_len as usize);
+        let part2_bytes = random_bytes(&mut rng, part2_len as usize);
         let full_len = part1_len + part2_len;
         let (data_map2, storage) = {
             // Start with an existing data_map.
@@ -1757,7 +1767,8 @@ mod tests {
     #[test]
     fn overwrite_starting_with_existing_data_map() {
         let part1_len = MAX_CHUNK_SIZE * 4;
-        let part1_bytes = random_bytes(part1_len as usize);
+        let mut rng = new_test_rng();
+        let part1_bytes = random_bytes(&mut rng, part1_len as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
@@ -1770,7 +1781,7 @@ mod tests {
         };
 
         let part2_len = 2;
-        let part2_bytes = random_bytes(part2_len);
+        let part2_bytes = random_bytes(&mut rng, part2_len);
         let (data_map2, storage) = {
             // Start with an existing data_map.
             let se = SelfEncryptor::new(storage, data_map)
@@ -1797,7 +1808,7 @@ mod tests {
 
     fn create_vector_data_map(vec_len: usize) -> (DataMap, SimpleStorage) {
         let data: Vec<usize> = (0..vec_len).collect();
-        let serialised_data: Vec<u8> = unwrap!(serialisation::serialise(&data));
+        let serialised_data: Vec<u8> = test_helpers::serialise(&data);
         let storage = SimpleStorage::new();
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
         unwrap!(self_encryptor.write(&serialised_data, 0).wait());
@@ -1810,7 +1821,7 @@ mod tests {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
         let length = self_encryptor.len();
         let data_to_deserialise = unwrap!(self_encryptor.read(0, length).wait());
-        let data: Vec<usize> = unwrap!(serialisation::deserialise(&data_to_deserialise));
+        let data: Vec<usize> = unwrap!(test_helpers::deserialise(&data_to_deserialise));
         assert_eq!(data.len(), vec_len);
         for (index, data_char) in data.iter().enumerate() {
             assert_eq!(*data_char, index);
@@ -1846,9 +1857,8 @@ mod tests {
         // extra bytes appended to last chunk.
         min_test_size = max_test_size;
         max_test_size = (3 * MAX_CHUNK_SIZE) + 1;
-        let mut range = Range::new(90_000, 100_000);
-        let mut rng = rand::thread_rng();
-        let step = range.sample(&mut rng);
+        let mut rng = new_test_rng();
+        let step = rng.gen_range(90_000, 100_000);
         for file_size in (min_test_size..max_test_size).filter(|&elt| elt % step == 0) {
             assert_eq!(get_num_chunks(file_size as u64), 3);
             let mut index_start;

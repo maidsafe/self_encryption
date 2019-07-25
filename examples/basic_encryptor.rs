@@ -54,8 +54,7 @@
 
 use docopt::Docopt;
 use futures::{future, Future};
-use maidsafe_utilities::serialisation;
-use self_encryption::{self, DataMap, SelfEncryptor, Storage, StorageError};
+use self_encryption::{self, test_helpers, DataMap, SelfEncryptor, Storage, StorageError};
 use serde::Deserialize;
 use std::{
     env,
@@ -227,7 +226,7 @@ fn main() {
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
-                    let encoded = unwrap!(serialisation::serialise(&data_map));
+                    let encoded = test_helpers::serialise(&data_map);
                     match file.write_all(&encoded[..]) {
                         Ok(_) => println!("Data map written to {:?}", data_map_file),
                         Err(error) => {
@@ -255,7 +254,7 @@ fn main() {
             let mut data = Vec::new();
             let _ = unwrap!(file.read_to_end(&mut data));
 
-            if let Ok(data_map) = serialisation::deserialise::<DataMap>(&data) {
+            if let Some(data_map) = test_helpers::deserialise::<DataMap>(&data) {
                 let se = SelfEncryptor::new(storage, data_map)
                     .expect("Encryptor construction shouldn't fail.");
                 let length = se.len();
