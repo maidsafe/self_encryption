@@ -71,7 +71,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 static USAGE: &'static str = "
 Usage: basic_encryptor -h
        basic_encryptor -e <target>
@@ -144,7 +144,7 @@ impl DiskBasedStorage {
 impl Storage for DiskBasedStorage {
     type Error = DiskBasedStorageError;
 
-    fn get(&self, name: &[u8]) -> Box<Future<Item = Vec<u8>, Error = DiskBasedStorageError>> {
+    fn get(&self, name: &[u8]) -> Box<dyn Future<Item = Vec<u8>, Error = DiskBasedStorageError>> {
         let path = self.calculate_path(name);
         let mut file = match File::open(&path) {
             Ok(file) => file,
@@ -162,7 +162,7 @@ impl Storage for DiskBasedStorage {
         &mut self,
         name: Vec<u8>,
         data: Vec<u8>,
-    ) -> Box<Future<Item = (), Error = DiskBasedStorageError>> {
+    ) -> Box<dyn Future<Item = (), Error = DiskBasedStorageError>> {
         let path = self.calculate_path(&name);
         let mut file = match File::create(&path) {
             Ok(file) => file,

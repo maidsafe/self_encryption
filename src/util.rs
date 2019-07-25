@@ -10,7 +10,7 @@ use futures::Future;
 
 // Type alias for Box<Future>. Unlike `futures::BoxFuture` this doesn't require
 // the future to implement `Send`.
-pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
+pub type BoxFuture<T, E> = Box<dyn Future<Item = T, Error = E>>;
 
 // Extension methods for Future.
 pub trait FutureExt: Future {
