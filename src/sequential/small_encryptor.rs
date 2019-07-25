@@ -73,6 +73,7 @@ mod tests {
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
+    use unwrap::unwrap;
 
     // Writes all of `data` to a new encryptor in a single call, then closes and reads back via
     // a `SelfEncryptor`.

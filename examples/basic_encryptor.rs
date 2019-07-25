@@ -53,11 +53,6 @@
 )]
 
 use self_encryption;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate unwrap;
-
 use docopt::Docopt;
 use futures::{future, Future};
 use maidsafe_utilities::serialisation;
@@ -70,6 +65,8 @@ use std::io::Error as IoError;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
+use serde::Deserialize;
+use unwrap::unwrap;
 
 #[rustfmt::skip]
 static USAGE: &'static str = "

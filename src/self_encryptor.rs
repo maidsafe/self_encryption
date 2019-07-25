@@ -24,6 +24,7 @@ use std::io::Cursor;
 use std::iter;
 use std::rc::Rc;
 use tiny_keccak::sha3_256;
+use unwrap::unwrap;
 
 const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -817,6 +818,7 @@ mod tests {
     use maidsafe_utilities::serialisation;
     use rand::distributions::{Range, Sample};
     use rand::{self, Rng};
+    use unwrap::unwrap;
 
     fn random_bytes(size: usize) -> Vec<u8> {
         rand::thread_rng().gen_iter().take(size).collect()

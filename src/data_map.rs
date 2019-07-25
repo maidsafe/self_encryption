@@ -7,6 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use std::fmt::{Debug, Error, Formatter, Write};
+use serde::{Serialize, Deserialize};
 
 /// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
 /// chunk.

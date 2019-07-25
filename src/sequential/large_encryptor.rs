@@ -15,6 +15,7 @@ use futures::{future, Future};
 use std::convert::From;
 use std::{cmp, mem};
 use tiny_keccak::sha3_256;
+use unwrap::unwrap;
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
 const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;

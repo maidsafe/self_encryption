@@ -17,6 +17,7 @@ use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
+use unwrap::unwrap;
 
 enum State<S> {
     Small(SmallEncryptor<S>),
