@@ -6,17 +6,23 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::large_encryptor::{self, LargeEncryptor};
-use super::medium_encryptor::{self, MediumEncryptor};
-use super::small_encryptor::SmallEncryptor;
-use super::{utils, SelfEncryptionError, Storage};
-use crate::data_map::DataMap;
-use crate::util::{BoxFuture, FutureExt};
+use super::{
+    large_encryptor::{self, LargeEncryptor},
+    medium_encryptor::{self, MediumEncryptor},
+    small_encryptor::SmallEncryptor,
+    utils, SelfEncryptionError, Storage,
+};
+use crate::{
+    data_map::DataMap,
+    util::{BoxFuture, FutureExt},
+};
 use futures::{future, Future};
-use std::cell::RefCell;
-use std::fmt::{self, Debug};
-use std::mem;
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    fmt::{self, Debug},
+    mem,
+    rc::Rc,
+};
 use unwrap::unwrap;
 
 enum State<S> {
@@ -226,11 +232,12 @@ impl<S> From<State<S>> for Encryptor<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use super::*;
-    use crate::data_map::DataMap;
-    use crate::self_encryptor::SelfEncryptor;
-    use crate::test_helpers::{Blob, SimpleStorage};
+    use super::{super::*, *};
+    use crate::{
+        data_map::DataMap,
+        self_encryptor::SelfEncryptor,
+        test_helpers::{Blob, SimpleStorage},
+    };
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;

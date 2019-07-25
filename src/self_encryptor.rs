@@ -9,20 +9,23 @@
 use super::{
     SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
-use crate::data_map::{ChunkDetails, DataMap};
-use crate::encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
-use crate::sequencer::{Sequencer, MAX_IN_MEMORY_SIZE};
-use crate::util::{BoxFuture, FutureExt};
-use brotli;
-use brotli::enc::BrotliEncoderParams;
+use crate::{
+    data_map::{ChunkDetails, DataMap},
+    encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE},
+    sequencer::{Sequencer, MAX_IN_MEMORY_SIZE},
+    util::{BoxFuture, FutureExt},
+};
+use brotli::{self, enc::BrotliEncoderParams};
 use futures::{future, Future};
 use rust_sodium;
-use std::cell::RefCell;
-use std::cmp;
-use std::fmt::{self, Debug, Formatter};
-use std::io::Cursor;
-use std::iter;
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    cmp,
+    fmt::{self, Debug, Formatter},
+    io::Cursor,
+    iter,
+    rc::Rc,
+};
 use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
@@ -808,16 +811,19 @@ fn initialise_rust_sodium() {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{DataMap, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
     use super::{
+        super::{DataMap, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE},
         get_chunk_number, get_chunk_size, get_num_chunks, get_previous_chunk_number,
         get_start_end_positions, SelfEncryptor,
     };
     use crate::test_helpers::SimpleStorage;
     use futures::Future;
     use maidsafe_utilities::serialisation;
-    use rand::distributions::{Range, Sample};
-    use rand::{self, Rng};
+    use rand::{
+        self,
+        distributions::{Range, Sample},
+        Rng,
+    };
     use unwrap::unwrap;
 
     fn random_bytes(size: usize) -> Vec<u8> {

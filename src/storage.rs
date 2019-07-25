@@ -24,5 +24,9 @@ pub trait Storage {
     /// returned.
     fn get(&self, name: &[u8]) -> Box<dyn Future<Item = Vec<u8>, Error = Self::Error>>;
     /// Store `data` under `name`.
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<dyn Future<Item = (), Error = Self::Error>>;
+    fn put(
+        &mut self,
+        name: Vec<u8>,
+        data: Vec<u8>,
+    ) -> Box<dyn Future<Item = (), Error = Self::Error>>;
 }

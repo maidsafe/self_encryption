@@ -52,8 +52,7 @@
 
 use futures::Future;
 use rand::{self, Rng};
-use self_encryption::test_helpers::SimpleStorage;
-use self_encryption::{DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
+use self_encryption::{test_helpers::SimpleStorage, DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
 
 const DATA_SIZE: u32 = 20 * 1024 * 1024;
 

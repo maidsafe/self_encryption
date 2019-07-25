@@ -6,14 +6,16 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::medium_encryptor::MediumEncryptor;
-use super::small_encryptor::SmallEncryptor;
-use super::{utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
-use crate::data_map::{ChunkDetails, DataMap};
-use crate::util::{BoxFuture, FutureExt};
+use super::{
+    medium_encryptor::MediumEncryptor, small_encryptor::SmallEncryptor, utils, SelfEncryptionError,
+    Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
+};
+use crate::{
+    data_map::{ChunkDetails, DataMap},
+    util::{BoxFuture, FutureExt},
+};
 use futures::{future, Future};
-use std::convert::From;
-use std::{cmp, mem};
+use std::{cmp, convert::From, mem};
 use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
@@ -290,13 +292,19 @@ impl<S: Storage> From<SmallEncryptor<S>> for LargeEncryptor<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::medium_encryptor::{self, MediumEncryptor};
-    use super::super::small_encryptor::SmallEncryptor;
-    use super::super::{utils, MAX_CHUNK_SIZE};
-    use super::*;
-    use crate::data_map::DataMap;
-    use crate::self_encryptor::SelfEncryptor;
-    use crate::test_helpers::{Blob, SimpleStorage};
+    use super::{
+        super::{
+            medium_encryptor::{self, MediumEncryptor},
+            small_encryptor::SmallEncryptor,
+            utils, MAX_CHUNK_SIZE,
+        },
+        *,
+    };
+    use crate::{
+        data_map::DataMap,
+        self_encryptor::SelfEncryptor,
+        test_helpers::{Blob, SimpleStorage},
+    };
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;

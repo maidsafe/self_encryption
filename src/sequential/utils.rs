@@ -7,10 +7,11 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{Pad, SelfEncryptionError, StorageError, COMPRESSION_QUALITY, PAD_SIZE};
-use crate::data_map::ChunkDetails;
-use crate::encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE};
-use brotli;
-use brotli::enc::BrotliEncoderParams;
+use crate::{
+    data_map::ChunkDetails,
+    encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE},
+};
+use brotli::{self, enc::BrotliEncoderParams};
 #[cfg(test)]
 use rand::Rng;
 use rust_sodium;

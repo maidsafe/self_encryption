@@ -8,9 +8,10 @@
 
 use super::MAX_FILE_SIZE;
 use memmap::{Mmap, Protection};
-use std::io::Error as IoError;
-use std::io::Write;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::{
+    io::{Error as IoError, Write},
+    ops::{Deref, DerefMut, Index, IndexMut},
+};
 
 pub const MAX_IN_MEMORY_SIZE: usize = 50 * 1024 * 1024;
 

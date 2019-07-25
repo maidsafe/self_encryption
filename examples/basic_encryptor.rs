@@ -52,20 +52,20 @@
     variant_size_differences
 )]
 
-use self_encryption;
 use docopt::Docopt;
 use futures::{future, Future};
 use maidsafe_utilities::serialisation;
-use self_encryption::{DataMap, SelfEncryptor, Storage, StorageError};
-use std::env;
-use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter};
-use std::fs::{self, File};
-use std::io::Error as IoError;
-use std::io::{Read, Write};
-use std::path::PathBuf;
-use std::string::String;
+use self_encryption::{self, DataMap, SelfEncryptor, Storage, StorageError};
 use serde::Deserialize;
+use std::{
+    env,
+    error::Error as StdError,
+    fmt::{self, Display, Formatter},
+    fs::{self, File},
+    io::{Error as IoError, Read, Write},
+    path::PathBuf,
+    string::String,
+};
 use unwrap::unwrap;
 
 #[rustfmt::skip]
