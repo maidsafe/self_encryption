@@ -49,17 +49,9 @@
     missing_debug_implementations,
     variant_size_differences
 )]
-// Doesn't allow casts on constants yet, remove when issue is fixed:
-// https://github.com/rust-lang-nursery/rust-clippy/issues/2267
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(cast_lossless, decimal_literal_representation)
-)]
-
-use rand;
 
 use futures::Future;
-use rand::Rng;
+use rand::{self, Rng};
 use self_encryption::test_helpers::SimpleStorage;
 use self_encryption::{DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
 
@@ -300,7 +292,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
 
 #[test]
 fn cross_platform_check() {
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     static EXPECTED_HASHES: [[u8; 32]; 3] = [
         [98, 4, 121, 14, 80, 44, 103, 243, 182, 251, 248, 171, 11, 254, 131, 103, 156, 178, 138,
          217, 103, 136, 72, 247, 125, 195, 212, 138, 115, 116, 227, 114],

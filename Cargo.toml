@@ -2,29 +2,29 @@
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
 documentation = "https://docs.rs/self_encryption"
+edition = "2018"
 homepage = "https://maidsafe.net"
 license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
 version = "0.14.0"
-edition = "2018"
 
 [dependencies]
-brotli = "~2.1.0"
-futures = "~0.1.15"
+brotli = "~3.3.0"
+futures = "~0.1.28"
 memmap = "~0.5.2"
 rand = "~0.3.15"
-rust_sodium = "~0.10.0"
-serde = "~1.0.24"
-serde_derive = "~1.0.24"
-tiny-keccak = "~1.4.0"
-unwrap = "~1.2.0"
+rust_sodium = "~0.10.2"
+serde = "~1.0.97"
+serde_derive = "~1.0.97"
+tiny-keccak = "~1.5.0"
+unwrap = "~1.2.1"
 
 [dev-dependencies]
 rustc-serialize = "~0.3.24"
-docopt = "~0.8.1"
-itertools = "~0.6.1"
+docopt = "~0.9.0"
+itertools = "~0.8.0"
 maidsafe_utilities = "~0.16.0"
 
 [[example]]

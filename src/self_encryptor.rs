@@ -1876,9 +1876,9 @@ mod tests {
             test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
             for byte_index in test_indices {
                 let expected_number = match byte_index {
-                    CHUNK_0_START...CHUNK_0_END => 0,
-                    CHUNK_1_START...CHUNK_1_END => 1,
-                    CHUNK_2_START...CHUNK_2_END => 2,
+                    CHUNK_0_START..=CHUNK_0_END => 0,
+                    CHUNK_1_START..=CHUNK_1_END => 1,
+                    CHUNK_2_START..=CHUNK_2_END => 2,
                     _ => 3,
                 };
                 assert_eq!(
@@ -1906,9 +1906,9 @@ mod tests {
             test_indices.append(&mut ((CHUNK_2_END + 1)..(file_size - 1)).collect::<Vec<_>>());
             for byte_index in test_indices {
                 let expected_number = match byte_index {
-                    CHUNK_0_START...CHUNK_0_END => 0,
-                    CHUNK_1_START...CHUNK_1_END => 1,
-                    CHUNK_2_START...CHUNK_2_END => 2,
+                    CHUNK_0_START..=CHUNK_0_END => 0,
+                    CHUNK_1_START..=CHUNK_1_END => 1,
+                    CHUNK_2_START..=CHUNK_2_END => 2,
                     _ => 3,
                 };
                 assert_eq!(

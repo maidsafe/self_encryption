@@ -50,18 +50,15 @@
     missing_debug_implementations
 )]
 
-extern crate futures;
-extern crate rand;
-extern crate self_encryption;
+#![feature(test)]
 extern crate test;
-#[macro_use]
-extern crate unwrap;
 
-use futures::Future;
+use futures::future::Future;
 use rand::Rng;
 use self_encryption::test_helpers::SimpleStorage;
 use self_encryption::{DataMap, SelfEncryptor};
 use test::Bencher;
+use unwrap::unwrap;
 
 fn random_bytes(size: usize) -> Vec<u8> {
     rand::thread_rng().gen_iter().take(size).collect()
