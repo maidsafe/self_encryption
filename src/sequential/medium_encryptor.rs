@@ -169,6 +169,7 @@ mod tests {
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;
     use rand::Rng;
+    use unwrap::unwrap;
 
     #[test]
     fn consts() {

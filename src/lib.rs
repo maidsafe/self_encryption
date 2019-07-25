@@ -178,13 +178,6 @@
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
 #![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
-#[cfg(test)]
-extern crate rand;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate unwrap;
-
 mod data_map;
 mod encryption;
 mod error;
