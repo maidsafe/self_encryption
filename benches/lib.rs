@@ -53,17 +53,16 @@
 extern crate test;
 
 use futures::future::Future;
-use rand::Rng;
-use self_encryption::{test_helpers::SimpleStorage, DataMap, SelfEncryptor};
+use self_encryption::{
+    test_helpers::{new_test_rng, random_bytes, SimpleStorage},
+    DataMap, SelfEncryptor,
+};
 use test::Bencher;
 use unwrap::unwrap;
 
-fn random_bytes(size: usize) -> Vec<u8> {
-    rand::thread_rng().gen_iter().take(size).collect()
-}
-
 fn write(bencher: &mut Bencher, bytes_len: u64) {
-    let bytes = random_bytes(bytes_len as usize);
+    let mut rng = new_test_rng();
+    let bytes = random_bytes(&mut rng, bytes_len as usize);
     let mut storage = Some(SimpleStorage::new());
 
     bencher.iter(|| {
@@ -75,7 +74,8 @@ fn write(bencher: &mut Bencher, bytes_len: u64) {
 }
 
 fn read(bencher: &mut Bencher, bytes_len: u64) {
-    let bytes = random_bytes(bytes_len as usize);
+    let mut rng = new_test_rng();
+    let bytes = random_bytes(&mut rng, bytes_len as usize);
     let (data_map, storage) = {
         let storage = SimpleStorage::new();
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));

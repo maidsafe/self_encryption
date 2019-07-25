@@ -70,11 +70,9 @@ mod tests {
     use crate::{
         data_map::DataMap,
         self_encryptor::SelfEncryptor,
-        test_helpers::{Blob, SimpleStorage},
+        test_helpers::{new_test_rng, random_bytes, Blob, SimpleStorage},
     };
     use futures::Future;
-    use itertools::Itertools;
-    use maidsafe_utilities::SeededRng;
     use rand::Rng;
     use unwrap::unwrap;
 
@@ -135,8 +133,8 @@ mod tests {
 
     #[test]
     fn all_unit() {
-        let mut rng = SeededRng::new();
-        let data = rng.gen_iter().take(MAX as usize).collect_vec();
+        let mut rng = new_test_rng();
+        let data = random_bytes(&mut rng, MAX as usize);
 
         basic_write_and_close(&[]);
         basic_write_and_close(&data[..1]);

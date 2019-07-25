@@ -51,14 +51,13 @@
 )]
 
 use futures::Future;
-use rand::{self, Rng};
-use self_encryption::{test_helpers::SimpleStorage, DataMap, SelfEncryptor, MAX_CHUNK_SIZE};
+use rand::{self, seq::SliceRandom, Rng};
+use self_encryption::{
+    test_helpers::{new_test_rng, random_bytes, SimpleStorage},
+    DataMap, SelfEncryptor, MAX_CHUNK_SIZE,
+};
 
 const DATA_SIZE: u32 = 20 * 1024 * 1024;
-
-fn random_bytes(size: usize) -> Vec<u8> {
-    rand::thread_rng().gen_iter().take(size).collect()
-}
 
 #[test]
 fn new_read() {
@@ -66,7 +65,8 @@ fn new_read() {
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
     let storage = SimpleStorage::new();
-    let original = random_bytes(content_len);
+    let mut rng = new_test_rng();
+    let original = random_bytes(&mut rng, content_len);
     {
         let se = SelfEncryptor::new(storage, DataMap::None)
             .expect("Encryptor construction shouldn't fail.");
@@ -145,10 +145,10 @@ fn new_read() {
 
 #[test]
 fn write_random_sizes_at_random_positions() {
-    let mut rng = rand::thread_rng();
+    let mut rng = new_test_rng();
     let storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
-    let original = random_bytes(DATA_SIZE as usize);
+    let original = random_bytes(&mut rng, DATA_SIZE as usize);
     // estimate number of broken pieces, not known in advance
     let mut broken_data: Vec<(u32, &[u8])> =
         Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
@@ -170,14 +170,14 @@ fn write_random_sizes_at_random_positions() {
 
     {
         let slice_broken_data = &mut broken_data[..];
-        rng.shuffle(slice_broken_data);
+        slice_broken_data.shuffle(&mut rng);
     }
 
     match broken_data.iter().filter(|&x| x.0 != last_piece).last() {
         None => panic!("Should never occur. Error in test itself."),
         Some(overlap) => {
             let mut extra: Vec<u8> = overlap.1.to_vec();
-            extra.extend(random_bytes(7usize)[..].iter().cloned());
+            extra.extend(random_bytes(&mut rng, 7usize)[..].iter().cloned());
             let post_overlap: (u32, &[u8]) = (overlap.0, &mut extra[..]);
             let post_position = overlap.0 as usize + overlap.1.len();
             let mut wtotal = 0;
@@ -223,7 +223,7 @@ fn write_random_sizes_at_random_positions() {
 fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     let parts = 20usize;
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
-    let mut rng = rand::thread_rng();
+    let mut rng = new_test_rng();
     let mut total_size = 0u64;
     let mut original = vec![0u8; DATA_SIZE as usize];
 
@@ -239,7 +239,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             assert!(DATA_SIZE as u64 >= total_size);
 
             // Create the random piece and copy to the comparison vector.
-            let piece = random_bytes(piece_size as usize);
+            let piece = random_bytes(&mut rng, piece_size as usize);
             for a in 0..piece_size {
                 original[(offset + a) as usize] = piece[a as usize];
             }

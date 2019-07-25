@@ -236,12 +236,9 @@ mod tests {
     use crate::{
         data_map::DataMap,
         self_encryptor::SelfEncryptor,
-        test_helpers::{Blob, SimpleStorage},
+        test_helpers::{new_test_rng, random_bytes, Blob, SimpleStorage},
     };
     use futures::Future;
-    use itertools::Itertools;
-    use maidsafe_utilities::SeededRng;
-    use rand::Rng;
 
     fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
@@ -266,11 +263,8 @@ mod tests {
 
     #[test]
     fn transitions() {
-        let mut rng = SeededRng::new();
-        let data = rng
-            .gen_iter()
-            .take(4 * MAX_CHUNK_SIZE as usize + 1)
-            .collect_vec();
+        let mut rng = new_test_rng();
+        let data = random_bytes(&mut rng, 4 * MAX_CHUNK_SIZE as usize + 1);
 
         // Write 0 bytes.
         let (mut data_map, mut storage) = {
