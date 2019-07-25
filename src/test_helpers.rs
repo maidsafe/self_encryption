@@ -11,9 +11,11 @@
 use super::{Storage, StorageError};
 use crate::util::{BoxFuture, FutureExt};
 use futures::future;
-use std::cmp;
-use std::error::Error;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    cmp,
+    error::Error,
+    fmt::{self, Debug, Display, Formatter},
+};
 
 #[derive(PartialEq, Eq)]
 pub struct Blob<'a>(pub &'a [u8]);

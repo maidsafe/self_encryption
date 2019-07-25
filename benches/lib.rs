@@ -49,14 +49,12 @@
     missing_copy_implementations,
     missing_debug_implementations
 )]
-
 #![feature(test)]
 extern crate test;
 
 use futures::future::Future;
 use rand::Rng;
-use self_encryption::test_helpers::SimpleStorage;
-use self_encryption::{DataMap, SelfEncryptor};
+use self_encryption::{test_helpers::SimpleStorage, DataMap, SelfEncryptor};
 use test::Bencher;
 use unwrap::unwrap;
 

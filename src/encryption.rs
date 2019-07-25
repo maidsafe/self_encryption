@@ -10,8 +10,7 @@
 
 use rust_sodium::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
 
-pub use rust_sodium::crypto::secretbox::Key;
-pub use rust_sodium::crypto::secretbox::Nonce as Iv;
+pub use rust_sodium::crypto::secretbox::{Key, Nonce as Iv};
 pub type DecryptionError = ();
 
 pub const KEY_SIZE: usize = KEYBYTES;

@@ -7,8 +7,10 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{SelfEncryptionError, Storage, MIN_CHUNK_SIZE};
-use crate::data_map::DataMap;
-use crate::util::{BoxFuture, FutureExt};
+use crate::{
+    data_map::DataMap,
+    util::{BoxFuture, FutureExt},
+};
 use futures::future;
 
 pub const MAX: u64 = (3 * MIN_CHUNK_SIZE as u64) - 1;
@@ -64,11 +66,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::utils;
-    use super::*;
-    use crate::data_map::DataMap;
-    use crate::self_encryptor::SelfEncryptor;
-    use crate::test_helpers::{Blob, SimpleStorage};
+    use super::{super::utils, *};
+    use crate::{
+        data_map::DataMap,
+        self_encryptor::SelfEncryptor,
+        test_helpers::{Blob, SimpleStorage},
+    };
     use futures::Future;
     use itertools::Itertools;
     use maidsafe_utilities::SeededRng;

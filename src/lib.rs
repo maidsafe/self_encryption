@@ -73,7 +73,7 @@
 //! impl Storage for SimpleStorage {
 //!    type Error = SimpleStorageError;
 //!
-//!    fn get(&self, name: &[u8]) -> Box<Future<Item=Vec<u8>, Error=Self::Error>> {
+//!    fn get(&self, name: &[u8]) -> Box<dyn Future<Item=Vec<u8>, Error=Self::Error>> {
 //!        let result = match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
@@ -82,7 +82,7 @@
 //!        Box::new(future::result(result))
 //!    }
 //!
-//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<Future<Item=(), Error=Self::Error>> {
+//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<dyn Future<Item=(), Error=Self::Error>> {
 //!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
@@ -127,7 +127,7 @@
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
-    html_favicon_url = "http://maidsafe.net/img/favicon.ico",
+    html_favicon_url = "https://maidsafe.net/img/favicon.ico",
     test(attr(forbid(warnings)))
 )]
 // For explanation of lint checks, run `rustc -W help` or see
@@ -188,11 +188,13 @@ mod storage;
 pub mod test_helpers;
 mod util;
 
-pub use crate::data_map::{ChunkDetails, DataMap};
-pub use crate::error::SelfEncryptionError;
-pub use crate::self_encryptor::SelfEncryptor;
-pub use crate::sequential::encryptor::Encryptor as SequentialEncryptor;
-pub use crate::storage::{Storage, StorageError};
+pub use crate::{
+    data_map::{ChunkDetails, DataMap},
+    error::SelfEncryptionError,
+    self_encryptor::SelfEncryptor,
+    sequential::encryptor::Encryptor as SequentialEncryptor,
+    storage::{Storage, StorageError},
+};
 
 /// The maximum size of file which can be self-encrypted, defined as 1GB.
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
