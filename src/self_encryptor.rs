@@ -26,7 +26,6 @@ use std::{
     iter,
     rc::Rc,
 };
-use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
 const HASH_SIZE: usize = 32;
@@ -385,7 +384,9 @@ where
                 let this_size = get_chunk_size(self.file_size, i as u32) as usize;
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
                 assert!(this_size > 0);
-                let name = sha3_256(&(*self.sequencer)[pos..pos + this_size]);
+                let name = self
+                    .storage
+                    .generate_address(&(*self.sequencer)[pos..pos + this_size]);
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -409,7 +410,7 @@ where
                     Ok(content) => content,
                     Err(error) => return future::err(error).into_box(),
                 };
-                let name = sha3_256(&content);
+                let name = self.storage.generate_address(&content);
 
                 put_futures.push(
                     self.storage

@@ -20,6 +20,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     thread,
 };
+use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
 pub type TestRng = ChaChaRng;
@@ -97,6 +98,10 @@ impl Storage for SimpleStorage {
         self.entries.push(Entry { name, data });
 
         future::ok(()).into_box()
+    }
+
+    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+        sha3_256(data).to_vec()
     }
 }
 
