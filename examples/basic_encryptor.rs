@@ -65,6 +65,7 @@ use std::{
     path::PathBuf,
     string::String,
 };
+use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
 #[rustfmt::skip]
@@ -172,6 +173,10 @@ impl Storage for DiskBasedStorage {
             })
             .map_err(From::from);
         Box::new(future::result(result))
+    }
+
+    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+        sha3_256(data).to_vec()
     }
 }
 

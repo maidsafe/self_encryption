@@ -29,4 +29,7 @@ pub trait Storage {
         name: Vec<u8>,
         data: Vec<u8>,
     ) -> Box<dyn Future<Item = (), Error = Self::Error>>;
+
+    /// Generate the address at which the data will be stored. This address will be stored as a part of the data map.
+    fn generate_address(&self, data: &[u8]) -> Vec<u8>;
 }

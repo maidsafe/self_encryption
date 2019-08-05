@@ -16,7 +16,6 @@ use crate::{
 };
 use futures::{future, Future};
 use std::{cmp, convert::From, mem};
-use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
 pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
@@ -239,7 +238,7 @@ where
                 self.chunks.push(ChunkDetails {
                     chunk_num: index,
                     hash: vec![],
-                    pre_hash: sha3_256(buffer_ref).to_vec(),
+                    pre_hash: self.storage.generate_address(buffer_ref),
                     source_size: MAX_CHUNK_SIZE as u64,
                 });
             }
@@ -256,7 +255,7 @@ where
             self.chunks.push(ChunkDetails {
                 chunk_num: index as u32,
                 hash: vec![],
-                pre_hash: sha3_256(data).to_vec(),
+                pre_hash: self.storage.generate_address(data),
                 source_size: data.len() as u64,
             });
         }
@@ -267,7 +266,7 @@ where
             Err(error) => return future::err(error).into_box(),
         };
 
-        let hash = sha3_256(&encrypted_contents);
+        let hash = self.storage.generate_address(&encrypted_contents);
         self.chunks[index].hash = hash.to_vec();
 
         self.storage

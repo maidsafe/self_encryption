@@ -36,6 +36,7 @@
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::{Storage, StorageError};
+//! use tiny_keccak::sha3_256;
 //!
 //! #[derive(Debug, Clone)]
 //! struct SimpleStorageError {}
@@ -89,6 +90,10 @@
 //!        });
 //!
 //!        Box::new(future::ok(()))
+//!    }
+//!
+//!    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+//!         sha3_256(data).to_vec()
 //!    }
 //! }
 //!

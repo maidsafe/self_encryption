@@ -16,7 +16,6 @@ use crate::{
 };
 use futures::{future, Future};
 use std::convert::From;
-use tiny_keccak::sha3_256;
 
 pub const MIN: u64 = 3 * MIN_CHUNK_SIZE as u64;
 pub const MAX: u64 = 3 * MAX_CHUNK_SIZE as u64;
@@ -106,7 +105,7 @@ where
                 chunk_details.push(ChunkDetails {
                     chunk_num: index as u32,
                     hash: vec![],
-                    pre_hash: sha3_256(contents).to_vec(),
+                    pre_hash: self.storage.generate_address(contents),
                     source_size: contents.len() as u64,
                 });
             }
@@ -123,7 +122,7 @@ where
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let future = match utils::encrypt_chunk(contents, pad_key_iv) {
                     Ok(encrypted_contents) => {
-                        let hash = sha3_256(&encrypted_contents);
+                        let hash = self.storage.generate_address(&encrypted_contents);
                         details.hash = hash.to_vec();
                         self.storage
                             .put(hash.to_vec(), encrypted_contents)
