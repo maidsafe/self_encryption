@@ -1,5 +1,13 @@
 # Self-Encryption - Change Log
 
+## [0.15.0]
+
+- Update rand to 0.6.0
+- Remove the legacy maidsafe_utilities dependency
+- Update memmap to 0.7.0 and remove the unsafe code
+- Add `generate_address` function to the `Storage` trait to support data types with different address deriving algorithms
+- Use rust stable / edition 2018
+
 ## [0.14.0]
 
 - Update tiny_keccak to 1.4.0
