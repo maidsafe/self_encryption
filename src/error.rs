@@ -18,10 +18,12 @@ use std::{
 pub enum SelfEncryptionError<E: StorageError> {
     /// An error during compression or decompression.
     Compression,
+    /// An error during initializing CBC-AES cipher instance.
+    Cipher(String),
     /// An error within the symmetric encryption process.
     Encryption,
     /// An error within the symmetric decryption process.
-    Decryption,
+    Decryption(String),
     /// A generic I/O error, likely arising from use of memmap.
     Io(IoError),
     /// An error in putting or retrieving chunks from the storage object.
@@ -34,7 +36,14 @@ impl<E: StorageError> Display for SelfEncryptionError<E> {
             SelfEncryptionError::Compression => {
                 write!(formatter, "Error while compressing or decompressing")
             }
-            SelfEncryptionError::Decryption => write!(formatter, "Symmetric decryption error"),
+            SelfEncryptionError::Cipher(ref error) => write!(
+                formatter,
+                "Error while creating cipher instance: {:?}",
+                error
+            ),
+            SelfEncryptionError::Decryption(ref error) => {
+                write!(formatter, "Symmetric decryption error: {:?}", error)
+            }
             SelfEncryptionError::Encryption => write!(formatter, "Symmetric encryption error"),
             SelfEncryptionError::Io(ref error) => {
                 write!(formatter, "Internal I/O error: {}", error)
@@ -50,7 +59,8 @@ impl<E: StorageError> StdError for SelfEncryptionError<E> {
     fn description(&self) -> &str {
         match *self {
             SelfEncryptionError::Compression => "Compression error",
-            SelfEncryptionError::Decryption => "Symmetric decryption error",
+            SelfEncryptionError::Cipher(_) => "Cipher error",
+            SelfEncryptionError::Decryption(_) => "Symmetric decryption error",
             SelfEncryptionError::Encryption => "Symmetric encryption error",
             SelfEncryptionError::Io(_) => "I/O error",
             SelfEncryptionError::Storage(ref error) => error.description(),
