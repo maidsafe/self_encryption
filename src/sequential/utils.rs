@@ -9,12 +9,12 @@
 use super::{Pad, SelfEncryptionError, StorageError, COMPRESSION_QUALITY, PAD_SIZE};
 use crate::{
     data_map::ChunkDetails,
-    encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE},
+    encryption::{self, IV_SIZE, KEY_SIZE},
+    sequential::{Iv, Key},
 };
 use brotli::{self, enc::BrotliEncoderParams};
 #[cfg(test)]
 use rand::Rng;
-use rust_sodium;
 #[cfg(test)]
 use std::cmp;
 use std::io::Cursor;
@@ -60,7 +60,7 @@ pub fn encrypt_chunk<E: StorageError>(
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = encryption::encrypt(&compressed, &key, &iv);
+    let encrypted = encryption::encrypt(&compressed, &key, &iv)?;
     Ok(xor(&encrypted, &pad))
 }
 
@@ -85,10 +85,6 @@ pub fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
         .zip(pad.iter().cycle())
         .map(|(&a, &b)| a ^ b)
         .collect()
-}
-
-pub fn initialise_rust_sodium() {
-    assert!(rust_sodium::init().is_ok());
 }
 
 #[cfg(test)]

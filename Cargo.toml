@@ -11,13 +11,14 @@ repository = "https://github.com/maidsafe/self_encryption"
 version = "0.15.0"
 
 [dependencies]
+aes = "0.3.2"
+block-modes = "0.3.3"
 bincode = "~1.1.4"
 brotli = "~3.3.0"
 futures = "~0.1.28"
 memmap = "~0.7.0"
 rand = "~0.6.0"
 rand_chacha = "~0.1.1"
-rust_sodium = "~0.10.2"
 serde = { version = "~1.0.97", features = ["derive"] }
 tiny-keccak = "~1.5.0"
 unwrap = "~1.2.1"

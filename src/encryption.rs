@@ -8,18 +8,46 @@
 
 // TODO(dirvine) Look at aessafe 256X8 cbc it should be very much faster  :01/03/2015
 
-use rust_sodium::crypto::secretbox::{self, KEYBYTES, NONCEBYTES};
+use crate::sequential::{Iv, Key};
+use crate::MAX_CHUNK_SIZE;
+use crate::{SelfEncryptionError, StorageError};
+use aes::Aes128;
+use block_modes::block_padding::Pkcs7;
+use block_modes::{BlockMode, Cbc};
+type Aes128Cbc = Cbc<Aes128, Pkcs7>;
 
-pub use rust_sodium::crypto::secretbox::{Key, Nonce as Iv};
-pub type DecryptionError = ();
+pub const KEY_SIZE: usize = 16;
+pub const IV_SIZE: usize = 16;
 
-pub const KEY_SIZE: usize = KEYBYTES;
-pub const IV_SIZE: usize = NONCEBYTES;
+// Buffer size is set to max chunk size + 100 bytes for padding.
+pub const BUFFER_SIZE: usize = MAX_CHUNK_SIZE as usize + 100;
 
-pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Vec<u8> {
-    secretbox::seal(data, iv, key)
+pub fn encrypt<E>(data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError<E>>
+where
+    E: StorageError,
+{
+    let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref()).unwrap();
+    let pos = data.len();
+    let mut buffer = [0u8; BUFFER_SIZE];
+    buffer[..pos].copy_from_slice(data);
+    cipher
+        .encrypt(&mut buffer, pos)
+        .map(|res| res.to_vec())
+        .map_err(|_| SelfEncryptionError::Encryption)
 }
 
-pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, DecryptionError> {
-    secretbox::open(encrypted_data, iv, key)
+pub fn decrypt<E>(
+    encrypted_data: &[u8],
+    key: &Key,
+    iv: &Iv,
+) -> Result<Vec<u8>, SelfEncryptionError<E>>
+where
+    E: StorageError,
+{
+    let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref()).unwrap();
+    let mut buffer = encrypted_data.to_vec();
+    cipher
+        .decrypt(&mut buffer)
+        .map(|res| res.to_vec())
+        .map_err(|_| SelfEncryptionError::Decryption)
 }

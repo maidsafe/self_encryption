@@ -22,3 +22,5 @@ pub const HASH_SIZE: usize = 32;
 pub const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 pub struct Pad(pub [u8; PAD_SIZE]);
+pub struct Key(pub [u8; KEY_SIZE]);
+pub struct Iv(pub [u8; IV_SIZE]);

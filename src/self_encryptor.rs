@@ -11,13 +11,13 @@ use super::{
 };
 use crate::{
     data_map::{ChunkDetails, DataMap},
-    encryption::{self, Iv, Key, IV_SIZE, KEY_SIZE},
+    encryption::{self, IV_SIZE, KEY_SIZE},
     sequencer::{Sequencer, MAX_IN_MEMORY_SIZE},
+    sequential::{Iv, Key},
     util::{BoxFuture, FutureExt},
 };
 use brotli::{self, enc::BrotliEncoderParams};
 use futures::{future, Future};
-use rust_sodium;
 use std::{
     cell::RefCell,
     cmp,
@@ -78,7 +78,6 @@ where
         storage: S,
         data_map: DataMap,
     ) -> Result<SelfEncryptor<S>, SelfEncryptionError<S::Error>> {
-        initialise_rust_sodium();
         let file_size = data_map.len();
         let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
             Sequencer::new_as_vector()
@@ -404,7 +403,6 @@ where
                 let pos = get_start_end_positions(self.file_size, i as u32).0 as usize;
 
                 assert!(this_size > 0);
-
                 let pki = get_pad_key_and_iv(i as u32, &new_map, self.file_size);
                 let content = match encrypt_chunk(&(*self.sequencer)[pos..pos + this_size], pki) {
                     Ok(content) => content,
@@ -587,7 +585,7 @@ where
         .map_err(SelfEncryptionError::Storage)
         .and_then(move |content| {
             let xor_result = xor(&content, &pad);
-            encryption::decrypt(&xor_result, &key, &iv).map_err(|_| SelfEncryptionError::Decryption)
+            encryption::decrypt(&xor_result, &key, &iv)
         })
         .and_then(|decrypted| {
             let mut decompressed = vec![];
@@ -610,7 +608,7 @@ fn encrypt_chunk<E: StorageError>(
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = encryption::encrypt(&compressed, &key, &iv);
+    let encrypted = encryption::encrypt(&compressed, &key, &iv)?;
     Ok(xor(&encrypted, &pad))
 }
 
@@ -804,10 +802,6 @@ impl<S: Storage> Debug for SelfEncryptor<S> {
         writeln!(formatter, "    map_size: {}", state.map_size)?;
         writeln!(formatter, "    file_size: {}}}", state.file_size)
     }
-}
-
-fn initialise_rust_sodium() {
-    assert!(rust_sodium::init().is_ok());
 }
 
 #[cfg(test)]

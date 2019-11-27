@@ -10,7 +10,7 @@ use super::{
     large_encryptor::{self, LargeEncryptor},
     medium_encryptor::{self, MediumEncryptor},
     small_encryptor::SmallEncryptor,
-    utils, SelfEncryptionError, Storage,
+    SelfEncryptionError, Storage,
 };
 use crate::{
     data_map::DataMap,
@@ -130,7 +130,6 @@ where
         storage: S,
         data_map: Option<DataMap>,
     ) -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
-        utils::initialise_rust_sodium();
         match data_map {
             Some(DataMap::Content(content)) => SmallEncryptor::new(storage, content)
                 .map(State::from)
