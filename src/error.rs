@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::{encryption::DecryptionError, storage::StorageError};
+use crate::storage::StorageError;
 use std::{
     error::Error as StdError,
     fmt::{self, Display, Formatter},
@@ -18,7 +18,9 @@ use std::{
 pub enum SelfEncryptionError<E: StorageError> {
     /// An error during compression or decompression.
     Compression,
-    /// An error within the symmetric encryption or decryption process.
+    /// An error within the symmetric encryption process.
+    Encryption,
+    /// An error within the symmetric decryption process.
     Decryption,
     /// A generic I/O error, likely arising from use of memmap.
     Io(IoError),
@@ -33,6 +35,7 @@ impl<E: StorageError> Display for SelfEncryptionError<E> {
                 write!(formatter, "Error while compressing or decompressing")
             }
             SelfEncryptionError::Decryption => write!(formatter, "Symmetric decryption error"),
+            SelfEncryptionError::Encryption => write!(formatter, "Symmetric encryption error"),
             SelfEncryptionError::Io(ref error) => {
                 write!(formatter, "Internal I/O error: {}", error)
             }
@@ -48,15 +51,10 @@ impl<E: StorageError> StdError for SelfEncryptionError<E> {
         match *self {
             SelfEncryptionError::Compression => "Compression error",
             SelfEncryptionError::Decryption => "Symmetric decryption error",
+            SelfEncryptionError::Encryption => "Symmetric encryption error",
             SelfEncryptionError::Io(_) => "I/O error",
             SelfEncryptionError::Storage(ref error) => error.description(),
         }
-    }
-}
-
-impl<E: StorageError> From<DecryptionError> for SelfEncryptionError<E> {
-    fn from(_error: DecryptionError) -> SelfEncryptionError<E> {
-        SelfEncryptionError::Decryption
     }
 }
 
