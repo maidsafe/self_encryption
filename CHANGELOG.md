@@ -1,5 +1,9 @@
 # Self-Encryption - Change Log
 
+## [0.16.0]
+
+- Replace the use of `rust_sodium` with `aes` for encryption.
+
 ## [0.15.0]
 
 - Update rand to 0.6.0
