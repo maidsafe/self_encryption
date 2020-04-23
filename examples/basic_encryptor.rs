@@ -24,7 +24,6 @@
     missing_docs,
     non_shorthand_field_patterns,
     overflowing_literals,
-    plugin_as_library,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -209,13 +208,13 @@ fn main() {
                         );
                     }
                 }
-                Err(error) => return println!("{}", error.description().to_string()),
+                Err(error) => return println!("{}", error.to_string()),
             }
 
             let mut data = Vec::new();
             match file.read_to_end(&mut data) {
                 Ok(_) => (),
-                Err(error) => return println!("{}", error.description().to_string()),
+                Err(error) => return println!("{}", error.to_string()),
             }
 
             let se = SelfEncryptor::new(storage, DataMap::None)

@@ -8,7 +8,6 @@
 
 use crate::storage::StorageError;
 use std::{
-    error::Error as StdError,
     fmt::{self, Display, Formatter},
     io::Error as IoError,
 };
@@ -51,19 +50,6 @@ impl<E: StorageError> Display for SelfEncryptionError<E> {
             SelfEncryptionError::Storage(ref error) => {
                 write!(formatter, "Storage error: {}", error)
             }
-        }
-    }
-}
-
-impl<E: StorageError> StdError for SelfEncryptionError<E> {
-    fn description(&self) -> &str {
-        match *self {
-            SelfEncryptionError::Compression => "Compression error",
-            SelfEncryptionError::Cipher(_) => "Cipher error",
-            SelfEncryptionError::Decryption(_) => "Symmetric decryption error",
-            SelfEncryptionError::Encryption => "Symmetric encryption error",
-            SelfEncryptionError::Io(_) => "I/O error",
-            SelfEncryptionError::Storage(ref error) => error.description(),
         }
     }
 }
