@@ -9,8 +9,9 @@
 #![doc(hidden)]
 
 use super::{Storage, StorageError};
-use crate::util::{BoxFuture, FutureExt};
-use futures::future;
+
+use async_trait::async_trait;
+
 use rand::{self, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 use serde::{de::DeserializeOwned, Serialize};
@@ -82,22 +83,21 @@ impl SimpleStorage {
     }
 }
 
+#[async_trait]
 impl Storage for SimpleStorage {
     type Error = SimpleStorageError;
 
-    fn get(&self, name: &[u8]) -> BoxFuture<Vec<u8>, SimpleStorageError> {
-        let result = match self.entries.iter().find(|entry| entry.name == name) {
+    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
+        match self.entries.iter().find(|entry| entry.name == name) {
             Some(entry) => Ok(entry.data.clone()),
             None => Err(SimpleStorageError {}),
-        };
-
-        future::result(result).into_box()
+        }
     }
 
-    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> BoxFuture<(), SimpleStorageError> {
+    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
         self.entries.push(Entry { name, data });
 
-        future::ok(()).into_box()
+        Ok(())
     }
 
     fn generate_address(&self, data: &[u8]) -> Vec<u8> {

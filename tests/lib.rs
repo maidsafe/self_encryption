@@ -10,7 +10,7 @@
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(
     bad_style,
-    exceeding_bitshifts,
+    arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
     unknown_crate_types,
@@ -49,7 +49,6 @@
     variant_size_differences
 )]
 
-use futures::Future;
 use rand::{self, seq::SliceRandom, Rng};
 use self_encryption::{
     test_helpers::{new_test_rng, random_bytes, SimpleStorage},
@@ -58,8 +57,8 @@ use self_encryption::{
 
 const DATA_SIZE: u32 = 20 * 1024 * 1024;
 
-#[test]
-fn new_read() {
+#[tokio::test]
+async fn new_read() {
     let read_size: usize = 4096;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
@@ -70,12 +69,12 @@ fn new_read() {
         let se = SelfEncryptor::new(storage, DataMap::None)
             .expect("Encryptor construction shouldn't fail.");
         se.write(&original, 0)
-            .wait()
+            .await
             .expect("Writing to encryptor shouldn't fail.");
         {
             let mut decrypted = se
                 .read(read_position as u64, read_size as u64)
-                .wait()
+                .await
                 .expect("Reading part one from encryptor shouldn't fail.");
             assert_eq!(
                 original[read_position..(read_position + read_size)].to_vec(),
@@ -86,7 +85,7 @@ fn new_read() {
             read_position += read_size;
             decrypted = se
                 .read(read_position as u64, read_size as u64)
-                .wait()
+                .await
                 .expect("Reading part two from encryptor shouldn't fail.");
             assert_eq!(
                 original[read_position..(read_position + read_size)].to_vec(),
@@ -97,7 +96,7 @@ fn new_read() {
             read_position = content_len - 3 * read_size;
             decrypted = se
                 .read(read_position as u64, read_size as u64)
-                .wait()
+                .await
                 .expect("Reading past end of encryptor shouldn't fail.");
             assert_eq!(
                 original[read_position..(read_position + read_size)].to_vec(),
@@ -108,7 +107,7 @@ fn new_read() {
             read_position = 5usize;
             decrypted = se
                 .read(read_position as u64, read_size as u64)
-                .wait()
+                .await
                 .expect("Reading from start of encryptor shouldn't fail.");
             assert_eq!(
                 original[read_position..(read_position + read_size)].to_vec(),
@@ -123,11 +122,10 @@ fn new_read() {
             for i in 0..15 {
                 decrypted.extend(
                     se.read(read_position as u64, read_size as u64)
-                        .wait()
-                        .expect(&format!(
-                            "Reading attempt {} from encryptor shouldn't fail",
-                            i
-                        ))
+                        .await
+                        .unwrap_or_else(|_| {
+                            panic!("Reading attempt {} from encryptor shouldn't fail", i)
+                        })
                         .iter()
                         .cloned(),
                 );
@@ -135,15 +133,12 @@ fn new_read() {
                 read_position += read_size;
             }
         }
-        let _ = se
-            .close()
-            .wait()
-            .expect("Closing encryptor shouldn't fail.");
+        let _ = se.close().await.expect("Closing encryptor shouldn't fail.");
     }
 }
 
-#[test]
-fn write_random_sizes_at_random_positions() {
+#[tokio::test]
+async fn write_random_sizes_at_random_positions() {
     let mut rng = new_test_rng();
     let storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
@@ -185,14 +180,14 @@ fn write_random_sizes_at_random_positions() {
                 .expect("Encryptor construction shouldn't fail.");
             for element in &broken_data {
                 se.write(element.1, element.0 as u64)
-                    .wait()
+                    .await
                     .expect("Writing broken data to encryptor shouldn't fail.");
                 wtotal += element.1.len();
             }
             assert_eq!(wtotal, DATA_SIZE as usize);
             let mut decrypted = se
                 .read(0u64, DATA_SIZE as u64)
-                .wait()
+                .await
                 .expect("Reading broken data from encryptor shouldn't fail.");
             assert_eq!(original, decrypted);
 
@@ -204,11 +199,11 @@ fn write_random_sizes_at_random_positions() {
                     .cloned(),
             );
             se.write(post_overlap.1, post_overlap.0 as u64)
-                .wait()
+                .await
                 .expect("Writing overlap to encryptor shouldn't fail.");
             decrypted = se
                 .read(0u64, DATA_SIZE as u64)
-                .wait()
+                .await
                 .expect("Reading all data from encryptor shouldn't fail.");
             assert_eq!(overwrite.len(), decrypted.len());
             assert_eq!(overwrite, decrypted);
@@ -216,10 +211,10 @@ fn write_random_sizes_at_random_positions() {
     }
 }
 
-#[test]
+#[tokio::test]
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
-fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
+async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     let parts = 20usize;
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
     let mut rng = new_test_rng();
@@ -246,15 +241,12 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             // Write the piece to the encryptor and check it can be read back.
             self_encryptor
                 .write(&piece, offset as u64)
-                .wait()
-                .expect(&format!("Writing part {} to encryptor shouldn't fail.", i));
+                .await
+                .unwrap_or_else(|_| panic!("Writing part {} to encryptor shouldn't fail.", i));
             let decrypted = self_encryptor
                 .read(offset as u64, piece_size as u64)
-                .wait()
-                .expect(&format!(
-                    "Reading part {} from encryptor shouldn't fail.",
-                    i
-                ));
+                .await
+                .unwrap_or_else(|_| panic!("Reading part {} from encryptor shouldn't fail.", i));
             assert_eq!(decrypted, piece);
             assert_eq!(total_size, self_encryptor.len());
         }
@@ -263,7 +255,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         // likely will be reading past EOF.  Reading past the end shouldn't affect the file size.
         let decrypted = self_encryptor
             .read(0u64, DATA_SIZE as u64)
-            .wait()
+            .await
             .expect("Reading all data from encryptor shouldn't fail.");
         assert_eq!(decrypted.len(), DATA_SIZE as usize);
         assert_eq!(decrypted, original);
@@ -273,7 +265,7 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         // again.
         self_encryptor
             .close()
-            .wait()
+            .await
             .expect("Closing encryptor shouldn't fail.")
     };
 
@@ -281,15 +273,15 @@ fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         SelfEncryptor::new(storage, data_map).expect("Encryptor construction shouldn't fail.");
     let decrypted = self_encryptor
         .read(0u64, DATA_SIZE as u64)
-        .wait()
+        .await
         .expect("Reading all data again from encryptor shouldn't fail.");
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
     assert_eq!(total_size, self_encryptor.len());
 }
 
-#[test]
-fn cross_platform_check() {
+#[tokio::test]
+async fn cross_platform_check() {
     #[rustfmt::skip]
     static EXPECTED_HASHES: [[u8; 32]; 3] = [
         [90, 123, 178, 77, 189, 56, 250, 228, 43, 186, 33, 61, 74, 91, 212, 16, 157, 230, 227, 31, 132, 167, 178, 127, 44, 33, 184, 3, 80, 29, 195, 41],
@@ -319,19 +311,19 @@ fn cross_platform_check() {
             .expect("Encryptor construction shouldn't fail.");
         self_encryptor
             .write(&chars0[..], 0)
-            .wait()
+            .await
             .expect("Writing first slice to encryptor shouldn't fail.");
         self_encryptor
             .write(&chars1[..], chars0.len() as u64)
-            .wait()
+            .await
             .expect("Writing second slice to encryptor shouldn't fail.");
         self_encryptor
             .write(&chars2[..], chars0.len() as u64 + chars1.len() as u64)
-            .wait()
+            .await
             .expect("Writing third slice to encryptor shouldn't fail.");
         self_encryptor
             .close()
-            .wait()
+            .await
             .expect("Closing encryptor shouldn't fail.")
     };
 

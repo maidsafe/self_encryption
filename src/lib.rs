@@ -32,12 +32,11 @@
 //! ```
 //! # extern crate futures;
 //! # extern crate self_encryption;
-//! use futures::{future, Future};
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::{Storage, StorageError};
 //! use tiny_keccak::sha3_256;
-//!
+//! use async_trait::async_trait;
 //! #[derive(Debug, Clone)]
 //! struct SimpleStorageError {}
 //!
@@ -70,34 +69,31 @@
 //!         SimpleStorage { entries: vec![] }
 //!     }
 //! }
-//!
+//! #[async_trait]
 //! impl Storage for SimpleStorage {
 //!    type Error = SimpleStorageError;
 //!
-//!    fn get(&self, name: &[u8]) -> Box<dyn Future<Item=Vec<u8>, Error=Self::Error>> {
-//!        let result = match self.entries.iter().find(|ref entry| entry.name == name) {
+//!    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, Self::Error> {
+//!        match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
-//!        };
-//!
-//!        Box::new(future::result(result))
+//!        }
+//!         
 //!    }
 //!
-//!    fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Box<dyn Future<Item=(), Error=Self::Error>> {
+//!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), Self::Error> {
 //!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
 //!        });
-//!
-//!        Box::new(future::ok(()))
+//!      Ok(())
 //!    }
 //!
 //!    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
 //!         sha3_256(data).to_vec()
 //!    }
 //! }
-//!
-//! # fn main() {}
+
 //! ```
 //!
 //! Using this `SimpleStorage`, a self-encryptor can be created and written to/read from:
@@ -105,23 +101,23 @@
 //! ```
 //! # extern crate futures;
 //! # extern crate self_encryption;
-//! use futures::Future;
 //! use self_encryption::{DataMap, SelfEncryptor};
 //! # use self_encryption::test_helpers::SimpleStorage;
 //!
-//! fn main() {
+//! #[tokio::main]
+//! async fn main() {
 //!     let storage = SimpleStorage::new();
 //!     let encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
 //!     let data = vec![0, 1, 2, 3, 4, 5];
 //!     let mut offset = 0;
 //!
-//!     encryptor.write(&data, offset).wait().unwrap();
+//!     encryptor.write(&data, offset).await.unwrap();
 //!
 //!     offset = 2;
 //!     let length = 3;
-//!     assert_eq!(encryptor.read(offset, length).wait().unwrap(), vec![2, 3, 4]);
+//!     assert_eq!(encryptor.read(offset, length).await.unwrap(), vec![2, 3, 4]);
 //!
-//!     let data_map = encryptor.close().wait().unwrap().0;
+//!     let data_map = encryptor.close().await.unwrap().0;
 //!     assert_eq!(data_map.len(), 6);
 //! }
 //! ```
@@ -138,7 +134,7 @@
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(
-    exceeding_bitshifts,
+    arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
     unknown_crate_types,
@@ -190,7 +186,6 @@ mod sequencer;
 mod sequential;
 mod storage;
 pub mod test_helpers;
-mod util;
 
 pub use crate::{
     data_map::{ChunkDetails, DataMap},
