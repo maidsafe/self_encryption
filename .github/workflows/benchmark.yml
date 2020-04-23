@@ -1,0 +1,53 @@
+name: Benchmarking
+
+on: [pull_request, push]
+
+env:
+  # Run all cargo commands with --verbose.
+  CARGO_TERM_VERBOSE: true
+  RUST_BACKTRACE: 1
+  # Deny all compiler warnings.
+  RUSTFLAGS: "-D warnings"
+
+
+jobs:
+  bench:
+    name: Benchmarking
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      # Cache.
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+
+      - uses: actions-rs/cargo@v1
+        # skip this step if we've got a cache hit
+        if: steps.${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}.outputs.cache-hit != 'true'
+        with:
+          command: build
+          args: --release
+          
+      - uses: actions-rs/cargo@v1
+        with:
+          command: bench

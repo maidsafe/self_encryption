@@ -11,7 +11,7 @@
 // For explanation of lint checks, run `rustc -W help` or see
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(
-    exceeding_bitshifts,
+    arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
     unknown_crate_types,
@@ -51,8 +51,8 @@
     variant_size_differences
 )]
 
+use async_trait::async_trait;
 use docopt::Docopt;
-use futures::{future, Future};
 use self_encryption::{self, test_helpers, DataMap, SelfEncryptor, Storage, StorageError};
 use serde::Deserialize;
 use std::{
@@ -68,7 +68,7 @@ use tiny_keccak::sha3_256;
 use unwrap::unwrap;
 
 #[rustfmt::skip]
-static USAGE: &'static str = "
+static USAGE: &str = "
 Usage: basic_encryptor -h
        basic_encryptor -e <target>
        basic_encryptor -d <destination>
@@ -137,41 +137,28 @@ impl DiskBasedStorage {
     }
 }
 
+#[async_trait]
 impl Storage for DiskBasedStorage {
     type Error = DiskBasedStorageError;
 
-    fn get(&self, name: &[u8]) -> Box<dyn Future<Item = Vec<u8>, Error = DiskBasedStorageError>> {
+    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
         let path = self.calculate_path(name);
-        let mut file = match File::open(&path) {
-            Ok(file) => file,
-            Err(error) => return Box::new(future::err(From::from(error))),
-        };
+        let mut file = File::open(&path)?;
         let mut data = Vec::new();
-        let result = file
-            .read_to_end(&mut data)
-            .map(move |_| data)
-            .map_err(From::from);
-        Box::new(future::result(result))
+        let _ = file.read_to_end(&mut data);
+
+        Ok(data)
     }
 
-    fn put(
-        &mut self,
-        name: Vec<u8>,
-        data: Vec<u8>,
-    ) -> Box<dyn Future<Item = (), Error = DiskBasedStorageError>> {
+    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), DiskBasedStorageError> {
         let path = self.calculate_path(&name);
-        let mut file = match File::create(&path) {
-            Ok(file) => file,
-            Err(error) => return Box::new(future::err(From::from(error))),
-        };
+        let mut file = File::create(&path)?;
 
-        let result = file
-            .write_all(&data[..])
+        file.write_all(&data[..])
             .map(|_| {
                 println!("Chunk written to {:?}", path);
             })
-            .map_err(From::from);
-        Box::new(future::result(result))
+            .map_err(From::from)
     }
 
     fn generate_address(&self, data: &[u8]) -> Vec<u8> {
@@ -179,7 +166,9 @@ impl Storage for DiskBasedStorage {
     }
 }
 
-fn main() {
+// use tokio to enable an async main func
+#[tokio::main]
+async fn main() {
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
@@ -220,12 +209,10 @@ fn main() {
             let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("Encryptor construction shouldn't fail.");
             se.write(&data, 0)
-                .wait()
+                .await
                 .expect("Writing to encryptor shouldn't fail.");
-            let (data_map, old_storage) = se
-                .close()
-                .wait()
-                .expect("Closing encryptor shouldn't fail.");
+            let (data_map, old_storage) =
+                se.close().await.expect("Closing encryptor shouldn't fail.");
             storage = old_storage;
 
             match File::create(data_map_file.clone()) {
@@ -265,7 +252,7 @@ fn main() {
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
                     let content = se
                         .read(0, length)
-                        .wait()
+                        .await
                         .expect("Reading from encryptor shouldn't fail.");
                     match file.write_all(&content[..]) {
                         Err(error) => println!("File write failed - {:?}", error),

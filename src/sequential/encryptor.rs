@@ -12,11 +12,7 @@ use super::{
     small_encryptor::SmallEncryptor,
     SelfEncryptionError, Storage,
 };
-use crate::{
-    data_map::DataMap,
-    util::{BoxFuture, FutureExt},
-};
-use futures::{future, Future};
+use crate::data_map::DataMap;
 use std::{
     cell::RefCell,
     fmt::{self, Debug},
@@ -36,20 +32,20 @@ impl<S> State<S>
 where
     S: Storage + 'static,
 {
-    fn write(self, data: &[u8]) -> BoxFuture<Self, SelfEncryptionError<S::Error>> {
+    async fn write(self, data: &[u8]) -> Result<Self, SelfEncryptionError<S::Error>> {
         match self {
-            State::Small(encryptor) => encryptor.write(data).map(From::from).into_box(),
-            State::Medium(encryptor) => encryptor.write(data).map(From::from).into_box(),
-            State::Large(encryptor) => encryptor.write(data).map(From::from).into_box(),
+            State::Small(encryptor) => encryptor.write(data).await.map(From::from),
+            State::Medium(encryptor) => encryptor.write(data).await.map(From::from),
+            State::Large(encryptor) => encryptor.write(data).await.map(From::from),
             State::Transitioning => unreachable!(),
         }
     }
 
-    fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
+    async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
         match self {
-            State::Small(encryptor) => encryptor.close(),
-            State::Medium(encryptor) => encryptor.close(),
-            State::Large(encryptor) => encryptor.close(),
+            State::Small(encryptor) => encryptor.close().await,
+            State::Medium(encryptor) => encryptor.close().await,
+            State::Large(encryptor) => encryptor.close().await,
             State::Transitioning => unreachable!(),
         }
     }
@@ -115,6 +111,7 @@ impl<S> Debug for State<S> {
 ///
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
+// #[async_trait]
 pub struct Encryptor<S> {
     state: Rc<RefCell<State<S>>>,
 }
@@ -126,85 +123,76 @@ where
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(
+    pub async fn new(
         storage: S,
         data_map: Option<DataMap>,
-    ) -> BoxFuture<Encryptor<S>, SelfEncryptionError<S::Error>> {
+    ) -> Result<Encryptor<S>, SelfEncryptionError<S::Error>> {
         match data_map {
-            Some(DataMap::Content(content)) => SmallEncryptor::new(storage, content)
-                .map(State::from)
-                .map(Self::from)
-                .into_box(),
+            Some(DataMap::Content(content)) => {
+                let state = State::from(SmallEncryptor::new(storage, content).await?);
+                Ok(Self::from(state))
+            }
             Some(data_map @ DataMap::Chunks(_)) => {
                 let chunks = data_map.get_sorted_chunks();
                 if chunks.len() == 3 {
-                    MediumEncryptor::new(storage, chunks)
-                        .map(State::from)
-                        .map(Self::from)
-                        .into_box()
+                    let state = State::from(MediumEncryptor::new(storage, chunks).await?);
+                    Ok(Self::from(state))
                 } else {
-                    LargeEncryptor::new(storage, chunks)
-                        .map(State::from)
-                        .map(Self::from)
-                        .into_box()
+                    let state = State::from(LargeEncryptor::new(storage, chunks).await?);
+                    Ok(Self::from(state))
                 }
             }
             Some(DataMap::None) => panic!("Pass `None` rather than `DataMap::None`"),
-            None => SmallEncryptor::new(storage, vec![])
-                .map(State::from)
-                .map(Self::from)
-                .into_box(),
+            None => {
+                let the_state = State::from(SmallEncryptor::new(storage, vec![]).await?);
+                Ok(Self::from(the_state))
+            }
         }
     }
 
     /// Buffers some or all of `data` and stores any completed chunks (i.e. those which cannot be
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
-    pub fn write(&self, data: &[u8]) -> BoxFuture<(), SelfEncryptionError<S::Error>> {
+    pub async fn write(&self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
         let curr_state = Rc::clone(&self.state);
         let prev_state = mem::replace(&mut *curr_state.borrow_mut(), State::Transitioning);
 
-        let future = match prev_state {
+        let next_state = match prev_state {
             State::Small(small) => {
                 let new_len = small.len() + data.len() as u64;
-                let new_state = if new_len >= large_encryptor::MIN {
+                if new_len >= large_encryptor::MIN {
                     State::from(LargeEncryptor::from(small))
                 } else if new_len >= medium_encryptor::MIN {
                     State::from(MediumEncryptor::from(small))
                 } else {
                     State::from(small)
-                };
-
-                future::ok(new_state).into_box()
+                }
             }
             State::Medium(medium) => {
                 if medium.len() + data.len() as u64 >= large_encryptor::MIN {
-                    LargeEncryptor::from_medium(medium)
-                        .map(State::from)
-                        .into_box()
+                    State::from(LargeEncryptor::from_medium(medium).await?)
                 } else {
-                    future::ok(State::from(medium)).into_box()
+                    State::from(medium)
                 }
             }
-            State::Large(large) => future::ok(State::from(large)).into_box(),
+            State::Large(large) => State::from(large),
             State::Transitioning => unreachable!(),
         };
 
         let data = data.to_vec();
-        future
-            .and_then(move |next_state| next_state.write(&data))
-            .map(move |next_state| {
-                *curr_state.borrow_mut() = next_state;
-            })
-            .into_box()
+        let next_state = next_state.write(&data).await?;
+
+        *curr_state.borrow_mut() = next_state;
+
+        Ok(())
     }
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
     /// buffers are flushed, resulting in up to four chunks being stored.
-    pub fn close(self) -> BoxFuture<(DataMap, S), SelfEncryptionError<S::Error>> {
+    pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
         let state = unwrap!(Rc::try_unwrap(self.state));
         let state = state.into_inner();
-        state.close()
+        state.close().await
     }
 
     /// Number of bytes of data written, including those handled by previous encryptors.
@@ -237,47 +225,50 @@ mod tests {
         self_encryptor::SelfEncryptor,
         test_helpers::{new_test_rng, random_bytes, Blob, SimpleStorage},
     };
-    use futures::Future;
 
-    fn read(expected_data: &[u8], storage: SimpleStorage, data_map: &DataMap) -> SimpleStorage {
+    async fn read(
+        expected_data: &[u8],
+        storage: SimpleStorage,
+        data_map: &DataMap,
+    ) -> SimpleStorage {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
-        let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).wait());
+        let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).await);
         assert_eq!(Blob(&fetched), Blob(expected_data));
         self_encryptor.into_storage()
     }
 
-    fn write(
+    async fn write(
         data: &[u8],
         storage: SimpleStorage,
         data_map: &mut DataMap,
         expected_len: usize,
     ) -> SimpleStorage {
-        let encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).wait());
-        unwrap!(encryptor.write(data).wait());
+        let encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).await);
+        unwrap!(encryptor.write(data).await);
         assert_eq!(encryptor.len(), expected_len as u64);
-        let (data_map2, storage) = unwrap!(encryptor.close().wait());
+        let (data_map2, storage) = unwrap!(encryptor.close().await);
         *data_map = data_map2;
         storage
     }
 
-    #[test]
-    fn transitions() {
+    #[tokio::test]
+    async fn transitions() {
         let mut rng = new_test_rng();
         let data = random_bytes(&mut rng, 4 * MAX_CHUNK_SIZE as usize + 1);
 
         // Write 0 bytes.
         let (mut data_map, mut storage) = {
             let storage = SimpleStorage::new();
-            let encryptor = unwrap!(Encryptor::new(storage, None).wait());
+            let encryptor = unwrap!(Encryptor::new(storage, None).await);
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
-            unwrap!(encryptor.write(&[]).wait());
+            unwrap!(encryptor.write(&[]).await);
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
-            unwrap!(encryptor.close().wait())
+            unwrap!(encryptor.close().await)
         };
 
-        storage = read(&[], storage, &data_map);
+        storage = read(&[], storage, &data_map).await;
 
         // Write 1 byte.
         let mut index_start = 0;
@@ -287,8 +278,9 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
-        storage = read(&data[..index_end], storage, &data_map);
+        )
+        .await;
+        storage = read(&data[..index_end], storage, &data_map).await;
 
         // Append as far as `small_encryptor::MAX` bytes.
         index_start = index_end;
@@ -298,8 +290,9 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
-        storage = read(&data[..index_end], storage, &data_map);
+        )
+        .await;
+        storage = read(&data[..index_end], storage, &data_map).await;
 
         // Append a further single byte.
         index_start = index_end;
@@ -309,8 +302,9 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
-        storage = read(&data[..index_end], storage, &data_map);
+        )
+        .await;
+        storage = read(&data[..index_end], storage, &data_map).await;
 
         // Append as far as `medium_encryptor::MAX` bytes.
         index_start = index_end;
@@ -320,8 +314,9 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
-        storage = read(&data[..index_end], storage, &data_map);
+        )
+        .await;
+        storage = read(&data[..index_end], storage, &data_map).await;
 
         // Append a further single byte.
         index_start = index_end;
@@ -331,8 +326,9 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
-        storage = read(&data[..index_end], storage, &data_map);
+        )
+        .await;
+        storage = read(&data[..index_end], storage, &data_map).await;
 
         // Append remaining bytes.
         index_start = index_end;
@@ -342,7 +338,8 @@ mod tests {
             storage,
             &mut data_map,
             index_end,
-        );
+        )
+        .await;
         let _ = read(&data[..index_end], storage, &data_map);
     }
 }

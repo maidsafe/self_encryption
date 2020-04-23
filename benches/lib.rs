@@ -10,7 +10,7 @@
 // https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
 #![forbid(
     bad_style,
-    exceeding_bitshifts,
+    arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
     unknown_crate_types,
@@ -19,10 +19,8 @@
 #![deny(
     deprecated,
     improper_ctypes,
-    missing_docs,
     non_shorthand_field_patterns,
     overflowing_literals,
-    plugin_as_library,
     stable_features,
     unconditional_recursion,
     unknown_lints,
@@ -41,7 +39,6 @@
     unused_extern_crates,
     unused_import_braces,
     unused_qualifications,
-    unused_results,
     variant_size_differences
 )]
 #![allow(
@@ -49,120 +46,101 @@
     missing_copy_implementations,
     missing_debug_implementations
 )]
-#![feature(test)]
-extern crate test;
 
-use futures::future::Future;
+use criterion::{BatchSize, Bencher, Criterion};
 use self_encryption::{
     test_helpers::{new_test_rng, random_bytes, SimpleStorage},
     DataMap, SelfEncryptor,
 };
-use test::Bencher;
+use std::time::Duration;
 use unwrap::unwrap;
 
-fn write(bencher: &mut Bencher, bytes_len: u64) {
-    let mut rng = new_test_rng();
-    let bytes = random_bytes(&mut rng, bytes_len as usize);
-    let mut storage = Some(SimpleStorage::new());
+// sample size is _NOT_ the number of times the command is run...
+// https://bheisler.github.io/criterion.rs/book/analysis.html#measurement
+const SAMPLE_SIZE: usize = 10;
 
-    bencher.iter(|| {
-        let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()), DataMap::None));
-        unwrap!(self_encryptor.write(&bytes, 0).wait());
-        storage = Some(unwrap!(self_encryptor.close().wait()).1);
-    });
-    bencher.bytes = bytes_len;
+fn custom_criterion() -> Criterion {
+    Criterion::default().sample_size(SAMPLE_SIZE)
 }
 
-fn read(bencher: &mut Bencher, bytes_len: u64) {
-    let mut rng = new_test_rng();
-    let bytes = random_bytes(&mut rng, bytes_len as usize);
-    let (data_map, storage) = {
-        let storage = SimpleStorage::new();
-        let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
-        unwrap!(self_encryptor.write(&bytes, 0).wait());
-        unwrap!(self_encryptor.close().wait())
-    };
+fn write(b: &mut Bencher<'_>, bytes_len: u64) {
+    b.iter_batched(
+        // the setup
+        || {
+            let mut rng = new_test_rng();
+            let bytes = random_bytes(&mut rng, bytes_len as usize);
+            let storage = Some(SimpleStorage::new());
 
-    let mut storage = Some(storage);
+            (bytes, storage)
+        },
+        // actual benchmark
+        |(bytes, mut storage)| {
+            let waiters = async {
+                let self_encryptor =
+                    SelfEncryptor::new(unwrap!(storage.take()), DataMap::None).unwrap();
+                self_encryptor.write(&bytes.clone(), 0).await.unwrap();
+                storage = Some(unwrap!(self_encryptor.close().await).1)
+            };
 
-    bencher.iter(|| {
-        let self_encryptor = unwrap!(SelfEncryptor::new(
-            unwrap!(storage.take()),
-            data_map.clone(),
-        ));
-        let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).wait());
-        assert_eq!(read_bytes, bytes);
-        storage = Some(self_encryptor.into_storage());
-    });
-    bencher.bytes = bytes_len;
+            futures::executor::block_on(waiters);
+        },
+        BatchSize::SmallInput,
+    );
 }
 
-#[bench]
-fn write_200_bytes(bencher: &mut Bencher) {
-    write(bencher, 200)
+fn read(b: &mut Bencher, bytes_len: u64) {
+    b.iter_batched(
+        // the setup
+        || {
+            let mut rng = new_test_rng();
+            let bytes = random_bytes(&mut rng, bytes_len as usize);
+            let storage = SimpleStorage::new();
+            let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+
+            let waiters = async {
+                unwrap!(self_encryptor.write(&bytes, 0).await);
+                unwrap!(self_encryptor.close().await)
+            };
+            let (data_map, storage) = futures::executor::block_on(waiters);
+            let storage = Some(storage);
+            (data_map, storage, bytes)
+        },
+        // actual benchmark
+        |(data_map, mut storage, bytes)| {
+            let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()), data_map,));
+            let the_waiter = async {
+                let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).await);
+                assert_eq!(read_bytes, bytes);
+            };
+            futures::executor::block_on(the_waiter);
+            self_encryptor.into_storage();
+        },
+        BatchSize::SmallInput,
+    );
 }
 
-#[bench]
-fn write_1_kilobyte(bencher: &mut Bencher) {
-    write(bencher, 1024)
+fn main() {
+    let mut criterion = custom_criterion();
+    criterion = criterion.measurement_time(Duration::from_millis(20_000));
+
+    bench_encryptor(&mut criterion);
 }
 
-#[bench]
-fn write_512_kilobytes(bencher: &mut Bencher) {
-    write(bencher, 512 * 1024)
-}
+fn bench_encryptor(c: &mut Criterion) {
+    c.bench_function("write_200", |b| write(b, 200));
+    c.bench_function("write_1_kilobyte", |b| write(b, 1024));
+    c.bench_function("write_512_kilobytes", |b| write(b, 512 * 1024));
+    c.bench_function("write_1_megabyte", |b| write(b, 1024 * 1024));
+    c.bench_function("write_3_megabytes", |b| write(b, 3 * 1024 * 1024));
+    c.bench_function("write_10_megabytes", |b| write(b, 10 * 1024 * 1024));
+    c.bench_function("write_100_megabytes", |b| write(b, 100 * 1024 * 1024));
 
-#[bench]
-fn write_1_megabyte(bencher: &mut Bencher) {
-    write(bencher, 1024 * 1024)
-}
+    c.bench_function("read_200", |b| read(b, 200));
 
-#[bench]
-fn write_3_megabytes(bencher: &mut Bencher) {
-    write(bencher, 3 * 1024 * 1024)
-}
-
-#[bench]
-fn write_10_megabytes(bencher: &mut Bencher) {
-    write(bencher, 10 * 1024 * 1024)
-}
-
-#[bench]
-fn write_100_megabytes(bencher: &mut Bencher) {
-    write(bencher, 100 * 1024 * 1024)
-}
-
-#[bench]
-fn read_200_bytes(bencher: &mut Bencher) {
-    read(bencher, 200)
-}
-
-#[bench]
-fn read_1_kilobyte(bencher: &mut Bencher) {
-    read(bencher, 1024)
-}
-
-#[bench]
-fn read_512_kilobytes(bencher: &mut Bencher) {
-    read(bencher, 512 * 1024)
-}
-
-#[bench]
-fn read_1_megabyte(bencher: &mut Bencher) {
-    read(bencher, 1024 * 1024)
-}
-
-#[bench]
-fn read_3_megabytes(bencher: &mut Bencher) {
-    read(bencher, 3 * 1024 * 1024)
-}
-
-#[bench]
-fn read_10_megabytes(bencher: &mut Bencher) {
-    read(bencher, 10 * 1024 * 1024)
-}
-
-#[bench]
-fn read_100_megabytes(bencher: &mut Bencher) {
-    read(bencher, 100 * 1024 * 1024)
+    c.bench_function("read_1_kilobyte", |b| read(b, 1024));
+    c.bench_function("read_512_kilobytes", |b| read(b, 512 * 1024));
+    c.bench_function("read_1_megabyte", |b| read(b, 1024 * 1024));
+    c.bench_function("read_3_megabytes", |b| read(b, 3 * 1024 * 1024));
+    c.bench_function("read_10_megabytes", |b| read(b, 10 * 1024 * 1024));
+    c.bench_function("read_100_megabytes", |b| read(b, 100 * 1024 * 1024));
 }
