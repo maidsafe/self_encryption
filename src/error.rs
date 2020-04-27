@@ -7,6 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::storage::StorageError;
+use std::error::Error;
 use std::{
     fmt::{self, Display, Formatter},
     io::Error as IoError,
@@ -51,6 +52,12 @@ impl<E: StorageError> Display for SelfEncryptionError<E> {
                 write!(formatter, "Storage error: {}", error)
             }
         }
+    }
+}
+
+impl<E: StorageError> Error for SelfEncryptionError<E> {
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
     }
 }
 
