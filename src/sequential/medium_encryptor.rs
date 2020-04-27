@@ -114,8 +114,6 @@ where
                 let hash = self.storage.generate_address(&encrypted_contents);
                 details.hash = hash.to_vec();
                 all_chunks.push(self.storage.put(hash.to_vec(), encrypted_contents).await?);
-
-                // all_chunks.push(chunk);
             }
         }
 
