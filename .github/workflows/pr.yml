@@ -23,12 +23,6 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      # Check if the code is formatted correctly.
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
       # Cache.
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -41,15 +35,18 @@ jobs:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
     
-      - name: Cargo Check
+      # Check if the code is formatted correctly.
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+          
+      - name: Cargo Clippy
         uses: actions-rs/cargo@v1
         with:
-          command: check --verbose --release --lib --tests
+          command: clippy
+          args: --all-targets --all-features -- -D warnings
           
       - uses: actions-rs/cargo@v1
         with:
           command: test
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy --all-targets --all-features -- -D warnings
