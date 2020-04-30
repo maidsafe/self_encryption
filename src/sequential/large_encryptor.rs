@@ -20,7 +20,7 @@ const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
 // trigger the creation and storing of any completed chunks up to that point except for the first
 // two and last two chunks.  These will always be dealt with in `close()` since they may always be
 // affected subsequent `write()` calls.
-pub struct LargeEncryptor<S> {
+pub struct LargeEncryptor<S: Storage + Send + Sync> {
     storage: S,
     chunks: Vec<ChunkDetails>,
     original_chunks: Option<Vec<ChunkDetails>>,
@@ -31,7 +31,7 @@ pub struct LargeEncryptor<S> {
 
 impl<S> LargeEncryptor<S>
 where
-    S: Storage + 'static,
+    S: Storage + 'static + Send + Sync,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
@@ -257,7 +257,7 @@ where
     }
 }
 
-impl<S: Storage> From<SmallEncryptor<S>> for LargeEncryptor<S> {
+impl<S: Storage + Send + Sync> From<SmallEncryptor<S>> for LargeEncryptor<S> {
     fn from(small_encryptor: SmallEncryptor<S>) -> LargeEncryptor<S> {
         LargeEncryptor {
             storage: small_encryptor.storage,

@@ -28,6 +28,8 @@ pub enum SelfEncryptionError<E: StorageError> {
     Io(IoError),
     /// An error in putting or retrieving chunks from the storage object.
     Storage(E),
+    /// Generic error for other issues
+    Generic(String)
 }
 
 impl<E: StorageError> Display for SelfEncryptionError<E> {
@@ -51,6 +53,8 @@ impl<E: StorageError> Display for SelfEncryptionError<E> {
             SelfEncryptionError::Storage(ref error) => {
                 write!(formatter, "Storage error: {}", error)
             }
+            SelfEncryptionError::Generic(ref error ) => write!(formatter, "Generic error: {}", error)
+
         }
     }
 }
