@@ -18,7 +18,7 @@ pub const MAX: u64 = 3 * MAX_CHUNK_SIZE as u64;
 // An encryptor for data which will be split into exactly three chunks (i.e. size is between
 // `3 * MIN_CHUNK_SIZE` and `3 * MAX_CHUNK_SIZE` inclusive).  Only `close()` will actually cause
 // chunks to be stored.  Until then, data is held internally in `buffer`.
-pub struct MediumEncryptor<S> {
+pub struct MediumEncryptor<S: Storage + Send + Sync> {
     pub storage: S,
     pub buffer: Vec<u8>,
     original_chunks: Option<Vec<ChunkDetails>>,
@@ -26,7 +26,7 @@ pub struct MediumEncryptor<S> {
 
 impl<S> MediumEncryptor<S>
 where
-    S: Storage + 'static,
+    S: Storage + 'static + Send + Sync,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are exactly three chunks.
     // Retrieves the chunks from storage and decrypts them to its internal `buffer`.
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<S: Storage> From<SmallEncryptor<S>> for MediumEncryptor<S> {
+impl<S: Storage + Send + Sync> From<SmallEncryptor<S>> for MediumEncryptor<S> {
     fn from(small_encryptor: SmallEncryptor<S>) -> MediumEncryptor<S> {
         MediumEncryptor {
             storage: small_encryptor.storage,

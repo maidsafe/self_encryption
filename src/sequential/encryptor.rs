@@ -14,14 +14,15 @@ use super::{
 };
 use crate::data_map::DataMap;
 use std::{
-    cell::RefCell,
+    // cell::Mutex,
+    sync::{Arc, Mutex},
     fmt::{self, Debug},
     mem,
-    rc::Rc,
+    // rc::Arc,
 };
 use unwrap::unwrap;
 
-enum State<S> {
+enum State<S: Storage + Send + Sync> {
     Small(SmallEncryptor<S>),
     Medium(MediumEncryptor<S>),
     Large(LargeEncryptor<S>),
@@ -30,7 +31,7 @@ enum State<S> {
 
 impl<S> State<S>
 where
-    S: Storage + 'static,
+    S: Storage + 'static + Send + Sync,
 {
     async fn write(self, data: &[u8]) -> Result<Self, SelfEncryptionError<S::Error>> {
         match self {
@@ -69,25 +70,34 @@ where
     }
 }
 
-impl<S> From<SmallEncryptor<S>> for State<S> {
+impl<S> From<SmallEncryptor<S>> for State<S> 
+where
+    S: Storage + 'static + Send + Sync,
+    {
     fn from(e: SmallEncryptor<S>) -> Self {
         State::Small(e)
     }
 }
 
-impl<S> From<MediumEncryptor<S>> for State<S> {
+impl<S> From<MediumEncryptor<S>> for State<S> 
+where
+    S: Storage + 'static + Send + Sync,{
     fn from(e: MediumEncryptor<S>) -> Self {
         State::Medium(e)
     }
 }
 
-impl<S> From<LargeEncryptor<S>> for State<S> {
+impl<S> From<LargeEncryptor<S>> for State<S> 
+where
+    S: Storage + 'static + Send + Sync,{
     fn from(e: LargeEncryptor<S>) -> Self {
         State::Large(e)
     }
 }
 
-impl<S> Debug for State<S> {
+impl<S> Debug for State<S> 
+where
+    S: Storage + 'static + Send + Sync,{
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "SequentialEncryptor internal state")
     }
@@ -112,13 +122,16 @@ impl<S> Debug for State<S> {
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
 // #[async_trait]
-pub struct Encryptor<S> {
-    state: Rc<RefCell<State<S>>>,
+pub struct Encryptor<S: Storage + 'static + Send + Sync> 
+// where
+//     S: Storage + 'static + Send + Sync
+    {
+    state: Arc<Mutex<State<S>>>,
 }
 
 impl<S> Encryptor<S>
 where
-    S: Storage + 'static,
+    S: Storage + 'static + Send + Sync,
 {
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
@@ -154,8 +167,8 @@ where
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
     pub async fn write(&self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
-        let curr_state = Rc::clone(&self.state);
-        let prev_state = mem::replace(&mut *curr_state.borrow_mut(), State::Transitioning);
+        let curr_state = Arc::clone(&self.state);
+        let prev_state = mem::replace(&mut *curr_state.lock().unwrap(), State::Transitioning);
 
         let next_state = match prev_state {
             State::Small(small) => {
@@ -182,7 +195,7 @@ where
         let data = data.to_vec();
         let next_state = next_state.write(&data).await?;
 
-        *curr_state.borrow_mut() = next_state;
+        *curr_state.lock().unwrap() = next_state;
 
         Ok(())
     }
@@ -190,8 +203,8 @@ where
     /// This finalises the encryptor - it should not be used again after this call.  Internal
     /// buffers are flushed, resulting in up to four chunks being stored.
     pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
-        let state = unwrap!(Rc::try_unwrap(self.state));
-        let state = state.into_inner();
+        let state = unwrap!(Arc::try_unwrap(self.state));
+        let state = state.into_inner().map_err(|_| SelfEncryptionError::Generic("Error closing encryptor due to poisoned mutex".to_string()))?;
         state.close().await
     }
 
@@ -200,19 +213,22 @@ where
     /// E.g. if this encryptor was constructed with a `DataMap` whose `len()` yields 100, and it
     /// then handles a `write()` of 100 bytes, `len()` will return 200.
     pub fn len(&self) -> u64 {
-        self.state.borrow().len()
+        self.state.lock().unwrap().len()
     }
 
     /// Returns true if `len() == 0`.
     pub fn is_empty(&self) -> bool {
-        self.state.borrow().is_empty()
+        self.state.lock().unwrap().is_empty()
     }
 }
 
-impl<S> From<State<S>> for Encryptor<S> {
+impl<S> From<State<S>> for Encryptor<S> 
+where
+    S: Storage + 'static + Send + Sync,
+    {
     fn from(s: State<S>) -> Self {
         Encryptor {
-            state: Rc::new(RefCell::new(s)),
+            state: Arc::new(Mutex::new(s)),
         }
     }
 }

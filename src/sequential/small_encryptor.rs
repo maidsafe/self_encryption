@@ -14,14 +14,14 @@ pub const MAX: u64 = (3 * MIN_CHUNK_SIZE as u64) - 1;
 // An encryptor for data which is too small to split into three chunks.  This will never make any
 // calls to `storage`, but it is held here to allow it to be passed into a `MediumEncryptor` or
 // `LargeEncryptor` if required.
-pub struct SmallEncryptor<S> {
+pub struct SmallEncryptor<S: Storage + Send + Sync> {
     pub storage: S,
     pub buffer: Vec<u8>,
 }
 
 impl<S> SmallEncryptor<S>
 where
-    S: Storage + 'static,
+    S: Storage + 'static + Send + Sync,
 {
     // Constructor for use with pre-existing `DataMap::Content`, or for no pre-existing DataMap.
     #[allow(clippy::new_ret_no_self)]
