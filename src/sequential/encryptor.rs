@@ -14,11 +14,9 @@ use super::{
 };
 use crate::data_map::DataMap;
 use std::{
-    // cell::Mutex,
-    sync::{Arc, Mutex},
     fmt::{self, Debug},
     mem,
-    // rc::Arc,
+    sync::{Arc, Mutex},
 };
 use unwrap::unwrap;
 
@@ -70,34 +68,37 @@ where
     }
 }
 
-impl<S> From<SmallEncryptor<S>> for State<S> 
+impl<S> From<SmallEncryptor<S>> for State<S>
 where
     S: Storage + 'static + Send + Sync,
-    {
+{
     fn from(e: SmallEncryptor<S>) -> Self {
         State::Small(e)
     }
 }
 
-impl<S> From<MediumEncryptor<S>> for State<S> 
+impl<S> From<MediumEncryptor<S>> for State<S>
 where
-    S: Storage + 'static + Send + Sync,{
+    S: Storage + 'static + Send + Sync,
+{
     fn from(e: MediumEncryptor<S>) -> Self {
         State::Medium(e)
     }
 }
 
-impl<S> From<LargeEncryptor<S>> for State<S> 
+impl<S> From<LargeEncryptor<S>> for State<S>
 where
-    S: Storage + 'static + Send + Sync,{
+    S: Storage + 'static + Send + Sync,
+{
     fn from(e: LargeEncryptor<S>) -> Self {
         State::Large(e)
     }
 }
 
-impl<S> Debug for State<S> 
+impl<S> Debug for State<S>
 where
-    S: Storage + 'static + Send + Sync,{
+    S: Storage + 'static + Send + Sync,
+{
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "SequentialEncryptor internal state")
     }
@@ -122,10 +123,10 @@ where
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
 // #[async_trait]
-pub struct Encryptor<S: Storage + 'static + Send + Sync> 
+pub struct Encryptor<S: Storage + 'static + Send + Sync>
 // where
 //     S: Storage + 'static + Send + Sync
-    {
+{
     state: Arc<Mutex<State<S>>>,
 }
 
@@ -204,7 +205,11 @@ where
     /// buffers are flushed, resulting in up to four chunks being stored.
     pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
         let state = unwrap!(Arc::try_unwrap(self.state));
-        let state = state.into_inner().map_err(|_| SelfEncryptionError::Generic("Error closing encryptor due to poisoned mutex".to_string()))?;
+        let state = state.into_inner().map_err(|_| {
+            SelfEncryptionError::Generic(
+                "Error closing encryptor due to poisoned mutex".to_string(),
+            )
+        })?;
         state.close().await
     }
 
@@ -222,10 +227,10 @@ where
     }
 }
 
-impl<S> From<State<S>> for Encryptor<S> 
+impl<S> From<State<S>> for Encryptor<S>
 where
     S: Storage + 'static + Send + Sync,
-    {
+{
     fn from(s: State<S>) -> Self {
         Encryptor {
             state: Arc::new(Mutex::new(s)),
