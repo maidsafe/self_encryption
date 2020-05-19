@@ -24,7 +24,6 @@ use std::{
     iter,
     // rc::Arc,
     sync::{Arc, Mutex},
-
 };
 use unwrap::unwrap;
 
@@ -134,16 +133,15 @@ where
         let state = Arc::clone(&self.0);
         let data = data.to_vec();
 
-        let window_for_writing = futures::executor::block_on( 
-            prepare_window_for_writing(Arc::clone(&self.0), position, data.len() as u64) );
-            // .await
-            window_for_writing
-            .map(move |_| {
-                let mut state = state.lock().unwrap();
-                for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
-                    *p = byte;
-                }
-            })
+        let window_for_writing =
+            prepare_window_for_writing(Arc::clone(&self.0), position, data.len() as u64).await;
+
+        window_for_writing.map(move |_| {
+            let mut state = state.lock().unwrap();
+            for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
+                *p = byte;
+            }
+        })
     }
 
     /// The returned content is read from the specified `position` with specified `length`.  Trying
@@ -157,10 +155,7 @@ where
     ) -> Result<Vec<u8>, SelfEncryptionError<S::Error>> {
         let state = Arc::clone(&self.0);
 
-
-        // TODO: remove this blocking behaviour
-        futures::executor::block_on(prepare_window_for_reading(Arc::clone(&self.0), position, length))?;
-        // .await?;
+        prepare_window_for_reading(Arc::clone(&self.0), position, length).await?;
 
         let state = state.lock().unwrap();
         Ok(state
@@ -208,9 +203,7 @@ where
             let mut state = self.0.lock().unwrap();
             let end = get_num_chunks(state.map_size) as usize;
 
-            // TODO: remove this blocking behaviour
-        futures::executor::block_on(
-            state.create_data_map(end))?
+            state.create_data_map(end).await?
         } else {
             let byte_end = {
                 let mut state = self.0.lock().unwrap();
@@ -222,9 +215,7 @@ where
             let state0 = Arc::clone(&self.0);
             let state1 = Arc::clone(&self.0);
 
-            // TODO: remove this blocking behaviour
-        futures::executor::block_on(
-            prepare_window_for_reading(Arc::clone(&self.0), 0, byte_end) )?;
+            prepare_window_for_reading(Arc::clone(&self.0), 0, byte_end).await?;
 
             let (byte_start, byte_end) = {
                 let state = state0.lock().unwrap();
@@ -234,14 +225,10 @@ where
                 (byte_start, byte_end)
             };
 
-            // TODO: remove this blocking behaviour
-        futures::executor::block_on(
-            prepare_window_for_reading(state0, byte_start, byte_end - byte_start))?;
+            prepare_window_for_reading(state0, byte_start, byte_end - byte_start).await?;
             let mut state = state1.lock().unwrap();
 
-             // TODO: remove this blocking behaviour
-            futures::executor::block_on(
-                state.create_data_map(resized_start as usize))?
+            state.create_data_map(resized_start as usize).await?
         };
         let data_map = the_data_map;
         Ok((data_map, take_state(self.0).storage))
@@ -282,7 +269,7 @@ where
 
                 if byte_start < new_size {
                     let state = Arc::clone(&self.0);
-                    prepare_window_for_reading(state, byte_start, new_size - byte_start).await?
+                    prepare_window_for_reading(state, byte_start, new_size - byte_start).await?;
                 }
 
                 let state = Arc::clone(&self.0);
@@ -392,8 +379,6 @@ impl<S: Storage + 'static + Send + Sync> State<S>
             }
         }
 
-        let mut put_futures = Vec::with_capacity(num_new_chunks);
-
         for i in 0..num_new_chunks {
             if i < possibly_reusable_end && self.chunks[i].status == ChunkStatus::AlreadyEncrypted {
                 new_map[i].hash = self.sorted_map[i].hash.clone();
@@ -409,7 +394,7 @@ impl<S: Storage + 'static + Send + Sync> State<S>
                 };
                 let name = self.storage.generate_address(&content);
 
-                put_futures.push(self.storage.put(name.to_vec(), content).await);
+                self.storage.put(name.to_vec(), content).await?;
 
                 new_map[i].hash = name.to_vec();
             }
@@ -430,7 +415,7 @@ async fn prepare_window_for_writing<S>(
     length: u64,
 ) -> Result<(), SelfEncryptionError<S::Error>>
 where
-    S: Storage + 'static + Send + Sync
+    S: Storage + 'static + Send + Sync,
 {
     let (chunks_start, chunks_end, next_two) = {
         let mut state = state.lock().unwrap();
@@ -503,7 +488,7 @@ where
     Ok(())
 }
 
-async fn prepare_window_for_reading<S: Storage + 'static + Send + Sync >(
+async fn prepare_window_for_reading<S: Storage + 'static + Send + Sync>(
     state: Arc<Mutex<State<S>>>,
     position: u64,
     length: u64,
@@ -767,9 +752,9 @@ fn get_chunk_number(file_size: u64, position: u64) -> u32 {
     get_num_chunks(file_size) - 1
 }
 
-fn take_state<S: Storage + Send + Sync >(state: Arc<Mutex<State<S>>>) -> State<S> {
+fn take_state<S: Storage + Send + Sync>(state: Arc<Mutex<State<S>>>) -> State<S> {
     // unwrap!(Arc::try_unwrap(state)).into_inner())
-    // let state = 
+    // let state =
     unwrap!(Arc::try_unwrap(state).unwrap().into_inner())
     // state.lock().unwrap()
 }
