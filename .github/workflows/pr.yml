@@ -12,7 +12,7 @@ env:
 
 jobs:
   tests:
-    name: Rustfmt-Clippy
+    name: "Checks/Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
