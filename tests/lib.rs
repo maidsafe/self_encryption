@@ -248,7 +248,7 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
                 .await
                 .unwrap_or_else(|_| panic!("Reading part {} from encryptor shouldn't fail.", i));
             assert_eq!(decrypted, piece);
-            assert_eq!(total_size, self_encryptor.len());
+            assert_eq!(total_size, self_encryptor.len().await);
         }
 
         // Read back DATA_SIZE from the encryptor.  This will contain all that was written, plus
@@ -259,7 +259,7 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
             .expect("Reading all data from encryptor shouldn't fail.");
         assert_eq!(decrypted.len(), DATA_SIZE as usize);
         assert_eq!(decrypted, original);
-        assert_eq!(total_size, self_encryptor.len());
+        assert_eq!(total_size, self_encryptor.len().await);
 
         // Close the encryptor, open a new one with the returned DataMap, and read back DATA_SIZE
         // again.
@@ -277,7 +277,7 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
         .expect("Reading all data again from encryptor shouldn't fail.");
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
-    assert_eq!(total_size, self_encryptor.len());
+    assert_eq!(total_size, self_encryptor.len().await);
 }
 
 #[tokio::test]
