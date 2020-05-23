@@ -118,7 +118,7 @@ mod tests {
             }
 
             let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map));
-            assert_eq!(self_encryptor.len(), existing_data.len() as u64);
+            assert_eq!(self_encryptor.len().await, existing_data.len() as u64);
             let fetched = unwrap!(self_encryptor.read(0, existing_data.len() as u64).await);
             assert_eq!(Blob(&fetched), Blob(&existing_data));
         }

@@ -248,7 +248,7 @@ async fn main() {
             if let Some(data_map) = test_helpers::deserialise::<DataMap>(&data) {
                 let se = SelfEncryptor::new(storage, data_map)
                     .expect("Encryptor construction shouldn't fail.");
-                let length = se.len();
+                let length = se.len().await;
                 if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
                     let content = se
                         .read(0, length)
