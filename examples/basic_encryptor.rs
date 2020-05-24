@@ -161,7 +161,7 @@ impl Storage for DiskBasedStorage {
             .map_err(From::from)
     }
 
-    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+    async fn generate_address(&self, data: &[u8]) -> Vec<u8> {
         sha3_256(data).to_vec()
     }
 }

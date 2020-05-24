@@ -78,7 +78,7 @@
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
 //!        }
-//!         
+//!
 //!    }
 //!
 //!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), Self::Error> {
@@ -89,7 +89,7 @@
 //!      Ok(())
 //!    }
 //!
-//!    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+//!    async fn generate_address(&self, data: &[u8]) -> Vec<u8> {
 //!         sha3_256(data).to_vec()
 //!    }
 //! }
