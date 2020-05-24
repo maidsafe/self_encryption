@@ -27,5 +27,5 @@ pub trait Storage {
     async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), Self::Error>;
 
     /// Generate the address at which the data will be stored. This address will be stored as a part of the data map.
-    fn generate_address(&self, data: &[u8]) -> Vec<u8>;
+    async fn generate_address(&self, data: &[u8]) -> Vec<u8>;
 }

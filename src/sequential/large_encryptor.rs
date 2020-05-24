@@ -125,8 +125,8 @@ where
         self.original_chunks = None;
 
         // Try filling `chunk_0_data` and `chunk_1_data` buffers first.
-        data = self.fill_chunk_buffer(data, 0);
-        data = self.fill_chunk_buffer(data, 1);
+        data = self.fill_chunk_buffer(data, 0).await;
+        data = self.fill_chunk_buffer(data, 1).await;
 
         let mut all_things = Vec::new();
 
@@ -207,7 +207,8 @@ where
         self.chunk_0_data.is_empty()
     }
 
-    fn fill_chunk_buffer<'b>(&mut self, mut data: &'b [u8], index: u32) -> &'b [u8] {
+    #[allow(clippy::needless_lifetimes)]
+    async fn fill_chunk_buffer<'b>(&mut self, mut data: &'b [u8], index: u32) -> &'b [u8] {
         let buffer_ref = if index == 0 {
             &mut self.chunk_0_data
         } else {
@@ -222,7 +223,7 @@ where
                 self.chunks.push(ChunkDetails {
                     chunk_num: index,
                     hash: vec![],
-                    pre_hash: self.storage.generate_address(buffer_ref),
+                    pre_hash: self.storage.generate_address(buffer_ref).await,
                     source_size: MAX_CHUNK_SIZE as u64,
                 });
             }
@@ -239,7 +240,7 @@ where
             self.chunks.push(ChunkDetails {
                 chunk_num: index as u32,
                 hash: vec![],
-                pre_hash: self.storage.generate_address(data),
+                pre_hash: self.storage.generate_address(data).await,
                 source_size: data.len() as u64,
             });
         }
@@ -247,7 +248,7 @@ where
         let pad_key_iv = utils::get_pad_key_and_iv(index, &self.chunks);
         let encrypted_contents = utils::encrypt_chunk(data, pad_key_iv)?;
 
-        let hash = self.storage.generate_address(&encrypted_contents);
+        let hash = self.storage.generate_address(&encrypted_contents).await;
         self.chunks[index].hash = hash.to_vec();
 
         self.storage

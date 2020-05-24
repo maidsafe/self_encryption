@@ -94,7 +94,7 @@ where
                 chunk_details.push(ChunkDetails {
                     chunk_num: index as u32,
                     hash: vec![],
-                    pre_hash: self.storage.generate_address(contents),
+                    pre_hash: self.storage.generate_address(contents).await,
                     source_size: contents.len() as u64,
                 });
             }
@@ -111,7 +111,7 @@ where
                 let pad_key_iv = utils::get_pad_key_and_iv(index, &partial_details);
                 let encrypted_contents = utils::encrypt_chunk(contents, pad_key_iv)?;
 
-                let hash = self.storage.generate_address(&encrypted_contents);
+                let hash = self.storage.generate_address(&encrypted_contents).await;
                 details.hash = hash.to_vec();
                 all_chunks.push(self.storage.put(hash.to_vec(), encrypted_contents).await?);
             }
