@@ -100,7 +100,7 @@ impl Storage for SimpleStorage {
         Ok(())
     }
 
-    fn generate_address(&self, data: &[u8]) -> Vec<u8> {
+    async fn generate_address(&self, data: &[u8]) -> Vec<u8> {
         sha3_256(data).to_vec()
     }
 }

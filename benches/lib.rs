@@ -113,7 +113,7 @@ fn read(b: &mut Bencher, bytes_len: u64) {
                 assert_eq!(read_bytes, bytes);
             };
             futures::executor::block_on(the_waiter);
-            self_encryptor.into_storage();
+            futures::executor::block_on(self_encryptor.into_storage());
         },
         BatchSize::SmallInput,
     );

@@ -16,16 +16,14 @@ use crate::{
     sequential::{Iv, Key},
 };
 use brotli::{self, enc::BrotliEncoderParams};
+use futures::lock::Mutex;
 use std::{
-    // cell::Mutex,
     cmp,
     fmt::{self, Debug, Formatter},
     io::Cursor,
     iter,
-    // rc::Arc,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
-use unwrap::unwrap;
 
 const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
@@ -63,6 +61,7 @@ impl Chunk {
 
 /// This is the encryption object and all file handling should be done using this object as the low
 /// level mechanism to read and write *content*.  This library has no knowledge of file metadata.
+#[derive(Debug)]
 pub struct SelfEncryptor<S: Storage + Send + Sync + 'static>(Arc<Mutex<State<S>>>);
 
 impl<S> SelfEncryptor<S>
@@ -130,18 +129,18 @@ where
         data: &[u8],
         position: u64,
     ) -> Result<(), SelfEncryptionError<S::Error>> {
-        let state = Arc::clone(&self.0);
-        let data = data.to_vec();
+        prepare_window_for_writing(Arc::clone(&self.0), position, data.len() as u64).await?;
 
-        let window_for_writing =
-            prepare_window_for_writing(Arc::clone(&self.0), position, data.len() as u64).await;
-
-        window_for_writing.map(move |_| {
-            let mut state = state.lock().unwrap();
-            for (p, byte) in state.sequencer.iter_mut().skip(position as usize).zip(data) {
-                *p = byte;
-            }
-        })
+        let mut state = self.0.lock().await;
+        for (p, byte) in state
+            .sequencer
+            .iter_mut()
+            .skip(position as usize)
+            .zip(data.to_vec())
+        {
+            *p = byte;
+        }
+        Ok(())
     }
 
     /// The returned content is read from the specified `position` with specified `length`.  Trying
@@ -153,11 +152,9 @@ where
         position: u64,
         length: u64,
     ) -> Result<Vec<u8>, SelfEncryptionError<S::Error>> {
-        let state = Arc::clone(&self.0);
-
         prepare_window_for_reading(Arc::clone(&self.0), position, length).await?;
 
-        let state = state.lock().unwrap();
+        let state = self.0.lock().await;
         Ok(state
             .sequencer
             .iter()
@@ -170,20 +167,19 @@ where
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
-    #[allow(clippy::needless_range_loop)]
     pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
         let file_size = {
-            let state = self.0.lock().unwrap();
+            let state = self.0.lock().await;
             state.file_size
         };
 
         if file_size == 0 {
-            let storage = take_state(self.0).storage;
+            let storage = self.into_storage().await;
             return Ok((DataMap::None, storage));
         }
 
         if file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            let state = take_state(self.0);
+            let state = self.take().await;
             let content = (*state.sequencer)[..state.file_size as usize].to_vec();
             let storage = state.storage;
 
@@ -194,19 +190,19 @@ where
         // - first two chunks if last chunks size has changed
         // - chunks whose size is out of date
         let (resized_start, resized_end) = {
-            let state = self.0.lock().unwrap();
+            let state = self.0.lock().await;
             resized_chunks(state.map_size, state.file_size)
         };
 
         // end of range of possibly reusable chunks
         let the_data_map = if resized_start == resized_end {
-            let mut state = self.0.lock().unwrap();
+            let mut state = self.0.lock().await;
             let end = get_num_chunks(state.map_size) as usize;
 
             state.create_data_map(end).await?
         } else {
             let byte_end = {
-                let mut state = self.0.lock().unwrap();
+                let mut state = self.0.lock().await;
                 state.chunks[0].flag_for_encryption();
                 state.chunks[1].flag_for_encryption();
                 get_start_end_positions(state.map_size, 1).1
@@ -218,7 +214,7 @@ where
             prepare_window_for_reading(Arc::clone(&self.0), 0, byte_end).await?;
 
             let (byte_start, byte_end) = {
-                let state = state0.lock().unwrap();
+                let state = state0.lock().await;
                 let byte_start = get_start_end_positions(state.map_size, resized_start).0;
                 let byte_end = state.map_size;
 
@@ -226,18 +222,19 @@ where
             };
 
             prepare_window_for_reading(state0, byte_start, byte_end - byte_start).await?;
-            let mut state = state1.lock().unwrap();
+            let mut state = state1.lock().await;
 
             state.create_data_map(resized_start as usize).await?
         };
-        let data_map = the_data_map;
-        Ok((data_map, take_state(self.0).storage))
+
+        let storage = self.into_storage().await;
+        Ok((the_data_map, storage))
     }
 
     /// Truncate the self_encryptor to the specified size (if extended, filled with `0u8`s).
     pub async fn truncate(&self, new_size: u64) -> Result<(), SelfEncryptionError<S::Error>> {
         {
-            let mut state = self.0.lock().unwrap();
+            let mut state = self.0.lock().await;
             if state.file_size == new_size {
                 return Ok(());
             }
@@ -250,75 +247,73 @@ where
         }
 
         let (chunks_start, chunks_end) = {
-            let state = self.0.lock().unwrap();
+            let state = self.0.lock().await;
             overlapped_chunks(state.map_size, new_size, state.file_size - new_size)
         };
 
-        let future = if chunks_start != chunks_end {
+        if chunks_start != chunks_end {
             // One chunk might need to be decrypted + the first two for re-encryption.
             let prepare = {
-                let state = self.0.lock().unwrap();
+                let state = self.0.lock().await;
                 !state.chunks[chunks_start].in_sequencer
             };
 
-            let future = if prepare {
+            if prepare {
                 let byte_start = {
-                    let state = self.0.lock().unwrap();
+                    let state = self.0.lock().await;
                     get_start_end_positions(state.map_size, chunks_start as u32).0
                 };
 
                 if byte_start < new_size {
-                    let state = Arc::clone(&self.0);
-                    prepare_window_for_reading(state, byte_start, new_size - byte_start).await?;
+                    prepare_window_for_reading(
+                        Arc::clone(&self.0),
+                        byte_start,
+                        new_size - byte_start,
+                    )
+                    .await?;
                 }
 
-                let state = Arc::clone(&self.0);
-
                 let byte_end = {
-                    let mut state = state.lock().unwrap();
+                    let mut state = self.0.lock().await;
                     state.chunks[0].flag_for_encryption();
                     state.chunks[1].flag_for_encryption();
                     get_start_end_positions(state.map_size, 1).1
                 };
 
-                prepare_window_for_reading(state, 0, byte_end).await
-            } else {
-                Ok(())
-            };
+                prepare_window_for_reading(Arc::clone(&self.0), 0, byte_end).await?;
+            }
 
-            let state = Arc::clone(&self.0);
-            future.map(move |_| {
-                let mut state = state.lock().unwrap();
-                for chunk in &mut state.chunks[chunks_start..chunks_end] {
-                    chunk.status = ChunkStatus::ToBeHashed;
-                    chunk.in_sequencer = true;
-                }
-            })
-        } else {
-            Ok(())
-        };
+            let mut state = self.0.lock().await;
+            for chunk in &mut state.chunks[chunks_start..chunks_end] {
+                chunk.status = ChunkStatus::ToBeHashed;
+                chunk.in_sequencer = true;
+            }
+        }
 
-        let state = Arc::clone(&self.0);
-        future.map(move |_| {
-            let mut state = state.lock().unwrap();
-            state.sequencer.truncate(new_size as usize);
-            state.file_size = new_size;
-        })
+        let mut state = self.0.lock().await;
+        state.sequencer.truncate(new_size as usize);
+        state.file_size = new_size;
+        Ok(())
     }
 
     /// Current file size as is known by encryptor.
-    pub fn len(&self) -> u64 {
-        self.0.lock().unwrap().file_size
+    pub async fn len(&self) -> u64 {
+        self.0.lock().await.file_size
     }
 
     /// Returns true if file size as is known by encryptor == 0.
-    pub fn is_empty(&self) -> bool {
-        self.0.lock().unwrap().file_size == 0
+    pub async fn is_empty(&self) -> bool {
+        self.0.lock().await.file_size == 0
     }
 
     /// Consume this encryptor and return its storage.
-    pub fn into_storage(self) -> S {
-        take_state(self.0).storage
+    pub async fn into_storage(self) -> S {
+        Arc::try_unwrap(self.0).unwrap().into_inner().storage
+    }
+
+    /// Consume this encryptor and return its State.
+    async fn take(self) -> State<S> {
+        Arc::try_unwrap(self.0).unwrap().into_inner()
     }
 }
 
@@ -331,9 +326,9 @@ struct State<S: Storage + Send + Sync> {
     file_size: u64,
 }
 
-impl<S: Storage + 'static + Send + Sync> State<S>
-// where
-//     S: Storage + 'static + Send + Sync,
+impl<S> State<S>
+where
+    S: Storage + 'static + Send + Sync,
 {
     fn extend_sequencer_up_to(
         &mut self,
@@ -371,7 +366,8 @@ impl<S: Storage + 'static + Send + Sync> State<S>
                 assert!(this_size > 0);
                 let name = self
                     .storage
-                    .generate_address(&(*self.sequencer)[pos..pos + this_size]);
+                    .generate_address(&(*self.sequencer)[pos..pos + this_size])
+                    .await;
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -392,7 +388,7 @@ impl<S: Storage + 'static + Send + Sync> State<S>
                     Ok(content) => content,
                     Err(error) => return Err(error),
                 };
-                let name = self.storage.generate_address(&content);
+                let name = self.storage.generate_address(&content).await;
 
                 self.storage.put(name.to_vec(), content).await?;
 
@@ -418,7 +414,7 @@ where
     S: Storage + 'static + Send + Sync,
 {
     let (chunks_start, chunks_end, next_two) = {
-        let mut state = state.lock().unwrap();
+        let mut state = state.lock().await;
         state.file_size = cmp::max(state.file_size, position + length);
 
         let (chunks_start, chunks_end) = overlapped_chunks(state.map_size, position, length);
@@ -457,7 +453,7 @@ where
     // TODO If first/last chunk gets completely overwritten, no need to decrypt.
     let mut decrypted_chunks = Vec::new();
     {
-        let mut state = state.lock().unwrap();
+        let mut state = state.lock().await;
         for &i in [chunks_start, chunks_end - 1].iter().chain(&next_two) {
             if state.chunks[i].in_sequencer {
                 continue;
@@ -469,7 +465,7 @@ where
         }
     }
 
-    let mut state = state.lock().unwrap();
+    let mut state = state.lock().await;
     for (vec, pos) in decrypted_chunks {
         for (p, byte) in state.sequencer.iter_mut().skip(pos).zip(vec) {
             *p = byte;
@@ -488,27 +484,26 @@ where
     Ok(())
 }
 
-async fn prepare_window_for_reading<S: Storage + 'static + Send + Sync>(
+async fn prepare_window_for_reading<S>(
     state: Arc<Mutex<State<S>>>,
     position: u64,
     length: u64,
 ) -> Result<(), SelfEncryptionError<S::Error>>
-// where
-//     S: Storage + 'static + Send + Sync,
+where
+    S: Storage + 'static + Send + Sync,
 {
     let (chunks_start, chunks_end) = {
-        // let state = Arc::downgrade(&state).clone();
-        let state = state.lock().unwrap();
+        let state = state.lock().await;
         overlapped_chunks(state.map_size, position, length)
     };
 
     if chunks_start == chunks_end {
-        let mut state = state.lock().unwrap();
+        let mut state = state.lock().await;
         return state.extend_sequencer_up_to(position + length);
     }
 
     {
-        let mut state = state.lock().unwrap();
+        let mut state = state.lock().await;
         let required_len = {
             let end = get_start_end_positions(state.map_size, chunks_end as u32 - 1).1;
             cmp::max(position + length, end)
@@ -517,7 +512,7 @@ async fn prepare_window_for_reading<S: Storage + 'static + Send + Sync>(
         state.extend_sequencer_up_to(required_len)?;
     }
     let mut decrypted_chunks = Vec::new();
-    let mut state = state.lock().unwrap();
+    let mut state = state.lock().await;
     for i in chunks_start..chunks_end {
         if state.chunks[i].in_sequencer {
             continue;
@@ -750,25 +745,6 @@ fn get_chunk_number(file_size: u64, position: u64) -> u32 {
         return (position / get_chunk_size(file_size, 0) as u64) as u32;
     }
     get_num_chunks(file_size) - 1
-}
-
-fn take_state<S: Storage + Send + Sync>(state: Arc<Mutex<State<S>>>) -> State<S> {
-    // unwrap!(Arc::try_unwrap(state)).into_inner())
-    // let state =
-    unwrap!(Arc::try_unwrap(state).unwrap().into_inner())
-    // state.lock().unwrap()
-}
-
-impl<S: Storage + Send + Sync> Debug for SelfEncryptor<S> {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        let state = self.0.lock().unwrap();
-        writeln!(formatter, "SelfEncryptor {{\n    chunks:")?;
-        for (i, chunk) in state.chunks.iter().enumerate() {
-            writeln!(formatter, "        {:?}   {:?}", state.sorted_map[i], chunk)?
-        }
-        writeln!(formatter, "    map_size: {}", state.map_size)?;
-        writeln!(formatter, "    file_size: {}}}", state.file_size)
-    }
 }
 
 #[cfg(test)]
@@ -1029,8 +1005,11 @@ mod tests {
         );
     }
 
-    fn check_file_size<S: Storage + Send + Sync>(se: &SelfEncryptor<S>, expected_file_size: u64) {
-        let state = se.0.lock().unwrap();
+    async fn check_file_size<S: Storage + Send + Sync>(
+        se: &SelfEncryptor<S>,
+        expected_file_size: u64,
+    ) {
+        let state = se.0.lock().await;
         assert_eq!(state.file_size, expected_file_size);
         if !state.sorted_map.is_empty() {
             let chunks_cumulated_size = state
@@ -1069,7 +1048,7 @@ mod tests {
         se.write(&the_bytes, offset as u64)
             .await
             .expect("Writing to encryptor shouldn't fail.");
-        check_file_size(&se, (size + offset as usize) as u64);
+        check_file_size(&se, (size + offset as usize) as u64).await;
     }
 
     #[tokio::test]
@@ -1089,7 +1068,7 @@ mod tests {
             unwrap!(se.write(&part2, size1 as u64).await);
             // Let's also test an overwrite.. over middle bytes of part2
             unwrap!(se.write(&[4u8, 2], size1 as u64 + 1).await);
-            check_file_size(&se, (size1 + size2) as u64);
+            check_file_size(&se, (size1 + size2) as u64).await;
             data_map = unwrap!(se.close().await).0;
         }
 
@@ -1115,11 +1094,11 @@ mod tests {
             unwrap!(se.write(&the_bytes, 0).await);
 
             {
-                let state = se.0.lock().unwrap();
+                let state = se.0.lock().await;
                 assert_eq!(state.sorted_map.len(), 0);
                 assert_eq!(state.sequencer.len(), bytes_len as usize);
             }
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             // check close
             data_map = unwrap!(se.close().await).0;
         }
@@ -1143,7 +1122,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3);
+            check_file_size(&se, MIN_CHUNK_SIZE as u64 * 3).await;
             let fetched = unwrap!(se.read(0, MIN_CHUNK_SIZE as u64 * 3).await);
             assert_eq!(fetched, the_bytes);
             unwrap!(se.close().await)
@@ -1175,7 +1154,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1204,7 +1183,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1233,7 +1212,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             // check close
             unwrap!(se.close().await)
         };
@@ -1264,7 +1243,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1294,7 +1273,7 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1331,7 +1310,7 @@ mod tests {
             se.write(&the_bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1369,7 +1348,7 @@ mod tests {
             se.write(&the_bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             // check close
             unwrap!(se.close().await)
         };
@@ -1404,9 +1383,9 @@ mod tests {
             let storage = SimpleStorage::new();
             let se = unwrap!(SelfEncryptor::new(storage, DataMap::None));
             unwrap!(se.write(&the_bytes, 0).await);
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.truncate((7 * MAX_CHUNK_SIZE + 1) as u64).await);
-            check_file_size(&se, (7 * MAX_CHUNK_SIZE + 1) as u64);
+            check_file_size(&se, (7 * MAX_CHUNK_SIZE + 1) as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1435,11 +1414,11 @@ mod tests {
             se.write(&bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             se.truncate(bytes_len as u64 - 24)
                 .await
                 .expect("Truncating encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64 - 24);
+            check_file_size(&se, bytes_len as u64 - 24).await;
             unwrap!(se.close().await)
         };
 
@@ -1475,7 +1454,7 @@ mod tests {
             se.write(&bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1521,7 +1500,7 @@ mod tests {
             se.write(&bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1572,7 +1551,7 @@ mod tests {
             se.write(&bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1620,7 +1599,7 @@ mod tests {
             se.write(&bytes, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64);
+            check_file_size(&se, bytes_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1656,7 +1635,7 @@ mod tests {
             se.write(&part1_bytes, 0)
                 .await
                 .expect("Writing part one to encryptor shouldn't fail.");
-            check_file_size(&se, part1_len as u64);
+            check_file_size(&se, part1_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1667,7 +1646,7 @@ mod tests {
             // Start with an existing data_map.
             let se = unwrap!(SelfEncryptor::new(storage, data_map));
             unwrap!(se.write(&part2_bytes, part1_len as u64).await);
-            // check_file_size(&se, full_len);
+            // check_file_size(&se, full_len).await;
             unwrap!(se.close().await)
         };
 
@@ -1691,7 +1670,7 @@ mod tests {
             se.write(&part1_bytes, 0)
                 .await
                 .expect("Writing part one to encryptor shouldn't fail.");
-            check_file_size(&se, part1_len as u64);
+            check_file_size(&se, part1_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1738,7 +1717,7 @@ mod tests {
             se.write(&part1_bytes, 0)
                 .await
                 .expect("Writing part one to encryptor shouldn't fail.");
-            check_file_size(&se, part1_len as u64);
+            check_file_size(&se, part1_len as u64).await;
             unwrap!(se.close().await)
         };
 
@@ -1774,14 +1753,14 @@ mod tests {
         let storage = SimpleStorage::new();
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
         unwrap!(self_encryptor.write(&serialised_data, 0).await);
-        check_file_size(&self_encryptor, serialised_data.len() as u64);
+        check_file_size(&self_encryptor, serialised_data.len() as u64).await;
 
         unwrap!(self_encryptor.close().await)
     }
 
     async fn check_vector_data_map(storage: SimpleStorage, vec_len: usize, data_map: &DataMap) {
         let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
-        let length = self_encryptor.len();
+        let length = self_encryptor.len().await;
         let data_to_deserialise = unwrap!(self_encryptor.read(0, length).await);
         let data: Vec<usize> = unwrap!(test_helpers::deserialise(&data_to_deserialise));
         assert_eq!(data.len(), vec_len);
