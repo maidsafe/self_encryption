@@ -13,10 +13,11 @@ use super::{
     SelfEncryptionError, Storage,
 };
 use crate::data_map::DataMap;
+use futures::lock::Mutex;
 use std::{
     fmt::{self, Debug},
     mem,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 use unwrap::unwrap;
 
@@ -169,7 +170,7 @@ where
     /// calling `close()`.
     pub async fn write(&self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
         let curr_state = Arc::clone(&self.state);
-        let prev_state = mem::replace(&mut *curr_state.lock().unwrap(), State::Transitioning);
+        let prev_state = mem::replace(&mut *curr_state.lock().await, State::Transitioning);
 
         let next_state = match prev_state {
             State::Small(small) => {
@@ -196,7 +197,7 @@ where
         let data = data.to_vec();
         let next_state = next_state.write(&data).await?;
 
-        *curr_state.lock().unwrap() = next_state;
+        *curr_state.lock().await = next_state;
 
         Ok(())
     }
@@ -205,11 +206,7 @@ where
     /// buffers are flushed, resulting in up to four chunks being stored.
     pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
         let state = unwrap!(Arc::try_unwrap(self.state));
-        let state = state.into_inner().map_err(|_| {
-            SelfEncryptionError::Generic(
-                "Error closing encryptor due to poisoned mutex".to_string(),
-            )
-        })?;
+        let state = state.into_inner();
         state.close().await
     }
 
@@ -217,13 +214,13 @@ where
     ///
     /// E.g. if this encryptor was constructed with a `DataMap` whose `len()` yields 100, and it
     /// then handles a `write()` of 100 bytes, `len()` will return 200.
-    pub fn len(&self) -> u64 {
-        self.state.lock().unwrap().len()
+    pub async fn len(&self) -> u64 {
+        self.state.lock().await.len()
     }
 
     /// Returns true if `len() == 0`.
-    pub fn is_empty(&self) -> bool {
-        self.state.lock().unwrap().is_empty()
+    pub async fn is_empty(&self) -> bool {
+        self.state.lock().await.is_empty()
     }
 }
 
@@ -266,7 +263,7 @@ mod tests {
     ) -> SimpleStorage {
         let encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).await);
         unwrap!(encryptor.write(data).await);
-        assert_eq!(encryptor.len(), expected_len as u64);
+        assert_eq!(encryptor.len().await, expected_len as u64);
         let (data_map2, storage) = unwrap!(encryptor.close().await);
         *data_map = data_map2;
         storage
@@ -281,11 +278,11 @@ mod tests {
         let (mut data_map, mut storage) = {
             let storage = SimpleStorage::new();
             let encryptor = unwrap!(Encryptor::new(storage, None).await);
-            assert_eq!(encryptor.len(), 0);
-            assert!(encryptor.is_empty());
+            assert_eq!(encryptor.len().await, 0);
+            assert!(encryptor.is_empty().await);
             unwrap!(encryptor.write(&[]).await);
-            assert_eq!(encryptor.len(), 0);
-            assert!(encryptor.is_empty());
+            assert_eq!(encryptor.len().await, 0);
+            assert!(encryptor.is_empty().await);
             unwrap!(encryptor.close().await)
         };
 
