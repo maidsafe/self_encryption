@@ -123,11 +123,7 @@ where
 ///
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
-// #[async_trait]
-pub struct Encryptor<S: Storage + 'static + Send + Sync>
-// where
-//     S: Storage + 'static + Send + Sync
-{
+pub struct Encryptor<S: Storage + 'static + Send + Sync> {
     state: Arc<Mutex<State<S>>>,
 }
 
