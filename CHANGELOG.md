@@ -1,5 +1,12 @@
 # Self-Encryption - Change Log
 
+## [0.17.0]
+
+- Update to use modern rust futures
+- Use async/await throughout
+- Use Arc/Mutex to enable multi-threading
+
+
 ## [0.16.0]
 
 - Replace the use of `rust_sodium` with `aes` for encryption.
