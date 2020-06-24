@@ -1,5 +1,10 @@
 # Self-Encryption - Change Log
 
+## [0.18.0]
+
+- Update bincode dep
+- Update deps > v1 in general to use implicit ^
+
 ## [0.17.0]
 
 - Update to use modern rust futures
