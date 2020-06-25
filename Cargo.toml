@@ -7,13 +7,13 @@ homepage = "https://maidsafe.net"
 license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
-repository = "https://github.com/maidsafe/self_encryption"
+repository = "https://github.com/maidsafe/self-encryption"
 version = "0.17.0"
 
 [dependencies]
 async-trait = "~0.1.30"
-aes = "0.3.2"
-block-modes = "0.3.3"
+aes = "~0.3.2"
+block-modes = "~0.3.3"
 bincode = "1.2.1"
 brotli = "3.3.0"
 futures = "~0.3.4"
@@ -23,7 +23,7 @@ rand_chacha = "~0.1.1"
 serde = { version = "1.0.97", features = ["derive"] }
 tiny-keccak = "1.5.0"
 unwrap = "1.2.1"
-tokio = { version = "0.2.18", features=["rt-core","macros"] }
+tokio = { version = "~0.2.18", features=["rt-core","macros"] }
 
 [dev-dependencies]
 criterion = "~0.3"

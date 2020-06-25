@@ -1,10 +1,10 @@
-# self_encryption
+# self-encryption
 
 Self encrypting files (convergent encryption plus obfuscation)
 
-|Crate|Documentation|Linux/macOS|Windows|Issues|
-|:---:|:-----------:|:--------:|:-----:|:----:|
-|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Documentation](https://docs.rs/self_encryption/badge.svg)](https://docs.rs/self_encryption)|[![Build Status](https://travis-ci.com/maidsafe/self_encryption.svg?branch=master)](https://travis-ci.com/maidsafe/self_encryption)|[![Build status](https://ci.appveyor.com/api/projects/status/htljxqrosx1i237s/branch/master?svg=true)](https://ci.appveyor.com/project/MaidSafe-QA/self-encryption/branch/master)|[![Stories in Ready](https://badge.waffle.io/maidsafe/self_encryption.png?label=ready&title=Ready)](https://waffle.io/maidsafe/self_encryption)|
+|Crate|Documentation|
+|:---:|:-----------:|
+|[![](http://meritbadge.herokuapp.com/self_encryption)](https://crates.io/crates/self_encryption)|[![Documentation](https://docs.rs/self_encryption/badge.svg)](https://docs.rs/self_encryption)|
 
 | [MaidSafe website](https://maidsafe.net) | [SAFE Dev Forum](https://forum.safedev.org) | [SAFE Network Forum](https://safenetforum.org) |
 |:----------------------------------------:|:-------------------------------------------:|:----------------------------------------------:|
@@ -16,7 +16,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 1. This library deals with file content **only**
 2. This library provides very secure data, but does return a data structure (DataMap) that in turn requires to be secured.
 
-![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self-encryption.png?raw=true)
+![image of self encryption](https://github.com/maidsafe/self-encryption/blob/master/img/self-encryption.png?raw=true)
 
 ## Video of the process
 [self_encryption process and use case video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
