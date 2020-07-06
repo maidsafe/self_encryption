@@ -1,3 +1,8 @@
+# PR workflow.
+#
+# Runs full suite of checks, with warnings treated as errors.
+# Gathers code coverage stats and publish them on coveralls.io.
+
 name: PR
 
 on: [pull_request, push]
@@ -46,6 +51,23 @@ jobs:
         with:
           command: clippy
           args: --all-targets --all-features -- -D warnings
+
+      # Run cargo tarpaulin & push result to coveralls.io
+      - name: rust-tarpaulin code coverage check
+        uses: actions-rs/tarpaulin@master
+        with:
+          args: '-v --release --out Lcov'
+      - name: Push code coverage results to coveralls.io
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel: true
+          path-to-lcov: ./lcov.info
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
           
       - uses: actions-rs/cargo@v1
         with:
