@@ -1,5 +1,9 @@
 # Self-Encryption - Change Log
 
+## [0.19.0]
+
+- Update rand and rand_chacha dep
+
 ## [0.18.0]
 
 - Update bincode dep
