@@ -38,7 +38,7 @@ where
     // its internal buffers.
     #[allow(clippy::new_ret_no_self)]
     pub async fn new(
-        storage: S,
+        mut storage: S,
         chunks: Vec<ChunkDetails>,
     ) -> Result<LargeEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert!(chunks.len() > 3);

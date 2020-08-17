@@ -32,7 +32,7 @@ where
     // Retrieves the chunks from storage and decrypts them to its internal `buffer`.
     #[allow(clippy::new_ret_no_self)]
     pub async fn new(
-        storage: S,
+        mut storage: S,
         chunks: Vec<ChunkDetails>,
     ) -> Result<MediumEncryptor<S>, SelfEncryptionError<S::Error>> {
         debug_assert_eq!(chunks.len(), 3);

@@ -73,7 +73,7 @@
 //! impl Storage for SimpleStorage {
 //!    type Error = SimpleStorageError;
 //!
-//!    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, Self::Error> {
+//!    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, Self::Error> {
 //!        match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
