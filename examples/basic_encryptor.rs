@@ -141,7 +141,7 @@ impl DiskBasedStorage {
 impl Storage for DiskBasedStorage {
     type Error = DiskBasedStorageError;
 
-    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
+    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
         let path = self.calculate_path(name);
         let mut file = File::open(&path)?;
         let mut data = Vec::new();

@@ -22,7 +22,7 @@ pub trait Storage {
 
     /// Retrieve data previously `put` under `name`.  If the data does not exist, an error should be
     /// returned.
-    async fn get(&self, name: &[u8]) -> Result<Vec<u8>, Self::Error>;
+    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, Self::Error>;
     /// Store `data` under `name`.
     async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), Self::Error>;
 

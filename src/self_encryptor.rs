@@ -460,7 +460,7 @@ where
             }
             state.chunks[i].in_sequencer = true;
             let pos = get_start_end_positions(state.map_size, i as u32).0 as usize;
-            let vec = decrypt_chunk(&*state, i as u32).await?;
+            let vec = decrypt_chunk(&mut *state, i as u32).await?;
             decrypted_chunks.push((vec, pos));
         }
     }
@@ -519,7 +519,7 @@ where
         }
         state.chunks[i].in_sequencer = true;
         let pos = get_start_end_positions(state.map_size, i as u32).0 as usize;
-        let chunk_data = decrypt_chunk(&*state, i as u32).await?;
+        let chunk_data = decrypt_chunk(&mut *state, i as u32).await?;
         decrypted_chunks.push((chunk_data, pos));
     }
 
@@ -533,7 +533,7 @@ where
 }
 
 async fn decrypt_chunk<S>(
-    state: &State<S>,
+    state: &mut State<S>,
     chunk_number: u32,
 ) -> Result<Vec<u8>, SelfEncryptionError<S::Error>>
 where
