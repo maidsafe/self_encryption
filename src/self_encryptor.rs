@@ -70,7 +70,7 @@ where
 {
     /// This is the only constructor for an encryptor object.  Each `SelfEncryptor` is used for a
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
-    /// not previously been self-encrypted, use `DataMap::None`.
+    /// not previously been self_encrypted, use `DataMap::None`.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         storage: S,

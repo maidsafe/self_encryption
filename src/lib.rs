@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-//! A file **content** self-encryptor.
+//! A file **content** self_encryptor.
 //!
 //! This library provides convergent encryption on file-based data and produce a `DataMap` type and
 //! several chunks of data. Each chunk is up to 1MB in size and has a name.  This name is the
@@ -96,7 +96,7 @@
 
 //! ```
 //!
-//! Using this `SimpleStorage`, a self-encryptor can be created and written to/read from:
+//! Using this `SimpleStorage`, a self_encryptor can be created and written to/read from:
 //!
 //! ```
 //! # extern crate futures;
@@ -195,7 +195,7 @@ pub use crate::{
     storage::{Storage, StorageError},
 };
 
-/// The maximum size of file which can be self-encrypted, defined as 1GB.
+/// The maximum size of file which can be self_encrypted, defined as 1GB.
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
 /// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
 pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;

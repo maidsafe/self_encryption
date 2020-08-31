@@ -113,7 +113,7 @@ where
 ///
 /// This encryptor differs from `SelfEncryptor` in that completed chunks will be stored during
 /// `write()` calls as opposed to buffering all data until the `close()` call.  This should give
-/// more realistic feedback about the progress of fully self-encrypting larger data.
+/// more realistic feedback about the progress of fully self_encrypting larger data.
 ///
 /// A further difference is that since the entire data is not held in an internal buffer, this
 /// encryptor doesn't need to limit the input data size, i.e. `MAX_FILE_SIZE` does not apply to this

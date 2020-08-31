@@ -1,4 +1,4 @@
-# Self-Encryption - Change Log
+# Self Encryption - Change Log
 
 ## [0.19.0]
 

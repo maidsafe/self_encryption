@@ -13,7 +13,7 @@ use std::{
     io::Error as IoError,
 };
 
-/// Errors which can arise during self-encryption or -decryption.
+/// Errors which can arise during self_encryption or -decryption.
 #[derive(Debug)]
 pub enum SelfEncryptionError<E: StorageError> {
     /// An error during compression or decompression.
