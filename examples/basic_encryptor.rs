@@ -53,19 +53,17 @@
 
 use async_trait::async_trait;
 use docopt::Docopt;
-use self_encryption::{self, test_helpers, DataMap, SelfEncryptor, Storage, StorageError};
+use self_encryption::{self, test_helpers, DataMap, SelfEncryptionError, SelfEncryptor, Storage};
 use serde::Deserialize;
 use std::{
     env,
-    error::Error as StdError,
-    fmt::{self, Display, Formatter},
+    fmt::{self},
     fs::{self, File},
-    io::{Error as IoError, Read, Write},
+    io::{Read, Write},
     path::PathBuf,
     string::String,
 };
 use tiny_keccak::sha3_256;
-use unwrap::unwrap;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -100,31 +98,6 @@ fn file_name(name: &[u8]) -> String {
     string
 }
 
-#[derive(Debug)]
-struct DiskBasedStorageError {
-    io_error: IoError,
-}
-
-impl Display for DiskBasedStorageError {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        write!(formatter, "I/O error getting/putting: {}", self.io_error)
-    }
-}
-
-impl StdError for DiskBasedStorageError {
-    fn description(&self) -> &str {
-        "DiskBasedStorage Error"
-    }
-}
-
-impl From<IoError> for DiskBasedStorageError {
-    fn from(error: IoError) -> DiskBasedStorageError {
-        DiskBasedStorageError { io_error: error }
-    }
-}
-
-impl StorageError for DiskBasedStorageError {}
-
 struct DiskBasedStorage {
     pub storage_path: String,
 }
@@ -139,9 +112,7 @@ impl DiskBasedStorage {
 
 #[async_trait]
 impl Storage for DiskBasedStorage {
-    type Error = DiskBasedStorageError;
-
-    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, DiskBasedStorageError> {
+    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
         let path = self.calculate_path(name);
         let mut file = File::open(&path)?;
         let mut data = Vec::new();
@@ -150,7 +121,7 @@ impl Storage for DiskBasedStorage {
         Ok(data)
     }
 
-    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), DiskBasedStorageError> {
+    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SelfEncryptionError> {
         let path = self.calculate_path(&name);
         let mut file = File::create(&path)?;
 
@@ -180,14 +151,14 @@ async fn main() {
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
     let mut storage = DiskBasedStorage {
-        storage_path: unwrap!(chunk_store_dir.to_str()).to_owned(),
+        storage_path: chunk_store_dir.to_str().unwrap().to_owned(),
     };
 
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
 
     if args.flag_encrypt && args.arg_target.is_some() {
-        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone())) {
+        if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
             match file.metadata() {
                 Ok(metadata) => {
                     if metadata.len() > self_encryption::MAX_FILE_SIZE as u64 {
@@ -217,7 +188,7 @@ async fn main() {
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
-                    let encoded = test_helpers::serialise(&data_map);
+                    let encoded = test_helpers::serialise(&data_map).unwrap();
                     match file.write_all(&encoded[..]) {
                         Ok(_) => println!("Data map written to {:?}", data_map_file),
                         Err(error) => {
@@ -236,36 +207,42 @@ async fn main() {
                 }
             }
         } else {
-            println!("Failed to open {}", unwrap!(args.arg_target.clone()));
+            println!("Failed to open {}", args.arg_target.clone().unwrap());
         }
     }
 
     if args.flag_decrypt && args.arg_destination.is_some() {
         if let Ok(mut file) = File::open(data_map_file.clone()) {
             let mut data = Vec::new();
-            let _ = unwrap!(file.read_to_end(&mut data));
+            let _ = file.read_to_end(&mut data).unwrap();
 
-            if let Some(data_map) = test_helpers::deserialise::<DataMap>(&data) {
-                let se = SelfEncryptor::new(storage, data_map)
-                    .expect("Encryptor construction shouldn't fail.");
-                let length = se.len().await;
-                if let Ok(mut file) = File::create(unwrap!(args.arg_destination.clone())) {
-                    let content = se
-                        .read(0, length)
-                        .await
-                        .expect("Reading from encryptor shouldn't fail.");
-                    match file.write_all(&content[..]) {
-                        Err(error) => println!("File write failed - {:?}", error),
-                        Ok(_) => println!(
-                            "File decrypted to {:?}",
-                            unwrap!(args.arg_destination.clone())
-                        ),
-                    };
-                } else {
-                    println!("Failed to create {}", unwrap!(args.arg_destination.clone()));
+            match test_helpers::deserialise::<DataMap>(&data) {
+                Ok(data_map) => {
+                    let se = SelfEncryptor::new(storage, data_map)
+                        .expect("Encryptor construction shouldn't fail.");
+                    let length = se.len().await;
+                    if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
+                        let content = se
+                            .read(0, length)
+                            .await
+                            .expect("Reading from encryptor shouldn't fail.");
+                        match file.write_all(&content[..]) {
+                            Err(error) => println!("File write failed - {:?}", error),
+                            Ok(_) => println!(
+                                "File decrypted to {:?}",
+                                args.arg_destination.clone().unwrap()
+                            ),
+                        };
+                    } else {
+                        println!(
+                            "Failed to create {}",
+                            (args.arg_destination.clone().unwrap())
+                        );
+                    }
                 }
-            } else {
-                println!("Failed to parse data map - possible corruption");
+                Err(_) => {
+                    println!("Failed to parse data map - possible corruption");
+                }
             }
         } else {
             println!("Failed to open data map at {:?}", data_map_file);

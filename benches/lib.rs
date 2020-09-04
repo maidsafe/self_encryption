@@ -53,7 +53,6 @@ use self_encryption::{
     DataMap, SelfEncryptor,
 };
 use std::time::Duration;
-use unwrap::unwrap;
 
 // sample size is _NOT_ the number of times the command is run...
 // https://bheisler.github.io/criterion.rs/book/analysis.html#measurement
@@ -67,7 +66,7 @@ fn write(b: &mut Bencher<'_>, bytes_len: u64) {
     b.iter_batched(
         // the setup
         || {
-            let mut rng = new_test_rng();
+            let mut rng = new_test_rng().unwrap();
             let bytes = random_bytes(&mut rng, bytes_len as usize);
             let storage = Some(SimpleStorage::new());
 
@@ -77,9 +76,9 @@ fn write(b: &mut Bencher<'_>, bytes_len: u64) {
         |(bytes, mut storage)| {
             let waiters = async {
                 let self_encryptor =
-                    SelfEncryptor::new(unwrap!(storage.take()), DataMap::None).unwrap();
+                    SelfEncryptor::new(storage.take().unwrap(), DataMap::None).unwrap();
                 self_encryptor.write(&bytes.clone(), 0).await.unwrap();
-                storage = Some(unwrap!(self_encryptor.close().await).1)
+                storage = Some(self_encryptor.close().await.unwrap().1)
             };
 
             futures::executor::block_on(waiters);
@@ -92,14 +91,14 @@ fn read(b: &mut Bencher, bytes_len: u64) {
     b.iter_batched(
         // the setup
         || {
-            let mut rng = new_test_rng();
+            let mut rng = new_test_rng().unwrap();
             let bytes = random_bytes(&mut rng, bytes_len as usize);
             let storage = SimpleStorage::new();
-            let self_encryptor = unwrap!(SelfEncryptor::new(storage, DataMap::None));
+            let self_encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
 
             let waiters = async {
-                unwrap!(self_encryptor.write(&bytes, 0).await);
-                unwrap!(self_encryptor.close().await)
+                self_encryptor.write(&bytes, 0).await.unwrap();
+                self_encryptor.close().await.unwrap()
             };
             let (data_map, storage) = futures::executor::block_on(waiters);
             let storage = Some(storage);
@@ -107,9 +106,9 @@ fn read(b: &mut Bencher, bytes_len: u64) {
         },
         // actual benchmark
         |(data_map, mut storage, bytes)| {
-            let self_encryptor = unwrap!(SelfEncryptor::new(unwrap!(storage.take()), data_map,));
+            let self_encryptor = SelfEncryptor::new(storage.take().unwrap(), data_map).unwrap();
             let the_waiter = async {
-                let read_bytes = unwrap!(self_encryptor.read(0, bytes_len).await);
+                let read_bytes = self_encryptor.read(0, bytes_len).await.unwrap();
                 assert_eq!(read_bytes, bytes);
             };
             futures::executor::block_on(the_waiter);

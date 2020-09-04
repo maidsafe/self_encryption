@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{Pad, SelfEncryptionError, StorageError, COMPRESSION_QUALITY, PAD_SIZE};
+use super::{Pad, SelfEncryptionError, COMPRESSION_QUALITY, PAD_SIZE};
 use crate::{
     data_map::ChunkDetails,
     encryption::{self, IV_SIZE, KEY_SIZE},
@@ -48,26 +48,23 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
     (Pad(pad), Key(key), Iv(iv))
 }
 
-pub fn encrypt_chunk<E: StorageError>(
+pub fn encrypt_chunk(
     content: &[u8],
     pad_key_iv: (Pad, Key, Iv),
-) -> Result<Vec<u8>, SelfEncryptionError<E>> {
+) -> Result<Vec<u8>, SelfEncryptionError> {
     let (pad, key, iv) = pad_key_iv;
     let mut compressed = vec![];
     let mut enc_params: BrotliEncoderParams = Default::default();
     enc_params.quality = COMPRESSION_QUALITY;
-    let result = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params);
-    if result.is_err() {
-        return Err(SelfEncryptionError::Compression);
-    }
+    let _size = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params)?;
     let encrypted = encryption::encrypt(&compressed, &key, &iv)?;
     Ok(xor(&encrypted, &pad))
 }
 
-pub fn decrypt_chunk<E: StorageError>(
+pub fn decrypt_chunk(
     content: &[u8],
     pad_key_iv: (Pad, Key, Iv),
-) -> Result<Vec<u8>, SelfEncryptionError<E>> {
+) -> Result<Vec<u8>, SelfEncryptionError> {
     let (pad, key, iv) = pad_key_iv;
     let xor_result = xor(content, &pad);
     let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;

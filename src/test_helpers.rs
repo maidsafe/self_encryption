@@ -8,8 +8,8 @@
 
 #![doc(hidden)]
 
-use super::{Storage, StorageError};
-
+use super::Storage;
+use crate::SelfEncryptionError;
 use async_trait::async_trait;
 
 use rand::{self, Rng, SeedableRng};
@@ -17,12 +17,10 @@ use rand_chacha::ChaChaRng;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     cmp, env,
-    error::Error,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
     thread,
 };
 use tiny_keccak::sha3_256;
-use unwrap::unwrap;
 
 pub type TestRng = ChaChaRng;
 
@@ -41,23 +39,6 @@ impl<'a> Debug for Blob<'a> {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct SimpleStorageError;
-
-impl Display for SimpleStorageError {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        write!(formatter, "Failed to get data from SimpleStorage")
-    }
-}
-
-impl Error for SimpleStorageError {
-    fn description(&self) -> &str {
-        "SimpleStorage::get() error"
-    }
-}
-
-impl StorageError for SimpleStorageError {}
 
 struct Entry {
     name: Vec<u8>,
@@ -85,16 +66,16 @@ impl SimpleStorage {
 
 #[async_trait]
 impl Storage for SimpleStorage {
-    type Error = SimpleStorageError;
+    // type Error = SelfEncryptionError;
 
-    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SimpleStorageError> {
+    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
         match self.entries.iter().find(|entry| entry.name == name) {
             Some(entry) => Ok(entry.data.clone()),
-            None => Err(SimpleStorageError {}),
+            None => Err(SelfEncryptionError::Storage),
         }
     }
 
-    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SimpleStorageError> {
+    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SelfEncryptionError> {
         self.entries.push(Entry { name, data });
 
         Ok(())
@@ -108,35 +89,38 @@ impl Storage for SimpleStorage {
 // Create new random number generator suitable for tests. To provide repeatable results, the seed
 // can be overridden using the "SEED" env variable. If this variable is not provided, a random one
 // is used (to support soak testing). The current seed is printed to stdout.
-pub fn new_test_rng() -> TestRng {
+pub fn new_test_rng() -> Result<TestRng, SelfEncryptionError> {
     let seed = if let Ok(seed) = env::var("SEED") {
-        unwrap!(seed.parse(), "SEED must contain a valid u64 value")
+        seed.parse()?
     } else {
         rand::thread_rng().gen()
     };
 
     println!(
         "RNG seed for thread {:?}: {}",
-        unwrap!(thread::current().name()),
+        thread::current().name().unwrap(),
         seed
     );
 
-    TestRng::seed_from_u64(seed)
+    Ok(TestRng::seed_from_u64(seed))
 }
 
-pub fn from_rng(rng: &mut TestRng) -> TestRng {
-    unwrap!(TestRng::from_rng(rng))
+pub fn from_rng(rng: &mut TestRng) -> Result<TestRng, SelfEncryptionError> {
+    Ok(TestRng::from_rng(rng)?)
 }
 
-pub fn serialise<T: Serialize>(data: &T) -> Vec<u8> {
-    unwrap!(bincode::serialize(data))
+pub fn serialise<T: Serialize>(data: &T) -> Result<Vec<u8>, SelfEncryptionError> {
+    Ok(bincode::serialize(data)?)
 }
 
-pub fn deserialise<T>(data: &[u8]) -> Option<T>
+pub fn deserialise<'a, T>(data: &'a [u8]) -> Result<T, SelfEncryptionError>
 where
     T: Serialize + DeserializeOwned,
 {
-    bincode::deserialize(data).ok()
+    match bincode::deserialize(data) {
+        Ok(data) => Ok(data),
+        Err(_) => Err(SelfEncryptionError::Deserialise),
+    }
 }
 
 pub fn random_bytes<T: Rng>(rng: &mut T, size: usize) -> Vec<u8> {
