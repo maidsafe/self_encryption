@@ -17,7 +17,6 @@ block-modes = "~0.3.3"
 bincode = "1.2.1"
 brotli = "3.3.0"
 futures = "~0.3.4"
-memmap = "~0.7.0"
 rand = "~0.7.3"
 rand_chacha = "~0.2.2"
 serde = { version = "1.0.97", features = ["derive"] }
