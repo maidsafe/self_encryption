@@ -12,7 +12,7 @@ use super::{
 use crate::{
     data_map::{ChunkDetails, DataMap},
     encryption::{self, IV_SIZE, KEY_SIZE},
-    sequencer::{Sequencer, MAX_IN_MEMORY_SIZE},
+    sequencer::Sequencer,
     sequential::{Iv, Key},
 };
 use brotli::{self, enc::BrotliEncoderParams};
@@ -77,18 +77,13 @@ where
         data_map: DataMap,
     ) -> Result<SelfEncryptor<S>, SelfEncryptionError<S::Error>> {
         let file_size = data_map.len();
-        let mut sequencer = if file_size <= MAX_IN_MEMORY_SIZE as u64 {
-            Sequencer::new_as_vector()
-        } else {
-            Sequencer::new_as_mmap()?
-        };
-
+        let mut sequencer = Sequencer::new();
         let sorted_map;
         let chunks;
         let map_size;
         match data_map {
             DataMap::Content(content) => {
-                sequencer.init(&content);
+                sequencer.extend_from_slice(&content);
                 sorted_map = vec![];
                 chunks = vec![];
                 map_size = 0;
@@ -336,12 +331,8 @@ where
     ) -> Result<(), SelfEncryptionError<S::Error>> {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
-            if new_len > MAX_IN_MEMORY_SIZE as u64 {
-                self.sequencer.create_mapping()?;
-            } else {
                 self.sequencer
                     .extend(iter::repeat(0).take((new_len - old_len) as usize));
-            }
         }
         Ok(())
     }
