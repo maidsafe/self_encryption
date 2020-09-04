@@ -113,7 +113,7 @@ pub fn serialise<T: Serialize>(data: &T) -> Result<Vec<u8>, SelfEncryptionError>
     Ok(bincode::serialize(data)?)
 }
 
-pub fn deserialise<'a, T>(data: &'a [u8]) -> Result<T, SelfEncryptionError>
+pub fn deserialise<T>(data: &[u8]) -> Result<T, SelfEncryptionError>
 where
     T: Serialize + DeserializeOwned,
 {
