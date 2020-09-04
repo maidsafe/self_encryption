@@ -331,8 +331,8 @@ where
     ) -> Result<(), SelfEncryptionError<S::Error>> {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
-                self.sequencer
-                    .extend(iter::repeat(0).take((new_len - old_len) as usize));
+            self.sequencer
+                .extend(iter::repeat(0).take((new_len - old_len) as usize));
         }
         Ok(())
     }
