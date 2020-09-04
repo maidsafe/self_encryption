@@ -13,7 +13,7 @@ pub mod small_encryptor;
 pub mod utils;
 
 pub use super::{
-    SelfEncryptionError, Storage, StorageError, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE,
+    SelfEncryptionError, Storage, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MAX_FILE_SIZE,
     MIN_CHUNK_SIZE,
 };
 use crate::encryption::{IV_SIZE, KEY_SIZE};

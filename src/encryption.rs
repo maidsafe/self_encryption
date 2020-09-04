@@ -7,7 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::sequential::{Iv, Key};
-use crate::{SelfEncryptionError, StorageError};
+use crate::SelfEncryptionError;
 use aes::Aes128;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
@@ -16,26 +16,14 @@ type Aes128Cbc = Cbc<Aes128, Pkcs7>;
 pub const KEY_SIZE: usize = 16;
 pub const IV_SIZE: usize = 16;
 
-pub fn encrypt<E>(data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError<E>>
-where
-    E: StorageError,
-{
+pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError> {
     let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref())
         .map_err(|e| SelfEncryptionError::Cipher(format!("{:?}", e)))?;
     Ok(cipher.encrypt_vec(data))
 }
 
-pub fn decrypt<E>(
-    encrypted_data: &[u8],
-    key: &Key,
-    iv: &Iv,
-) -> Result<Vec<u8>, SelfEncryptionError<E>>
-where
-    E: StorageError,
-{
+pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError> {
     let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref())
         .map_err(|err| SelfEncryptionError::Cipher(format!("{:?}", err)))?;
-    cipher
-        .decrypt_vec(encrypted_data)
-        .map_err(|err| SelfEncryptionError::Decryption(format!("{:?}", err)))
+    Ok(cipher.decrypt_vec(encrypted_data)?)
 }

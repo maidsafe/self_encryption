@@ -21,8 +21,8 @@ rand = "~0.7.3"
 rand_chacha = "~0.2.2"
 serde = { version = "1.0.97", features = ["derive"] }
 tiny-keccak = "1.5.0"
-unwrap = "1.2.1"
 tokio = { version = "~0.2.18", features=["rt-core","macros"] }
+err-derive = "0.2.4"
 
 [dev-dependencies]
 criterion = "~0.3"

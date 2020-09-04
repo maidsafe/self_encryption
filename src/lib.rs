@@ -192,7 +192,7 @@ pub use crate::{
     error::SelfEncryptionError,
     self_encryptor::SelfEncryptor,
     sequential::encryptor::Encryptor as SequentialEncryptor,
-    storage::{Storage, StorageError},
+    storage::Storage,
 };
 
 /// The maximum size of file which can be self_encrypted, defined as 1GB.

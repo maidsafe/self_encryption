@@ -19,7 +19,6 @@ use std::{
     mem,
     sync::Arc,
 };
-use unwrap::unwrap;
 
 enum State<S: Storage + Send + Sync> {
     Small(SmallEncryptor<S>),
@@ -32,7 +31,7 @@ impl<S> State<S>
 where
     S: Storage + 'static + Send + Sync,
 {
-    async fn write(self, data: &[u8]) -> Result<Self, SelfEncryptionError<S::Error>> {
+    async fn write(self, data: &[u8]) -> Result<Self, SelfEncryptionError> {
         match self {
             State::Small(encryptor) => encryptor.write(data).await.map(From::from),
             State::Medium(encryptor) => encryptor.write(data).await.map(From::from),
@@ -41,7 +40,7 @@ where
         }
     }
 
-    async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
+    async fn close(self) -> Result<(DataMap, S), SelfEncryptionError> {
         match self {
             State::Small(encryptor) => encryptor.close().await,
             State::Medium(encryptor) => encryptor.close().await,
@@ -137,7 +136,7 @@ where
     pub async fn new(
         storage: S,
         data_map: Option<DataMap>,
-    ) -> Result<Encryptor<S>, SelfEncryptionError<S::Error>> {
+    ) -> Result<Encryptor<S>, SelfEncryptionError> {
         match data_map {
             Some(DataMap::Content(content)) => {
                 let state = State::from(SmallEncryptor::new(storage, content).await?);
@@ -164,7 +163,7 @@ where
     /// Buffers some or all of `data` and stores any completed chunks (i.e. those which cannot be
     /// modified by subsequent `write()` calls).  The internal buffers can only be flushed by
     /// calling `close()`.
-    pub async fn write(&self, data: &[u8]) -> Result<(), SelfEncryptionError<S::Error>> {
+    pub async fn write(&self, data: &[u8]) -> Result<(), SelfEncryptionError> {
         let curr_state = Arc::clone(&self.state);
         let prev_state = mem::replace(&mut *curr_state.lock().await, State::Transitioning);
 
@@ -200,8 +199,8 @@ where
 
     /// This finalises the encryptor - it should not be used again after this call.  Internal
     /// buffers are flushed, resulting in up to four chunks being stored.
-    pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError<S::Error>> {
-        let state = unwrap!(Arc::try_unwrap(self.state));
+    pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError> {
+        let state = Arc::try_unwrap(self.state).unwrap();
         let state = state.into_inner();
         state.close().await
     }
@@ -233,22 +232,23 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{super::*, *};
+    use super::super::*;
+    use super::*;
     use crate::{
         data_map::DataMap,
-        self_encryptor::SelfEncryptor,
         test_helpers::{new_test_rng, random_bytes, Blob, SimpleStorage},
+        SelfEncryptor,
     };
 
     async fn read(
         expected_data: &[u8],
         storage: SimpleStorage,
         data_map: &DataMap,
-    ) -> SimpleStorage {
-        let self_encryptor = unwrap!(SelfEncryptor::new(storage, data_map.clone()));
-        let fetched = unwrap!(self_encryptor.read(0, expected_data.len() as u64).await);
+    ) -> Result<SimpleStorage, SelfEncryptionError> {
+        let self_encryptor = SelfEncryptor::new(storage, data_map.clone())?;
+        let fetched = self_encryptor.read(0, expected_data.len() as u64).await?;
         assert_eq!(Blob(&fetched), Blob(expected_data));
-        self_encryptor.into_storage().await
+        Ok(self_encryptor.into_storage().await)
     }
 
     async fn write(
@@ -256,33 +256,33 @@ mod tests {
         storage: SimpleStorage,
         data_map: &mut DataMap,
         expected_len: usize,
-    ) -> SimpleStorage {
-        let encryptor = unwrap!(Encryptor::new(storage, Some(data_map.clone())).await);
-        unwrap!(encryptor.write(data).await);
+    ) -> Result<SimpleStorage, SelfEncryptionError> {
+        let encryptor = Encryptor::new(storage, Some(data_map.clone())).await?;
+        encryptor.write(data).await?;
         assert_eq!(encryptor.len().await, expected_len as u64);
-        let (data_map2, storage) = unwrap!(encryptor.close().await);
+        let (data_map2, storage) = encryptor.close().await?;
         *data_map = data_map2;
-        storage
+        Ok(storage)
     }
 
     #[tokio::test]
-    async fn transitions() {
-        let mut rng = new_test_rng();
+    async fn transitions() -> Result<(), SelfEncryptionError> {
+        let mut rng = new_test_rng()?;
         let data = random_bytes(&mut rng, 4 * MAX_CHUNK_SIZE as usize + 1);
 
         // Write 0 bytes.
         let (mut data_map, mut storage) = {
             let storage = SimpleStorage::new();
-            let encryptor = unwrap!(Encryptor::new(storage, None).await);
+            let encryptor = Encryptor::new(storage, None).await?;
             assert_eq!(encryptor.len().await, 0);
             assert!(encryptor.is_empty().await);
-            unwrap!(encryptor.write(&[]).await);
+            encryptor.write(&[]).await?;
             assert_eq!(encryptor.len().await, 0);
             assert!(encryptor.is_empty().await);
-            unwrap!(encryptor.close().await)
+            encryptor.close().await?
         };
 
-        storage = read(&[], storage, &data_map).await;
+        storage = read(&[], storage, &data_map).await?;
 
         // Write 1 byte.
         let mut index_start = 0;
@@ -293,8 +293,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
-        storage = read(&data[..index_end], storage, &data_map).await;
+        .await?;
+        storage = read(&data[..index_end], storage, &data_map).await?;
 
         // Append as far as `small_encryptor::MAX` bytes.
         index_start = index_end;
@@ -305,8 +305,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
-        storage = read(&data[..index_end], storage, &data_map).await;
+        .await?;
+        storage = read(&data[..index_end], storage, &data_map).await?;
 
         // Append a further single byte.
         index_start = index_end;
@@ -317,8 +317,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
-        storage = read(&data[..index_end], storage, &data_map).await;
+        .await?;
+        storage = read(&data[..index_end], storage, &data_map).await?;
 
         // Append as far as `medium_encryptor::MAX` bytes.
         index_start = index_end;
@@ -329,8 +329,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
-        storage = read(&data[..index_end], storage, &data_map).await;
+        .await?;
+        storage = read(&data[..index_end], storage, &data_map).await?;
 
         // Append a further single byte.
         index_start = index_end;
@@ -341,8 +341,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
-        storage = read(&data[..index_end], storage, &data_map).await;
+        .await?;
+        storage = read(&data[..index_end], storage, &data_map).await?;
 
         // Append remaining bytes.
         index_start = index_end;
@@ -353,7 +353,8 @@ mod tests {
             &mut data_map,
             index_end,
         )
-        .await;
+        .await?;
         let _ = read(&data[..index_end], storage, &data_map);
+        Ok(())
     }
 }

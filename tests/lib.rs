@@ -52,18 +52,18 @@
 use rand::{self, seq::SliceRandom, Rng};
 use self_encryption::{
     test_helpers::{new_test_rng, random_bytes, SimpleStorage},
-    DataMap, SelfEncryptor, MAX_CHUNK_SIZE,
+    DataMap, SelfEncryptionError, SelfEncryptor, MAX_CHUNK_SIZE,
 };
 
 const DATA_SIZE: u32 = 20 * 1024 * 1024;
 
 #[tokio::test]
-async fn new_read() {
+async fn new_read() -> Result<(), SelfEncryptionError> {
     let read_size: usize = 4096;
     let mut read_position: usize = 0;
     let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
     let storage = SimpleStorage::new();
-    let mut rng = new_test_rng();
+    let mut rng = new_test_rng()?;
     let original = random_bytes(&mut rng, content_len);
     {
         let se = SelfEncryptor::new(storage, DataMap::None)
@@ -135,11 +135,12 @@ async fn new_read() {
         }
         let _ = se.close().await.expect("Closing encryptor shouldn't fail.");
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn write_random_sizes_at_random_positions() {
-    let mut rng = new_test_rng();
+async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionError> {
+    let mut rng = new_test_rng()?;
     let storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
     let original = random_bytes(&mut rng, DATA_SIZE as usize);
@@ -209,15 +210,17 @@ async fn write_random_sizes_at_random_positions() {
             assert_eq!(overwrite, decrypted);
         }
     }
+    Ok(())
 }
 
 #[tokio::test]
 // The test writes random-sized pieces at random offsets and checks they can be read back.  The
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
-async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
+async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
+) -> Result<(), SelfEncryptionError> {
     let parts = 20usize;
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
-    let mut rng = new_test_rng();
+    let mut rng = new_test_rng()?;
     let mut total_size = 0u64;
     let mut original = vec![0u8; DATA_SIZE as usize];
 
@@ -278,6 +281,7 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps() {
     assert_eq!(decrypted.len(), DATA_SIZE as usize);
     assert_eq!(decrypted, original);
     assert_eq!(total_size, self_encryptor.len().await);
+    Ok(())
 }
 
 #[tokio::test]
