@@ -34,26 +34,10 @@
 //! # extern crate self_encryption;
 //! use std::error::Error;
 //! use std::fmt::{self, Display, Formatter};
-//! use self_encryption::{Storage, StorageError};
+//! use self_encryption::Storage;
 //! use tiny_keccak::sha3_256;
 //! use async_trait::async_trait;
-//! #[derive(Debug, Clone)]
-//! struct SimpleStorageError {}
-//!
-//! impl Display for SimpleStorageError {
-//!    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-//!        write!(formatter, "Failed to get data from SimpleStorage")
-//!    }
-//! }
-//!
-//! impl Error for SimpleStorageError {
-//!     fn description(&self) -> &str {
-//!         "SimpleStorage::get() error"
-//!     }
-//! }
-//!
-//! impl StorageError for SimpleStorageError {}
-//!
+
 //! struct Entry {
 //!     name: Vec<u8>,
 //!     data: Vec<u8>
@@ -71,9 +55,8 @@
 //! }
 //! #[async_trait]
 //! impl Storage for SimpleStorage {
-//!    type Error = SimpleStorageError;
 //!
-//!    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, Self::Error> {
+//!    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
 //!        match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
 //!            None => Err(SimpleStorageError {}),
@@ -81,7 +64,8 @@
 //!
 //!    }
 //!
-//!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), Self::Error> {
+//!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(),
+//!    SelfEncryption> {
 //!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
