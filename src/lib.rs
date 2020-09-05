@@ -54,7 +54,7 @@
 //! }
 //! #[async_trait]
 //! impl Storage for SimpleStorage {
-//!
+//
 //!    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
 //!        match self.entries.iter().find(|ref entry| entry.name == name) {
 //!            Some(entry) => Ok(entry.data.clone()),
