@@ -32,11 +32,10 @@
 //! ```
 //! # extern crate futures;
 //! # extern crate self_encryption;
-//! use std::error::Error;
-//! use std::fmt::{self, Display, Formatter};
 //! use self_encryption::Storage;
 //! use tiny_keccak::sha3_256;
 //! use async_trait::async_trait;
+//! use self_encryption::SelfEncryptionError;
 
 //! struct Entry {
 //!     name: Vec<u8>,
@@ -65,7 +64,7 @@
 //!    }
 //!
 //!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(),
-//!    SelfEncryption> {
+//!    SelfEncryptionError> {
 //!        self.entries.push(Entry {
 //!            name: name,
 //!            data: data,
