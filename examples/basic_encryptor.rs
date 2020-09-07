@@ -212,7 +212,7 @@ async fn main() {
     }
 
     if args.flag_decrypt && args.arg_target.is_some() && args.arg_destination.is_some() {
-        if let Ok(mut file) = File::open(unwrap!(args.arg_target.clone())) {
+        if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
             let mut data = Vec::new();
             let _ = file.read_to_end(&mut data).unwrap();
 
