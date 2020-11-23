@@ -342,7 +342,7 @@ where
                 let name = self
                     .storage
                     .generate_address(&(*self.sequencer)[pos..pos + this_size])
-                    .await;
+                    .await?;
                 new_map[i].chunk_num = i as u32;
                 new_map[i].hash.clear();
                 new_map[i].pre_hash = name.to_vec();
@@ -363,7 +363,7 @@ where
                     Ok(content) => content,
                     Err(error) => return Err(error),
                 };
-                let name = self.storage.generate_address(&content).await;
+                let name = self.storage.generate_address(&content).await?;
 
                 self.storage.put(name.to_vec(), content).await?;
 

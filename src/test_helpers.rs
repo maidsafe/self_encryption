@@ -81,8 +81,8 @@ impl Storage for SimpleStorage {
         Ok(())
     }
 
-    async fn generate_address(&self, data: &[u8]) -> Vec<u8> {
-        sha3_256(data).to_vec()
+    async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
+        Ok(sha3_256(data).to_vec())
     }
 }
 
