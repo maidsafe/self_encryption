@@ -108,7 +108,7 @@ where
 /// in the `write()` call; all data is appended sequentially.
 ///
 /// The resulting chunks and `DataMap` are identical to those which would have been produced by a
-/// [`SelfEncryptor`](struct.SelfEncryptor.html).
+/// [`SelfEncryptor`].
 ///
 /// This encryptor differs from `SelfEncryptor` in that completed chunks will be stored during
 /// `write()` calls as opposed to buffering all data until the `close()` call.  This should give
