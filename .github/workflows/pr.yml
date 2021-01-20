@@ -5,7 +5,7 @@
 
 name: PR
 
-on: [pull_request, push]
+on: [pull_request]
 
 env:
   # Run all cargo commands with --verbose.
@@ -27,10 +27,6 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-
-      # Generate Cargo.lock, needed for the cache.
-      - name: Generate Cargo.lock
-        run: cargo generate-lockfile
 
       # Cache.
       - name: Cargo cache registry, index and build
@@ -61,10 +57,6 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-
-      # Generate Cargo.lock, needed for the cache.
-      - name: Generate Cargo.lock
-        run: cargo generate-lockfile
 
       # Cache.
       - name: Cargo cache registry, index and build
@@ -133,10 +125,6 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-
-      # Generate Cargo.lock, needed for the cache.
-      - name: Generate Cargo.lock
-        run: cargo generate-lockfile
 
       # Cache.
       - name: Cargo cache registry, index and build

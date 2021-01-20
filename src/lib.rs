@@ -120,8 +120,7 @@
     arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
-    unknown_crate_types,
-    warnings
+    unknown_crate_types
 )]
 #![deny(
     bad_style,
@@ -140,7 +139,8 @@
     unused_comparisons,
     unused_features,
     unused_parens,
-    while_true
+    while_true,
+    warnings
 )]
 #![warn(
     trivial_casts,
