@@ -63,7 +63,7 @@ use std::{
     path::PathBuf,
     string::String,
 };
-use tiny_keccak::sha3_256;
+use tiny_keccak::{Hasher, Sha3};
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -133,7 +133,11 @@ impl Storage for DiskBasedStorage {
     }
 
     async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
-        Ok(sha3_256(data).to_vec())
+        let mut hasher = Sha3::v256();
+        let mut output = [0; 32];
+        hasher.update(&data);
+        hasher.finalize(&mut output);
+        Ok(output.to_vec())
     }
 }
 
