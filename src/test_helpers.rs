@@ -20,7 +20,7 @@ use std::{
     fmt::{self, Debug, Formatter},
     thread,
 };
-use tiny_keccak::sha3_256;
+use tiny_keccak::{Hasher, Sha3};
 
 pub type TestRng = ChaChaRng;
 
@@ -82,7 +82,11 @@ impl Storage for SimpleStorage {
     }
 
     async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
-        Ok(sha3_256(data).to_vec())
+        let mut hasher = Sha3::v256();
+        let mut output = [0; 32];
+        hasher.update(&data);
+        hasher.finalize(&mut output);
+        Ok(output.to_vec())
     }
 }
 
