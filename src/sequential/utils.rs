@@ -54,8 +54,10 @@ pub fn encrypt_chunk(
 ) -> Result<Vec<u8>, SelfEncryptionError> {
     let (pad, key, iv) = pad_key_iv;
     let mut compressed = vec![];
-    let mut enc_params: BrotliEncoderParams = Default::default();
-    enc_params.quality = COMPRESSION_QUALITY;
+    let enc_params = BrotliEncoderParams {
+        quality: COMPRESSION_QUALITY,
+        ..Default::default()
+    };
     let _size = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params)?;
     let encrypted = encryption::encrypt(&compressed, &key, &iv)?;
     Ok(xor(&encrypted, &pad))

@@ -222,9 +222,9 @@ where
             }
 
             if new_size >= state.file_size {
-                let result = state.extend_sequencer_up_to(new_size);
+                state.extend_sequencer_up_to(new_size);
                 state.file_size = new_size;
-                return result;
+                return Ok(());
             }
         }
 
@@ -312,13 +312,12 @@ impl<S> State<S>
 where
     S: Storage + 'static + Send + Sync,
 {
-    fn extend_sequencer_up_to(&mut self, new_len: u64) -> Result<(), SelfEncryptionError> {
+    fn extend_sequencer_up_to(&mut self, new_len: u64) {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
             self.sequencer
                 .extend(iter::repeat(0).take((new_len - old_len) as usize));
         }
-        Ok(())
     }
 
     #[allow(clippy::needless_range_loop)]
@@ -394,8 +393,8 @@ where
 
         let (chunks_start, chunks_end) = overlapped_chunks(state.map_size, position, length);
         if chunks_start == chunks_end {
-            let result = state.extend_sequencer_up_to(position + length).map(|_| ());
-            return result;
+            state.extend_sequencer_up_to(position + length);
+            return Ok(());
         }
 
         // Two more chunks need to be decrypted for re-encryption.
@@ -417,9 +416,7 @@ where
             cmp::max(position + length, end)
         };
 
-        if let Err(error) = state.extend_sequencer_up_to(required_len) {
-            return Err(error);
-        }
+        state.extend_sequencer_up_to(required_len);
 
         (chunks_start, chunks_end, next_two)
     };
@@ -474,7 +471,8 @@ where
 
     if chunks_start == chunks_end {
         let mut state = state.lock().await;
-        return state.extend_sequencer_up_to(position + length);
+        state.extend_sequencer_up_to(position + length);
+        return Ok(());
     }
 
     {
@@ -484,7 +482,7 @@ where
             cmp::max(position + length, end)
         };
 
-        state.extend_sequencer_up_to(required_len)?;
+        state.extend_sequencer_up_to(required_len);
     }
     let mut decrypted_chunks = Vec::new();
     let mut state = state.lock().await;
@@ -533,8 +531,10 @@ where
 fn encrypt_chunk(content: &[u8], pki: (Pad, Key, Iv)) -> Result<Vec<u8>, SelfEncryptionError> {
     let (pad, key, iv) = pki;
     let mut compressed = vec![];
-    let mut enc_params: BrotliEncoderParams = Default::default();
-    enc_params.quality = COMPRESSION_QUALITY;
+    let enc_params = BrotliEncoderParams {
+        quality: COMPRESSION_QUALITY,
+        ..Default::default()
+    };
     let result = brotli::BrotliCompress(&mut Cursor::new(content), &mut compressed, &enc_params);
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
