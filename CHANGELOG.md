@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.19.11](https://github.com/maidsafe/self_encryption/compare/v0.19.10...v0.19.11) (2021-02-15)
+
 ### [0.19.10](https://github.com/maidsafe/self_encryption/compare/v0.19.9...v0.19.10) (2021-02-10)
 
 ### [0.19.9](https://github.com/maidsafe/self_encryption/compare/v0.19.8...v0.19.9) (2021-02-10)
