@@ -63,6 +63,12 @@
 //!
 //!    }
 //!
+//!     async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
+//!        self.entries.retain(|entry| entry.name != name );
+//!
+//!         Ok(())
+//!    }
+//!
 //!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(),
 //!    SelfEncryptionError> {
 //!        self.entries.push(Entry {

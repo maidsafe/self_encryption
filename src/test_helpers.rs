@@ -81,6 +81,12 @@ impl Storage for SimpleStorage {
         Ok(())
     }
 
+    async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
+        self.entries.retain(|entry| entry.name != name);
+
+        Ok(())
+    }
+
     async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
         let mut hasher = Sha3::v256();
         let mut output = [0; 32];

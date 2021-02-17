@@ -132,6 +132,13 @@ impl Storage for DiskBasedStorage {
             .map_err(From::from)
     }
 
+    async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
+        let path = self.calculate_path(&name);
+        fs::remove_file(path)?;
+
+        Ok(())
+    }
+
     async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
         let mut hasher = Sha3::v256();
         let mut output = [0; 32];
