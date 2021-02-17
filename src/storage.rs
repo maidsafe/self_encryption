@@ -22,6 +22,8 @@ pub trait Storage {
     async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError>;
     /// Store `data` under `name`.
     async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SelfEncryptionError>;
+    /// Delete `data` under `name`.
+    async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError>;
 
     /// Generate the address at which the data will be stored. This address will be stored as a part of the data map.
     async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError>;
