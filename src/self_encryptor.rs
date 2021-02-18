@@ -146,6 +146,18 @@ where
             .collect())
     }
 
+    /// Delete all the chunks from the storage
+    pub async fn delete(self) -> Result<(), SelfEncryptionError> {
+        let state = self.take().await;
+        let mut storage = state.storage;
+
+        for chunk in &state.sorted_map {
+            storage.delete(&chunk.hash).await?;
+        }
+
+        Ok(())
+    }
+
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
     /// from data storage location.  Content temporarily held in the encryptor will only get flushed
     /// into storage when this function gets called.
