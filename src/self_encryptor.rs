@@ -147,7 +147,7 @@ where
     }
 
     /// Delete all the chunks from the storage
-    pub async fn delete(self) -> Result<(), SelfEncryptionError> {
+    pub async fn delete(self) -> Result<S, SelfEncryptionError> {
         let state = self.take().await;
         let mut storage = state.storage;
 
@@ -155,7 +155,7 @@ where
             storage.delete(&chunk.hash).await?;
         }
 
-        Ok(())
+        Ok(storage)
     }
 
     /// This function returns a `DataMap`, which is the info required to recover encrypted content
@@ -1032,6 +1032,51 @@ mod tests {
             .await
             .expect("Writing to encryptor shouldn't fail.");
         check_file_size(&se, (size + offset as usize) as u64).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn delete() -> Result<(), SelfEncryptionError> {
+        let storage = SimpleStorage::new();
+        let se = SelfEncryptor::new(storage, DataMap::None)
+            .expect("Encryptor construction shouldn't fail.");
+        let size = 4000;
+        let mut rng: rand_chacha::ChaCha20Rng = new_test_rng()?;
+        let the_bytes = random_bytes(&mut rng, size);
+        se.write(&the_bytes, 0)
+            .await
+            .expect("Writing to encryptor shouldn't fail.");
+
+        let (data_map, mut storage) = se.close().await?;
+        let reference_data_map = data_map.clone();
+
+        match &reference_data_map {
+            DataMap::Chunks(chunks) => {
+                for chunk in chunks {
+                    if storage.get(&chunk.hash).await.is_err() {
+                        panic!("this chunk should be in storage")
+                    }
+                }
+            }
+            DataMap::None | DataMap::Content(_) => panic!("shall return DataMap::Chunks"),
+        }
+
+        let se =
+            SelfEncryptor::new(storage, data_map).expect("Encryptor construction shouldn't fail.");
+
+        let mut storage = se.delete().await?;
+
+        match &reference_data_map {
+            DataMap::Chunks(chunks) => {
+                for chunk in chunks {
+                    if storage.get(&chunk.hash).await.is_ok() {
+                        panic!("this chunk should have been deleted")
+                    }
+                }
+            }
+            DataMap::None | DataMap::Content(_) => panic!("shall return DataMap::Chunks"),
+        }
+
         Ok(())
     }
 
