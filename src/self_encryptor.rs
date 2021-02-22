@@ -1038,14 +1038,11 @@ mod tests {
     #[tokio::test]
     async fn delete() -> Result<(), SelfEncryptionError> {
         let storage = SimpleStorage::new();
-        let se = SelfEncryptor::new(storage, DataMap::None)
-            .expect("Encryptor construction shouldn't fail.");
+        let se = SelfEncryptor::new(storage, DataMap::None)?;
         let size = 4000;
         let mut rng: rand_chacha::ChaCha20Rng = new_test_rng()?;
         let the_bytes = random_bytes(&mut rng, size);
-        se.write(&the_bytes, 0)
-            .await
-            .expect("Writing to encryptor shouldn't fail.");
+        se.write(&the_bytes, 0).await?;
 
         let (data_map, mut storage) = se.close().await?;
         let reference_data_map = data_map.clone();
@@ -1054,15 +1051,18 @@ mod tests {
             DataMap::Chunks(chunks) => {
                 for chunk in chunks {
                     if storage.get(&chunk.hash).await.is_err() {
-                        panic!("this chunk should be in storage")
+                        return Err(SelfEncryptionError::Generic("Missing Chunk".to_string()));
                     }
                 }
             }
-            DataMap::None | DataMap::Content(_) => panic!("shall return DataMap::Chunks"),
+            DataMap::None | DataMap::Content(_) => {
+                return Err(SelfEncryptionError::Generic(
+                    "shall return DataMap::Chunks".to_string(),
+                ));
+            }
         }
 
-        let se =
-            SelfEncryptor::new(storage, data_map).expect("Encryptor construction shouldn't fail.");
+        let se = SelfEncryptor::new(storage, data_map)?;
 
         let mut storage = se.delete().await?;
 
@@ -1070,11 +1070,15 @@ mod tests {
             DataMap::Chunks(chunks) => {
                 for chunk in chunks {
                     if storage.get(&chunk.hash).await.is_ok() {
-                        panic!("this chunk should have been deleted")
+                        return Err(SelfEncryptionError::Generic("Unexpected Chunk".to_string()));
                     }
                 }
             }
-            DataMap::None | DataMap::Content(_) => panic!("shall return DataMap::Chunks"),
+            DataMap::None | DataMap::Content(_) => {
+                return Err(SelfEncryptionError::Generic(
+                    "shall return DataMap::Chunks".to_string(),
+                ));
+            }
         }
 
         Ok(())
