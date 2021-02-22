@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.20.0](https://github.com/maidsafe/self_encryption/compare/v0.19.11...v0.20.0) (2021-02-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **self_encryptor.rs:** Previous commit (c6aafe6) introduced a breaking change due to introduction of new delete trait.
+
+### Features
+
+* delete for Self-Encryptor ([7480376](https://github.com/maidsafe/self_encryption/commit/74803764955e3fc46771012ab81f2fee3ea59668))
+* **storage:** delete trait for SEStorage ([056c4b7](https://github.com/maidsafe/self_encryption/commit/056c4b7d4cd63dc3d32a7de46338099de817915a))
+
+
+* **self_encryptor.rs:** Use Err inplace of panic! and expect ([a4cae07](https://github.com/maidsafe/self_encryption/commit/a4cae07a1ff530c987513e5bba937c31e5c64d55))
+
 ### [0.19.11](https://github.com/maidsafe/self_encryption/compare/v0.19.10...v0.19.11) (2021-02-15)
 
 ### [0.19.10](https://github.com/maidsafe/self_encryption/compare/v0.19.9...v0.19.10) (2021-02-10)
