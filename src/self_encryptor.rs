@@ -117,15 +117,19 @@ where
     pub async fn write(&self, data: &[u8], position: u64) -> Result<(), SelfEncryptionError> {
         prepare_window_for_writing(Arc::clone(&self.0), position, data.len() as u64).await?;
 
-        let mut state = self.0.lock().await;
-        for (p, byte) in state
-            .sequencer
-            .iter_mut()
-            .skip(position as usize)
-            .zip(data.to_vec())
         {
-            *p = byte;
+            let mut state = self.0.lock().await;
+            for (p, byte) in state
+                .sequencer
+                .iter_mut()
+                .skip(position as usize)
+                .zip(data.to_vec())
+            {
+                *p = byte;
+            }
         }
+
+        flush_after_write(Arc::clone(&self.0)).await?;
         Ok(())
     }
 
@@ -376,6 +380,7 @@ where
                 };
                 let name = self.storage.generate_address(&content).await?;
 
+                println!("storing chunk {}/{} during close", i, num_new_chunks);
                 self.storage.put(name.to_vec(), content).await?;
 
                 new_map[i].hash = name.to_vec();
@@ -463,6 +468,82 @@ where
 
     for &i in &next_two {
         state.chunks[i].flag_for_encryption();
+    }
+
+    Ok(())
+}
+
+async fn flush_after_write<S>(state: Arc<Mutex<State<S>>>) -> Result<(), SelfEncryptionError>
+where
+    S: Storage + 'static + Send + Sync,
+{
+    let (file_size, map_size) = {
+        let state = state.lock().await;
+        (state.file_size, state.map_size)
+    };
+
+    if file_size < 3 * MIN_CHUNK_SIZE as u64 {
+        return Ok(());
+    }
+
+    let num_chunks = get_num_chunks(file_size) as usize;
+    let old_num_chunks = get_num_chunks(map_size) as usize;
+
+    if num_chunks > old_num_chunks {
+        let mut state = state.lock().await;
+        for i in old_num_chunks..num_chunks {
+            state.chunks.push(Chunk {
+                status: ChunkStatus::ToBeHashed,
+                in_sequencer: true,
+            });
+            state.sorted_map.push(ChunkDetails {
+                chunk_num: i as u32,
+                hash: vec![],
+                pre_hash: vec![],
+                source_size: 0,
+            });
+        }
+        state.map_size = num_chunks as u64;
+    }
+
+    if num_chunks < 5 {
+        return Ok(());
+    }
+
+    {
+        let mut state = state.lock().await;
+        for i in 0..num_chunks {
+            if state.chunks[i].status == ChunkStatus::AlreadyEncrypted
+                || i < 2
+                || i >= num_chunks - 2
+            {
+                continue;
+            }
+
+            let chunk_size = get_chunk_size(file_size, i as u32) as usize;
+            let pos = get_start_end_positions(file_size, i as u32).0 as usize;
+            if state.chunks[i].status == ChunkStatus::ToBeHashed {
+                let name = state
+                    .storage
+                    .generate_address(&(*state.sequencer)[pos..pos + chunk_size])
+                    .await?;
+                state.sorted_map[i].pre_hash = name.to_vec();
+                state.sorted_map[i].source_size = chunk_size as u64;
+            }
+
+            state.sorted_map[i].chunk_num = i as u32;
+            state.sorted_map[i].hash.clear();
+
+            let pki = get_pad_key_and_iv(i as u32, &state.sorted_map, state.file_size);
+            let content = encrypt_chunk(&(*state.sequencer)[pos..pos + chunk_size], pki)?;
+            let name = state.storage.generate_address(&content).await?;
+
+            println!("storing chunk {}/{} during write", i, num_chunks);
+            state.storage.put(name.to_vec(), content).await?;
+
+            state.sorted_map[i].hash = name.to_vec();
+            state.chunks[i].status = ChunkStatus::AlreadyEncrypted;
+        }
     }
 
     Ok(())
