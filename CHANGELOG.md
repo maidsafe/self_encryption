@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.21.0](https://github.com/maidsafe/self_encryption/compare/v0.20.2...v0.21.0) (2021-03-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **tokio:** new Tokio runtime version is not backward compatible with tokio versions < 1.
+
+* **tokio:** upgrading to v1.3.0 ([640593b](https://github.com/maidsafe/self_encryption/commit/640593b1fbbe3d8f67c2ae730584ddbf6060703c))
+
 ### [0.20.2](https://github.com/maidsafe/self_encryption/compare/v0.20.1...v0.20.2) (2021-03-03)
 
 ### [0.20.1](https://github.com/maidsafe/self_encryption/compare/v0.20.0...v0.20.1) (2021-02-25)
