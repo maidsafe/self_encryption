@@ -165,6 +165,7 @@ where
             let state = self.0.lock().await;
             state.file_size
         };
+        let num_chunks = get_num_chunks(file_size);
 
         if file_size == 0 {
             let storage = self.into_storage().await;
@@ -179,6 +180,18 @@ where
             return Ok((DataMap::Content(content), storage));
         }
 
+        {
+            for i in 0..num_chunks as usize {
+                let prepare = {
+                    let state = self.0.lock().await;
+                    !state.chunks[i].in_sequencer
+                        && state.chunks[i].status != ChunkStatus::AlreadyEncrypted
+                };
+                if prepare {
+                    prepare_chunk_for_reading(Arc::clone(&self.0), i).await?;
+                }
+            }
+        }
         // create data map
         let the_data_map = {
             let mut state = self.0.lock().await;
@@ -200,17 +213,10 @@ where
             return Ok(());
         }
 
-        if file_size < 3 * MIN_CHUNK_SIZE as u64 && new_size < 3 * MIN_CHUNK_SIZE as u64 {
-            let mut state = self.0.lock().await;
-            state.extend_or_truncate(new_size);
-            state.file_size = new_size;
-            return Ok(());
-        }
-
         if file_size < 3 * MIN_CHUNK_SIZE as u64 {
             let new_num_chunks = get_num_chunks(new_size);
             let mut state = self.0.lock().await;
-            state.extend_sequencer_up_to(new_size);
+            state.extend_or_truncate(new_size);
             for i in 0..new_num_chunks {
                 state.chunks.push(Chunk {
                     status: ChunkStatus::ToBeHashed,
@@ -242,9 +248,21 @@ where
             {
                 let new_num_chunks = get_num_chunks(new_size);
                 let mut state = self.0.lock().await;
-                for i in 0..new_num_chunks as usize {
+                for i in 0..3 {
                     state.chunks[i].status = ChunkStatus::ToBeHashed;
                     state.sorted_map[i].source_size = get_chunk_size(new_size, i as u32) as u64;
+                }
+                for i in 3..new_num_chunks as usize {
+                    state.chunks.push(Chunk {
+                        status: ChunkStatus::ToBeHashed,
+                        in_sequencer: true,
+                    });
+                    state.sorted_map.push(ChunkDetails {
+                        chunk_num: i as u32,
+                        hash: vec![],
+                        pre_hash: vec![],
+                        source_size: get_chunk_size(new_size, i as u32) as u64,
+                    });
                 }
                 state.extend_or_truncate(new_size);
                 state.file_size = new_size;
@@ -321,14 +339,17 @@ where
 
         let byte_start = get_start_end_positions(file_size, chunks_start as u32).0;
 
+        // Decrypt first two chunks
+        prepare_chunk_for_reading(Arc::clone(&self.0), 0).await?;
+        prepare_chunk_for_reading(Arc::clone(&self.0), 1).await?;
+
         if byte_start == new_size {
             // the last chunk got completely yeeted
             let mut state = self.0.lock().await;
             state.chunks.truncate(chunks_start);
             state.sorted_map.truncate(chunks_start);
             state.file_size = new_size;
-        }
-        if new_size - byte_start < MIN_CHUNK_SIZE as u64 {
+        } else if new_size - byte_start < MIN_CHUNK_SIZE as u64 {
             // read last two chunks
             prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start - 1).await?;
             prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start).await?;
@@ -709,10 +730,16 @@ where
         return Ok(());
     }
     state.chunks[index].in_sequencer = true;
-    let pos = get_start_end_positions(state.file_size, index as u32).0 as usize;
+    let (pos, end) = get_start_end_positions(state.file_size, index as u32);
+    state.extend_sequencer_up_to(end);
     let chunk_data = decrypt_chunk(&mut *state, index as u32).await?;
 
-    for (p, byte) in state.sequencer.iter_mut().skip(pos).zip(chunk_data) {
+    for (p, byte) in state
+        .sequencer
+        .iter_mut()
+        .skip(pos as usize)
+        .zip(chunk_data)
+    {
         *p = byte;
     }
 
@@ -943,6 +970,7 @@ mod tests {
         get_start_end_positions, SelfEncryptionError, SelfEncryptor,
     };
     use crate::test_helpers::{self, new_test_rng, random_bytes, SimpleStorage};
+    use std::cmp;
 
     use rand::{self, Rng};
 
@@ -1685,6 +1713,81 @@ mod tests {
             .expect("Reading from encryptor shouldn't fail.");
         assert_eq!(&fetched[..], &bytes[..(bytes_len - 24) as usize]);
         Ok(())
+    }
+
+    async fn general_truncate_test(
+        old_size: u32,
+        new_size: u32,
+        num_chunks: u32,
+    ) -> Result<(), SelfEncryptionError> {
+        let bytes_len = old_size;
+        let mut rng = new_test_rng()?;
+        let bytes = random_bytes(&mut rng, bytes_len as usize);
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
+                .expect("First encryptor construction shouldn't fail.");
+            se.write(&bytes, 0)
+                .await
+                .expect("Writing to encryptor shouldn't fail.");
+            check_file_size(&se, bytes_len as u64).await;
+            se.close().await?
+        };
+
+        let (data_map2, storage) = {
+            // Start with an existing data_map.
+            let se = SelfEncryptor::new(storage, data_map)
+                .expect("Second encryptor construction shouldn't fail.");
+            se.truncate(new_size as u64)
+                .await
+                .expect("Truncating encryptor shouldn't fail.");
+            se.close().await?
+        };
+
+        assert_eq!(data_map2.len(), new_size as u64);
+        match data_map2 {
+            DataMap::Chunks(ref chunks) => {
+                assert_eq!(chunks.len(), num_chunks as usize);
+                for chunk_detail in chunks.iter() {
+                    assert!(storage.has_chunk(&chunk_detail.hash));
+                }
+            }
+            _ => panic!("data_map should be DataMap::Chunks"),
+        }
+
+        let min_size = cmp::min(old_size, new_size);
+        let se = SelfEncryptor::new(storage, data_map2)
+            .expect("Third encryptor construction shouldn't fail.");
+        let fetched = se
+            .read(0, min_size as u64)
+            .await
+            .expect("Reading from encryptor shouldn't fail.");
+        assert_eq!(&fetched[..], &bytes[..(min_size) as usize]);
+        Ok(())
+    }
+    #[tokio::test]
+    async fn truncate_three_to_four_chunk() -> Result<(), SelfEncryptionError> {
+        general_truncate_test(MAX_CHUNK_SIZE * 3 - 10, MAX_CHUNK_SIZE * 4 + 10, 5).await
+    }
+
+    #[tokio::test]
+    async fn truncate_last_chunk_deleted1() -> Result<(), SelfEncryptionError> {
+        general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 4 + 10, 5).await
+    }
+
+    #[tokio::test]
+    async fn truncate_last_chunk_deleted2() -> Result<(), SelfEncryptionError> {
+        general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 4, 4).await
+    }
+
+    #[tokio::test]
+    async fn truncate_last_chunk_deleted3() -> Result<(), SelfEncryptionError> {
+        general_truncate_test(
+            MAX_CHUNK_SIZE * 5,
+            MAX_CHUNK_SIZE * 4 + MIN_CHUNK_SIZE + 10,
+            5,
+        )
+        .await
     }
 
     #[tokio::test]
