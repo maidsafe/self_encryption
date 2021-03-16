@@ -180,16 +180,14 @@ where
             return Ok((DataMap::Content(content), storage));
         }
 
-        {
-            for i in 0..num_chunks as usize {
-                let prepare = {
-                    let state = self.0.lock().await;
-                    !state.chunks[i].in_sequencer
-                        && state.chunks[i].status != ChunkStatus::AlreadyEncrypted
-                };
-                if prepare {
-                    prepare_chunk_for_reading(Arc::clone(&self.0), i).await?;
-                }
+        for i in 0..num_chunks as usize {
+            let prepare = {
+                let state = self.0.lock().await;
+                !state.chunks[i].in_sequencer
+                    && state.chunks[i].status != ChunkStatus::AlreadyEncrypted
+            };
+            if prepare {
+                prepare_chunk_for_reading(Arc::clone(&self.0), i).await?;
             }
         }
         // create data map
@@ -243,9 +241,7 @@ where
                 state.sequencer.truncate(new_size as usize);
                 state.file_size = new_size;
                 return Ok(());
-            }
-
-            {
+            } else {
                 let new_num_chunks = get_num_chunks(new_size);
                 let mut state = self.0.lock().await;
                 for i in 0..3 {
@@ -1715,22 +1711,25 @@ mod tests {
         Ok(())
     }
 
+    /// This is a general test to check the `truncate` functionality. It generates `old_size` random bytes and writes it to
+    /// the self encryptor. Then makes a new self encryptor from the data map generated and truncates to `new_size`. Checks
+    /// weather the sizes are consistant and if the number of chunks after truncate are equal to `num_chunks`. Helper function
+    /// to many tests.
     async fn general_truncate_test(
         old_size: u32,
         new_size: u32,
         num_chunks: u32,
     ) -> Result<(), SelfEncryptionError> {
-        let bytes_len = old_size;
         let mut rng = new_test_rng()?;
-        let bytes = random_bytes(&mut rng, bytes_len as usize);
+        let content = random_bytes(&mut rng, old_size as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
             let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("First encryptor construction shouldn't fail.");
-            se.write(&bytes, 0)
+            se.write(&content, 0)
                 .await
                 .expect("Writing to encryptor shouldn't fail.");
-            check_file_size(&se, bytes_len as u64).await;
+            check_file_size(&se, old_size as u64).await;
             se.close().await?
         };
 
@@ -1738,9 +1737,11 @@ mod tests {
             // Start with an existing data_map.
             let se = SelfEncryptor::new(storage, data_map)
                 .expect("Second encryptor construction shouldn't fail.");
+            check_file_size(&se, old_size as u64).await;
             se.truncate(new_size as u64)
                 .await
                 .expect("Truncating encryptor shouldn't fail.");
+            check_file_size(&se, new_size as u64).await;
             se.close().await?
         };
 
@@ -1762,24 +1763,32 @@ mod tests {
             .read(0, min_size as u64)
             .await
             .expect("Reading from encryptor shouldn't fail.");
-        assert_eq!(&fetched[..], &bytes[..(min_size) as usize]);
+        assert_eq!(&fetched[..], &content[..(min_size) as usize]);
         Ok(())
     }
+
+    /// Test when truncating from 3 to 5 chunks of data. Checks if the case when old data size is
+    /// less than 3 * MAX_CHUNK_SIZE but more than 3 * MIN_CHUNK_SIZE
     #[tokio::test]
-    async fn truncate_three_to_four_chunk() -> Result<(), SelfEncryptionError> {
+    async fn truncate_three_to_five_chunk() -> Result<(), SelfEncryptionError> {
         general_truncate_test(MAX_CHUNK_SIZE * 3 - 10, MAX_CHUNK_SIZE * 4 + 10, 5).await
     }
 
+    /// Test when truncating the last chunk. Number of chunks remain the same but the second last
+    /// chunk would also get resized.
     #[tokio::test]
     async fn truncate_last_chunk_deleted1() -> Result<(), SelfEncryptionError> {
         general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 4 + 10, 5).await
     }
 
+    /// Test when truncating the complete last chunk.
     #[tokio::test]
     async fn truncate_last_chunk_deleted2() -> Result<(), SelfEncryptionError> {
         general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 4, 4).await
     }
 
+    /// Test when truncating the last chunk. Number of chunks remain the same and the second last
+    /// chunk remains of the same size.
     #[tokio::test]
     async fn truncate_last_chunk_deleted3() -> Result<(), SelfEncryptionError> {
         general_truncate_test(
