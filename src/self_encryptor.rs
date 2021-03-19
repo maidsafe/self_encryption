@@ -211,107 +211,47 @@ where
             return Ok(());
         }
 
+        let new_num_chunks = get_num_chunks(new_size);
+        let old_num_chunks = get_num_chunks(file_size);
+
         if file_size < 3 * MIN_CHUNK_SIZE as u64 {
-            let new_num_chunks = get_num_chunks(new_size);
             let mut state = self.0.lock().await;
-            state.extend_or_truncate(new_size);
-            for i in 0..new_num_chunks {
-                state.chunks.push(Chunk {
-                    status: ChunkStatus::ToBeHashed,
-                    in_sequencer: true,
-                });
-                state.sorted_map.push(ChunkDetails {
-                    chunk_num: i,
-                    hash: vec![],
-                    pre_hash: vec![],
-                    source_size: get_chunk_size(new_size, i) as u64,
-                });
-            }
+            state.extend_or_truncate_sequencer(new_size);
             state.file_size = new_size;
+            state.push_empty_chunks(0, new_num_chunks, new_size);
             return Ok(());
         }
 
         if file_size < 3 * MAX_CHUNK_SIZE as u64 {
             // read whole file
             prepare_window_for_reading(Arc::clone(&self.0), 0, file_size).await?;
-            if new_size < 3 * MIN_CHUNK_SIZE as u64 {
-                let mut state = self.0.lock().await;
-                state.chunks.clear();
-                state.sorted_map.clear();
-                state.sequencer.truncate(new_size as usize);
-                state.file_size = new_size;
-                return Ok(());
-            } else {
-                let new_num_chunks = get_num_chunks(new_size);
-                let mut state = self.0.lock().await;
-                for i in 0..3 {
-                    state.chunks[i].status = ChunkStatus::ToBeHashed;
-                    state.sorted_map[i].source_size = get_chunk_size(new_size, i as u32) as u64;
-                }
-                for i in 3..new_num_chunks as usize {
-                    state.chunks.push(Chunk {
-                        status: ChunkStatus::ToBeHashed,
-                        in_sequencer: true,
-                    });
-                    state.sorted_map.push(ChunkDetails {
-                        chunk_num: i as u32,
-                        hash: vec![],
-                        pre_hash: vec![],
-                        source_size: get_chunk_size(new_size, i as u32) as u64,
-                    });
-                }
-                state.extend_or_truncate(new_size);
-                state.file_size = new_size;
-                return Ok(());
-            }
-        }
-
-        if new_size > file_size {
-            {
-                let mut state = self.0.lock().await;
-                state.extend_sequencer_up_to(new_size);
-            }
-
-            let (resized_start, resized_end) = resized_chunks(file_size, new_size);
-
-            for i in resized_start..resized_end {
-                prepare_chunk_for_reading(Arc::clone(&self.0), i as usize).await?;
-                {
-                    let mut state = self.0.lock().await;
-                    state.chunks[i as usize].status = ChunkStatus::ToBeHashed;
-                    state.sorted_map[i as usize].source_size = get_chunk_size(new_size, i) as u64;
-                }
-            }
-
-            let new_num_chunks = get_num_chunks(new_size);
-            let old_num_chunks = get_num_chunks(file_size);
-
             let mut state = self.0.lock().await;
-            for i in old_num_chunks..new_num_chunks {
-                state.chunks.push(Chunk {
-                    status: ChunkStatus::ToBeHashed,
-                    in_sequencer: true,
-                });
-                state.sorted_map.push(ChunkDetails {
-                    chunk_num: i,
-                    hash: vec![],
-                    pre_hash: vec![],
-                    source_size: get_chunk_size(new_size, i) as u64,
-                });
+            if new_size < 3 * MIN_CHUNK_SIZE as u64 {
+                state.truncate_chunks(0);
+            } else {
+                state.reset_chunks(0, 3, new_size);
+                state.push_empty_chunks(3, new_num_chunks, new_size);
             }
-
-            state.chunks[0].flag_for_encryption();
-            state.chunks[1].flag_for_encryption();
+            state.extend_or_truncate_sequencer(new_size);
             state.file_size = new_size;
             return Ok(());
         }
 
-        if new_size < 3 * MIN_CHUNK_SIZE as u64 {
-            prepare_window_for_reading(Arc::clone(&self.0), 0, new_size).await?;
+        if new_size > file_size {
+            let (resized_start, resized_end) = resized_chunks(file_size, new_size);
+
+            for i in resized_start..resized_end {
+                prepare_chunk_for_reading(Arc::clone(&self.0), i as usize).await?;
+            }
+            prepare_chunk_for_reading(Arc::clone(&self.0), 0).await?;
+            prepare_chunk_for_reading(Arc::clone(&self.0), 1).await?;
+
             let mut state = self.0.lock().await;
-            state.chunks.clear();
-            state.sorted_map.clear();
-            state.sequencer.truncate(new_size as usize);
+            state.reset_chunks(resized_start as u64, resized_end as u64, new_size);
+            state.push_empty_chunks(old_num_chunks, new_num_chunks, new_size);
+            state.chunks[0].flag_for_encryption();
+            state.chunks[1].flag_for_encryption();
+            state.extend_sequencer_up_to(new_size);
             state.file_size = new_size;
             return Ok(());
         }
@@ -319,19 +259,14 @@ where
         if new_size < 3 * MAX_CHUNK_SIZE as u64 {
             prepare_window_for_reading(Arc::clone(&self.0), 0, new_size).await?;
             let mut state = self.0.lock().await;
-            state.chunks.truncate(3);
-            state.sorted_map.truncate(3);
-            for i in 0..3 {
-                state.chunks[i].status = ChunkStatus::ToBeHashed;
-                state.sorted_map[i].source_size = get_chunk_size(new_size, i as u32) as u64;
-            }
+            state.reset_chunks(0, new_num_chunks as u64, new_size);
+            state.truncate_chunks(new_num_chunks as usize);
             state.sequencer.truncate(new_size as usize);
             state.file_size = new_size;
             return Ok(());
         }
 
-        let (chunks_start, _old_num_chunks) =
-            overlapped_chunks(file_size, new_size, file_size - new_size);
+        let chunks_start = overlapped_chunks(file_size, new_size, file_size - new_size).0;
 
         let byte_start = get_start_end_positions(file_size, chunks_start as u32).0;
 
@@ -339,42 +274,33 @@ where
         prepare_chunk_for_reading(Arc::clone(&self.0), 0).await?;
         prepare_chunk_for_reading(Arc::clone(&self.0), 1).await?;
 
-        if byte_start == new_size {
-            // the last chunk got completely yeeted
-            let mut state = self.0.lock().await;
-            state.chunks.truncate(chunks_start);
-            state.sorted_map.truncate(chunks_start);
-            state.file_size = new_size;
-        } else if new_size - byte_start < MIN_CHUNK_SIZE as u64 {
-            // read last two chunks
-            prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start - 1).await?;
+        if byte_start != new_size {
             prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start).await?;
-            let mut state = self.0.lock().await;
-            state.chunks[chunks_start - 1].status = ChunkStatus::ToBeHashed;
-            state.sorted_map[chunks_start - 1].source_size =
-                get_chunk_size(new_size, chunks_start as u32 - 1) as u64;
+            let second_last_resized = new_size - byte_start < MIN_CHUNK_SIZE as u64;
 
-            if byte_start % (MAX_CHUNK_SIZE as u64) == 0 {
-                // second last chunk is shortened to make the last chunk big,
-                // net number of chunks remain same
-                state.chunks[chunks_start].status = ChunkStatus::ToBeHashed;
-                state.sorted_map[chunks_start].source_size =
-                    get_chunk_size(new_size, chunks_start as u32) as u64;
-            } else {
-                // second last chunk had size MAX - MIN and last chunk became less than MIN,
-                // hence the two chunks merge
-                state.chunks.truncate(chunks_start);
-                state.sorted_map.truncate(chunks_start);
+            if second_last_resized {
+                prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start - 1).await?;
             }
-        } else {
-            prepare_chunk_for_reading(Arc::clone(&self.0), chunks_start).await?;
+
             let mut state = self.0.lock().await;
-            state.chunks[chunks_start].status = ChunkStatus::ToBeHashed;
-            state.sorted_map[chunks_start].source_size =
-                get_chunk_size(new_size, chunks_start as u32) as u64;
+            if second_last_resized {
+                // need last two chunks
+                if byte_start % (MAX_CHUNK_SIZE as u64) == 0 {
+                    // second last chunk is shortened to make the last chunk big,
+                    // net number of chunks remain same
+                    state.reset_chunks(chunks_start as u64 - 1, chunks_start as u64 + 1, new_size);
+                } else {
+                    // second last chunk had size MAX - MIN and last chunk became less than MIN,
+                    // hence the two chunks merge
+                    state.reset_chunks(chunks_start as u64 - 1, chunks_start as u64, new_size);
+                }
+            } else {
+                state.reset_chunks(chunks_start as u64, chunks_start as u64 + 1, new_size);
+            }
         }
 
         let mut state = self.0.lock().await;
+        state.truncate_chunks(new_num_chunks as usize);
         state.sequencer.truncate(new_size as usize);
         state.chunks[0].flag_for_encryption();
         state.chunks[1].flag_for_encryption();
@@ -423,7 +349,7 @@ where
         }
     }
 
-    fn extend_or_truncate(&mut self, new_len: u64) {
+    fn extend_or_truncate_sequencer(&mut self, new_len: u64) {
         let old_len = self.sequencer.len() as u64;
         if new_len > old_len {
             self.sequencer
@@ -431,6 +357,33 @@ where
         } else {
             self.sequencer.truncate(new_len as usize);
         }
+    }
+
+    fn push_empty_chunks(&mut self, chunk_start: u32, chunk_end: u32, new_size: u64) {
+        for i in chunk_start..chunk_end {
+            self.chunks.push(Chunk {
+                status: ChunkStatus::ToBeHashed,
+                in_sequencer: true,
+            });
+            self.sorted_map.push(ChunkDetails {
+                chunk_num: i,
+                hash: vec![],
+                pre_hash: vec![],
+                source_size: get_chunk_size(new_size, i) as u64,
+            });
+        }
+    }
+
+    fn reset_chunks(&mut self, chunk_start: u64, chunk_end: u64, new_size: u64) {
+        for i in chunk_start..chunk_end {
+            self.chunks[i as usize].status = ChunkStatus::ToBeHashed;
+            self.sorted_map[i as usize].source_size = get_chunk_size(new_size, i as u32) as u64;
+        }
+    }
+
+    fn truncate_chunks(&mut self, num_chunks: usize) {
+        self.chunks.truncate(num_chunks);
+        self.sorted_map.truncate(num_chunks);
     }
 
     #[allow(clippy::needless_range_loop)]
@@ -1721,6 +1674,7 @@ mod tests {
         num_chunks: u32,
     ) -> Result<(), SelfEncryptionError> {
         let mut rng = new_test_rng()?;
+        let min_size = cmp::min(old_size, new_size);
         let content = random_bytes(&mut rng, old_size as usize);
         let (data_map, storage) = {
             let storage = SimpleStorage::new();
@@ -1742,6 +1696,10 @@ mod tests {
                 .await
                 .expect("Truncating encryptor shouldn't fail.");
             check_file_size(&se, new_size as u64).await;
+            {
+                let state = se.0.lock().await;
+                assert_eq!(&state.sequencer[..], &content[..(min_size as usize)]);
+            }
             se.close().await?
         };
 
@@ -1753,10 +1711,11 @@ mod tests {
                     assert!(storage.has_chunk(&chunk_detail.hash));
                 }
             }
-            _ => panic!("data_map should be DataMap::Chunks"),
+            _ => {
+                assert_eq!(num_chunks, 0);
+            }
         }
 
-        let min_size = cmp::min(old_size, new_size);
         let se = SelfEncryptor::new(storage, data_map2)
             .expect("Third encryptor construction shouldn't fail.");
         let fetched = se
@@ -1797,6 +1756,24 @@ mod tests {
             5,
         )
         .await
+    }
+
+    /// Intensive truncate to test if all possible cases are covered.
+    #[tokio::test]
+    async fn truncate_coverage() -> Result<(), SelfEncryptionError> {
+        general_truncate_test(MIN_CHUNK_SIZE * 2, MIN_CHUNK_SIZE * 2 + 512, 0).await?;
+        general_truncate_test(MIN_CHUNK_SIZE * 2, 512, 0).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 2, 512, 0).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 2, MAX_CHUNK_SIZE, 3).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5 + 512, MAX_CHUNK_SIZE * 8, 8).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 8 + 512, 9).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5 + 512, MAX_CHUNK_SIZE * 8 + 512, 9).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 8, 8).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5, 2 * MIN_CHUNK_SIZE, 0).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5, MAX_CHUNK_SIZE * 3 + 10, 4).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 8, MAX_CHUNK_SIZE * 5, 5).await?;
+        general_truncate_test(MAX_CHUNK_SIZE * 5, 2 * MAX_CHUNK_SIZE, 3).await?; // failing
+        Ok(())
     }
 
     #[tokio::test]
