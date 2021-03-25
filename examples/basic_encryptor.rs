@@ -77,7 +77,7 @@ Options:
     -d, --decrypt   Decrypt a file.
 ";
 
-#[derive(RustcDecodable, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Args {
     arg_target: Option<String>,
     arg_destination: Option<String>,
