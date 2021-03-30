@@ -139,6 +139,89 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
 }
 
 #[tokio::test]
+async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEncryptionError> {
+    let mut rng = new_test_rng()?;
+    let mut storage = SimpleStorage::new();
+    let max_broken_size = 20 * 1024;
+    let original = random_bytes(&mut rng, DATA_SIZE as usize);
+    // estimate number of broken pieces, not known in advance
+    let mut broken_data: Vec<(u32, &[u8])> =
+        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+
+    let mut offset = 0;
+    let mut last_piece = 0;
+    while offset < DATA_SIZE {
+        let size;
+        if DATA_SIZE - offset < max_broken_size {
+            size = DATA_SIZE - offset;
+            last_piece = offset;
+        } else {
+            size = rand::random::<u32>() % max_broken_size;
+        }
+        let piece: (u32, &[u8]) = (offset, &original[offset as usize..(offset + size) as usize]);
+        broken_data.push(piece);
+        offset += size;
+    }
+
+    {
+        let slice_broken_data = &mut broken_data[..];
+        slice_broken_data.shuffle(&mut rng);
+    }
+
+    match broken_data.iter().filter(|&x| x.0 != last_piece).last() {
+        None => panic!("Should never occur. Error in test itself."),
+        Some(overlap) => {
+            let mut extra: Vec<u8> = overlap.1.to_vec();
+            extra.extend(random_bytes(&mut rng, 7usize)[..].iter().cloned());
+            let post_overlap: (u32, &[u8]) = (overlap.0, &mut extra[..]);
+            let post_position = overlap.0 as usize + overlap.1.len();
+            let mut wtotal = 0;
+            let mut data_map_orig = DataMap::None;
+            for element in &broken_data {
+                let se = SelfEncryptor::new(storage, data_map_orig)
+                    .expect("Encryptor construction shouldn't fail.");
+                se.write(element.1, element.0 as u64)
+                    .await
+                    .expect("Writing broken data to encryptor shouldn't fail.");
+                wtotal += element.1.len();
+                let (data_map, storage_tmp) = se
+                    .close()
+                    .await
+                    .expect("Closing broken data to encryptor shouldn't fail.");
+                data_map_orig = data_map;
+                storage = storage_tmp;
+            }
+            assert_eq!(wtotal, DATA_SIZE as usize);
+            let se = SelfEncryptor::new(storage, data_map_orig)
+                .expect("Encryptor construction shouldn't fail.");
+            let mut decrypted = se
+                .read(0u64, DATA_SIZE as u64)
+                .await
+                .expect("Reading broken data from encryptor shouldn't fail.");
+            assert_eq!(original, decrypted);
+
+            let mut overwrite = original[0..post_overlap.0 as usize].to_vec();
+            overwrite.extend((post_overlap.1).to_vec().iter().cloned());
+            overwrite.extend(
+                original[post_position + 7..DATA_SIZE as usize]
+                    .iter()
+                    .cloned(),
+            );
+            se.write(post_overlap.1, post_overlap.0 as u64)
+                .await
+                .expect("Writing overlap to encryptor shouldn't fail.");
+            decrypted = se
+                .read(0u64, DATA_SIZE as u64)
+                .await
+                .expect("Reading all data from encryptor shouldn't fail.");
+            assert_eq!(overwrite.len(), decrypted.len());
+            assert_eq!(overwrite, decrypted);
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionError> {
     let mut rng = new_test_rng()?;
     let storage = SimpleStorage::new();

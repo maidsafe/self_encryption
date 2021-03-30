@@ -390,6 +390,14 @@ where
 
     let new_size = cmp::max(old_size, position + length);
 
+    if new_size > old_size && old_size >= 3 * MIN_CHUNK_SIZE as u64 {
+        prepare_chunk_for_reading(Arc::clone(&state), 0).await?;
+        prepare_chunk_for_reading(Arc::clone(&state), 1).await?;
+        let mut state = state.lock().await;
+        state.chunks[0].flag_for_encryption();
+        state.chunks[1].flag_for_encryption();
+    }
+
     if new_size < 3 * MIN_CHUNK_SIZE as u64 {
         let mut state = state.lock().await;
         state.file_size = new_size;
@@ -406,8 +414,6 @@ where
             for i in resized_start..resized_end {
                 state.chunks[i as usize].status = ChunkStatus::ToBeHashed;
             }
-            state.chunks[0].flag_for_encryption();
-            state.chunks[1].flag_for_encryption();
         }
     }
 
@@ -1567,6 +1573,48 @@ mod tests {
             .expect("Reading from encryptor shouldn't fail.");
         assert_eq!(&part1_bytes[..], &fetched[..part1_len as usize]);
         assert_eq!(&part2_bytes[..], &fetched[part1_len as usize..]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn overwrite_data_map_aligned() -> Result<(), SelfEncryptionError> {
+        let mut rng = new_test_rng()?;
+        let len = MAX_CHUNK_SIZE as usize * 10;
+        let content = random_bytes(&mut rng, len);
+        let (data_map, storage) = {
+            let storage = SimpleStorage::new();
+            let se = SelfEncryptor::new(storage, DataMap::None)
+                .expect("First encryptor construction shouldn't fail.");
+            se.write(&content, 0)
+                .await
+                .expect("Writing part one to encryptor shouldn't fail.");
+            check_file_size(&se, len as u64).await;
+            se.close().await?
+        };
+        let part2_len = MAX_CHUNK_SIZE as usize * 3;
+        let part2_bytes = random_bytes(&mut rng, part2_len);
+        let (data_map2, storage) = {
+            // Start with an existing data_map.
+            let se = SelfEncryptor::new(storage, data_map)
+                .expect("Second encryptor construction shouldn't fail.");
+            se.write(&part2_bytes, len as u64)
+                .await
+                .expect("Writing part two to encryptor shouldn't fail.");
+            se.close().await?
+        };
+
+        assert_eq!(data_map2.len(), (len + part2_len) as u64);
+
+        let se = SelfEncryptor::new(storage, data_map2)
+            .expect("Third encryptor construction shouldn't fail.");
+        let fetched = se
+            .read(0, (len + part2_len) as u64)
+            .await
+            .expect("Reading from encryptor shouldn't fail.");
+
+        assert_eq!(fetched[..len], content);
+        assert_eq!(fetched[len..], part2_bytes);
+
         Ok(())
     }
 
