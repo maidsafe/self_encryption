@@ -390,6 +390,15 @@ where
 
     let new_size = cmp::max(old_size, position + length);
 
+    // When the updated size is more less than minimum size, we don't convert into chunks
+    if new_size < 3 * MIN_CHUNK_SIZE as u64 {
+        let mut state = state.lock().await;
+        state.file_size = new_size;
+        return Ok(());
+    }
+
+    // If the updated size is more than original size, the first two chunks need to be decrypted
+    // and re-encrypted.
     if new_size > old_size && old_size >= 3 * MIN_CHUNK_SIZE as u64 {
         prepare_chunk_for_reading(Arc::clone(&state), 0).await?;
         prepare_chunk_for_reading(Arc::clone(&state), 1).await?;
@@ -398,12 +407,8 @@ where
         state.chunks[1].flag_for_encryption();
     }
 
-    if new_size < 3 * MIN_CHUNK_SIZE as u64 {
-        let mut state = state.lock().await;
-        state.file_size = new_size;
-        return Ok(());
-    }
-
+    // Among the existing chunks, get the start and end index of chunks which got resized due
+    // to chunk resizing because of our chunk sizing
     let (resized_start, resized_end) = resized_chunks(old_size, new_size);
 
     if resized_start != resized_end {
@@ -420,6 +425,7 @@ where
     let current_num_chunks = get_num_chunks(old_size) as usize;
     let new_num_chunks = get_num_chunks(new_size) as usize;
 
+    // Push empty chunk descriptors if the number of chunks required increase.
     if new_num_chunks > current_num_chunks {
         let mut state = state.lock().await;
         for i in current_num_chunks..new_num_chunks {
@@ -439,6 +445,7 @@ where
     let mut state = state.lock().await;
     state.file_size = new_size;
 
+    // Hash all the chunks that need to be hashed (this generates keys for the next chunks)
     for i in 0..new_num_chunks {
         let chunk_size = get_chunk_size(new_size, i as u32) as usize;
         let pos = get_start_end_positions(new_size, i as u32).0 as usize;
@@ -452,6 +459,7 @@ where
         }
     }
 
+    // Encrypt and flush all the chunks, except the first and last two, to the network
     for i in 0..new_num_chunks {
         if state.chunks[i].status == ChunkStatus::AlreadyEncrypted
             || i < 2
