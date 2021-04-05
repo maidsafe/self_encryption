@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.22.0](https://github.com/maidsafe/self_encryption/compare/v0.21.0...v0.22.0) (2021-04-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **self_encryptor.rs:** Remove truncate api from self encryptor
+
+### Features
+
+* **self_encryptor.rs:** Remove truncate api from self encryptor ([77b2f57](https://github.com/maidsafe/self_encryption/commit/77b2f57331624396cf21c484f477c5101d4ea207))
+* **self_encryptor.rs:** Store chunks on write ([bed44c4](https://github.com/maidsafe/self_encryption/commit/bed44c446bfb364e48c9a17a70d6fb5399723685))
+
+
+### Bug Fixes
+
+* **Cargo.toml:** Remove rustc-serialize dependency ([a9baf6b](https://github.com/maidsafe/self_encryption/commit/a9baf6bb9bab44ce67530610dc6f9a5eacd27831))
+* **self_encryptor.rs:** Fix edge case of writing ([f212e88](https://github.com/maidsafe/self_encryption/commit/f212e8828cdfd3c519a811bf4c6a9af5e3ccd037))
+* **self_encryptor.rs:** Fix edge cases in truncate logic ([de3ea50](https://github.com/maidsafe/self_encryption/commit/de3ea50d5f8131c557c0bfe4ec3cd92c11989b5a))
+* **self_encryptor.rs:** Requested Changes from the review ([993b524](https://github.com/maidsafe/self_encryption/commit/993b524e0d8c01d537ef9960e5e711b612653e7d))
+
 ## [0.21.0](https://github.com/maidsafe/self_encryption/compare/v0.20.2...v0.21.0) (2021-03-11)
 
 
