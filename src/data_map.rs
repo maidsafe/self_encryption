@@ -14,14 +14,14 @@ use std::fmt::{Debug, Error, Formatter, Write};
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
 pub struct ChunkDetails {
     /// Index number (starts at 0)
-    pub chunk_num: u32,
+    pub chunk_num: usize,
     /// Post-encryption hash of chunk
     pub hash: Vec<u8>,
     /// Pre-encryption hash of chunk
     pub pre_hash: Vec<u8>,
     /// Size before encryption (compression alters this as well as any possible padding depending
     /// on cipher used)
-    pub source_size: u64,
+    pub source_size: usize,
 }
 
 fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
@@ -91,10 +91,10 @@ pub enum DataMap {
 #[allow(clippy::len_without_is_empty)]
 impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
-    pub fn len(&self) -> u64 {
+    pub fn len(&self) -> usize {
         match *self {
             DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
-            DataMap::Content(ref content) => content.len() as u64,
+            DataMap::Content(ref content) => content.len(),
             DataMap::None => 0,
         }
     }
@@ -134,7 +134,7 @@ impl DataMap {
     }
 
     /// Iterates through the chunks to figure out the total size, i.e. the file size
-    fn chunks_size(chunks: &[ChunkDetails]) -> u64 {
+    fn chunks_size(chunks: &[ChunkDetails]) -> usize {
         chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
     }
 }

@@ -12,8 +12,8 @@ use super::{
 };
 use crate::data_map::{ChunkDetails, DataMap};
 use std::{cmp, convert::From, mem};
-pub const MIN: u64 = 3 * MAX_CHUNK_SIZE as u64 + 1;
-const MAX_BUFFER_LEN: usize = (MAX_CHUNK_SIZE + MIN_CHUNK_SIZE) as usize;
+pub const MIN: usize = 3 * MAX_CHUNK_SIZE + 1;
+const MAX_BUFFER_LEN: usize = MAX_CHUNK_SIZE + MIN_CHUNK_SIZE;
 
 // An encryptor for data which will be split into more three chunks.  Calls to `write()` will
 // trigger the creation and storing of any completed chunks up to that point except for the first
@@ -78,7 +78,7 @@ where
             let mut end_iter = start_iter.skip(chunks.len() - 4);
             match end_iter.next() {
                 Some((index, chunk)) => {
-                    buffer = if chunk.source_size < MAX_CHUNK_SIZE as u64 {
+                    buffer = if chunk.source_size < MAX_CHUNK_SIZE {
                         let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
                         truncated_details_len -= 1;
                         let another_chunk_data = storage.get(&chunk.hash).await?;
@@ -153,7 +153,7 @@ where
             data = &data[amount..];
             // If the buffer's full, encrypt and remove the first `MAX_CHUNK_SIZE` of it.
             if self.buffer.len() == MAX_BUFFER_LEN {
-                let mut data_to_encrypt = self.buffer.split_off(MAX_CHUNK_SIZE as usize);
+                let mut data_to_encrypt = self.buffer.split_off(MAX_CHUNK_SIZE);
                 mem::swap(&mut self.buffer, &mut data_to_encrypt);
                 let index = self.chunks.len();
                 all_things.push(self.encrypt_chunk(&data_to_encrypt, index).await?);
@@ -174,12 +174,12 @@ where
         }
 
         // Handle encrypting and storing the contents of `self.buffer`.
-        debug_assert!(self.buffer.len() >= MIN_CHUNK_SIZE as usize);
+        debug_assert!(self.buffer.len() >= MIN_CHUNK_SIZE);
         debug_assert!(self.buffer.len() <= MAX_BUFFER_LEN);
-        let (first_len, need_two_chunks) = if self.buffer.len() <= MAX_CHUNK_SIZE as usize {
+        let (first_len, need_two_chunks) = if self.buffer.len() <= MAX_CHUNK_SIZE {
             (self.buffer.len(), false)
         } else {
-            ((MAX_CHUNK_SIZE - MIN_CHUNK_SIZE) as usize, true)
+            (MAX_CHUNK_SIZE - MIN_CHUNK_SIZE, true)
         };
         let mut index = self.chunks.len();
         let mut swapped_buffer = vec![];
@@ -211,11 +211,11 @@ where
         Ok((DataMap::Chunks(swapped_chunks), self.storage))
     }
 
-    pub fn len(&self) -> u64 {
-        self.chunk_0_data.len() as u64
-            + self.chunk_1_data.len() as u64
-            + self.buffer.len() as u64
-            + ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE as usize) as u64
+    pub fn len(&self) -> usize {
+        self.chunk_0_data.len()
+            + self.chunk_1_data.len()
+            + self.buffer.len()
+            + ((self.chunks.len().saturating_sub(2)) * MAX_CHUNK_SIZE)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -226,24 +226,24 @@ where
     async fn fill_chunk_buffer<'b>(
         &mut self,
         mut data: &'b [u8],
-        index: u32,
+        index: usize,
     ) -> Result<&'b [u8], SelfEncryptionError> {
         let buffer_ref = if index == 0 {
             &mut self.chunk_0_data
         } else {
             &mut self.chunk_1_data
         };
-        let amount = cmp::min(MAX_CHUNK_SIZE as usize - buffer_ref.len(), data.len());
+        let amount = cmp::min(MAX_CHUNK_SIZE - buffer_ref.len(), data.len());
         if amount > 0 {
             buffer_ref.extend_from_slice(&data[..amount]);
             data = &data[amount..];
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
-            if buffer_ref.len() == MAX_CHUNK_SIZE as usize {
+            if buffer_ref.len() == MAX_CHUNK_SIZE {
                 self.chunks.push(ChunkDetails {
                     chunk_num: index,
                     hash: vec![],
                     pre_hash: self.storage.generate_address(buffer_ref).await?,
-                    source_size: MAX_CHUNK_SIZE as u64,
+                    source_size: MAX_CHUNK_SIZE,
                 });
             }
         }
@@ -257,10 +257,10 @@ where
     ) -> Result<(), SelfEncryptionError> {
         if index > 1 {
             self.chunks.push(ChunkDetails {
-                chunk_num: index as u32,
+                chunk_num: index,
                 hash: vec![],
                 pre_hash: self.storage.generate_address(data).await?,
-                source_size: data.len() as u64,
+                source_size: data.len(),
             });
         }
 
@@ -323,7 +323,7 @@ mod tests {
             assert_eq!(encryptor.len(), 0);
             assert!(encryptor.is_empty());
             encryptor = encryptor.write(data).await?;
-            assert_eq!(encryptor.len(), data.len() as u64);
+            assert_eq!(encryptor.len(), data.len());
             assert!(!encryptor.is_empty());
             encryptor.close().await?
         };
@@ -334,7 +334,7 @@ mod tests {
         }
 
         let self_encryptor = SelfEncryptor::new(storage, data_map)?;
-        let fetched = self_encryptor.read(0, data.len() as u64).await?;
+        let fetched = self_encryptor.read(0, data.len()).await?;
         assert_eq!(Blob(&fetched), Blob(data));
         Ok(())
     }
@@ -349,7 +349,7 @@ mod tests {
     ) -> Result<(), SelfEncryptionError> {
         let mut storage = SimpleStorage::new();
         let mut existing_data = vec![];
-        let data_pieces = utils::make_random_pieces(rng, data, MIN as usize);
+        let data_pieces = utils::make_random_pieces(rng, data, MIN);
         let mut current_chunks = vec![];
         for data in data_pieces {
             let data_map = {
@@ -362,7 +362,7 @@ mod tests {
                 };
                 encryptor = encryptor.write(data).await?;
                 existing_data.extend_from_slice(data);
-                assert_eq!(encryptor.len(), existing_data.len() as u64);
+                assert_eq!(encryptor.len(), existing_data.len());
 
                 let (data_map, storage2) = encryptor.close().await?;
                 storage = storage2;
@@ -378,8 +378,8 @@ mod tests {
             }
 
             let self_encryptor = SelfEncryptor::new(storage, data_map)?;
-            assert_eq!(self_encryptor.len().await, existing_data.len() as u64);
-            let fetched = self_encryptor.read(0, existing_data.len() as u64).await?;
+            assert_eq!(self_encryptor.len().await, existing_data.len());
+            let fetched = self_encryptor.read(0, existing_data.len()).await?;
             assert_eq!(Blob(&fetched), Blob(&existing_data));
 
             storage = self_encryptor.into_storage().await;
@@ -391,14 +391,14 @@ mod tests {
     #[tokio::test]
     async fn all_unit() -> Result<(), SelfEncryptionError> {
         let mut rng = new_test_rng()?;
-        let data = random_bytes(&mut rng, 5 * MAX_CHUNK_SIZE as usize);
+        let data = random_bytes(&mut rng, 5 * MAX_CHUNK_SIZE);
 
-        basic_write_and_close(&data[..MIN as usize]).await?;
-        basic_write_and_close(&data[..(MAX_CHUNK_SIZE as usize * 4)]).await?;
-        basic_write_and_close(&data[..=(MAX_CHUNK_SIZE as usize * 4)]).await?;
+        basic_write_and_close(&data[..MIN]).await?;
+        basic_write_and_close(&data[..(MAX_CHUNK_SIZE * 4)]).await?;
+        basic_write_and_close(&data[..=(MAX_CHUNK_SIZE * 4)]).await?;
         basic_write_and_close(&data).await?;
 
-        multiple_writes_then_close(&mut rng, &data[..(MIN as usize + 100)]).await?;
+        multiple_writes_then_close(&mut rng, &data[..(MIN + 100)]).await?;
         multiple_writes_then_close(&mut rng, &data).await?;
 
         // Test converting from `MediumEncryptor`.
@@ -408,12 +408,12 @@ mod tests {
                 .await
                 .map(MediumEncryptor::from)?;
 
-            medium_encryptor = medium_encryptor.write(&data[..(MIN as usize - 1)]).await?;
+            medium_encryptor = medium_encryptor.write(&data[..(MIN - 1)]).await?;
             let mut large_encryptor = LargeEncryptor::from_medium(medium_encryptor).await?;
             assert_eq!(large_encryptor.len(), MIN - 1);
             assert!(!large_encryptor.is_empty());
-            large_encryptor = large_encryptor.write(&data[(MIN as usize - 1)..]).await?;
-            assert_eq!(large_encryptor.len(), data.len() as u64);
+            large_encryptor = large_encryptor.write(&data[(MIN - 1)..]).await?;
+            assert_eq!(large_encryptor.len(), data.len());
             assert!(!large_encryptor.is_empty());
             large_encryptor.close().await?
         };
@@ -424,7 +424,7 @@ mod tests {
         }
 
         let self_encryptor = SelfEncryptor::new(storage, data_map)?;
-        let fetched = self_encryptor.read(0, data.len() as u64).await?;
+        let fetched = self_encryptor.read(0, data.len()).await?;
         assert_eq!(Blob(&fetched), Blob(&data));
         Ok(())
     }

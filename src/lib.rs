@@ -191,9 +191,9 @@ pub use crate::{
 /// The maximum size of file which can be self_encrypted, defined as 1GB.
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
 /// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
-pub const MAX_CHUNK_SIZE: u32 = 1024 * 1024;
+pub const MAX_CHUNK_SIZE: usize = 1024 * 1024;
 /// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.
-pub const MIN_CHUNK_SIZE: u32 = 1024;
+pub const MIN_CHUNK_SIZE: usize = 1024;
 /// Controls the compression-speed vs compression-density tradeoffs.  The higher the quality, the
 /// slower the compression.  Range is 0 to 11.
 pub const COMPRESSION_QUALITY: i32 = 6;

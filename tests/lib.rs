@@ -55,13 +55,13 @@ use self_encryption::{
     DataMap, SelfEncryptionError, SelfEncryptor, MAX_CHUNK_SIZE,
 };
 
-const DATA_SIZE: u32 = 20 * 1024 * 1024;
+const DATA_SIZE: usize = 20 * 1024 * 1024;
 
 #[tokio::test]
 async fn new_read() -> Result<(), SelfEncryptionError> {
     let read_size: usize = 4096;
     let mut read_position: usize = 0;
-    let content_len: usize = 4 * MAX_CHUNK_SIZE as usize;
+    let content_len: usize = 4 * MAX_CHUNK_SIZE;
     let storage = SimpleStorage::new();
     let mut rng = new_test_rng()?;
     let original = random_bytes(&mut rng, content_len);
@@ -73,7 +73,7 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
             .expect("Writing to encryptor shouldn't fail.");
         {
             let mut decrypted = se
-                .read(read_position as u64, read_size as u64)
+                .read(read_position, read_size)
                 .await
                 .expect("Reading part one from encryptor shouldn't fail.");
             assert_eq!(
@@ -84,7 +84,7 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
             // read next small part
             read_position += read_size;
             decrypted = se
-                .read(read_position as u64, read_size as u64)
+                .read(read_position, read_size)
                 .await
                 .expect("Reading part two from encryptor shouldn't fail.");
             assert_eq!(
@@ -95,7 +95,7 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
             // try to read from end of file, moving the sliding window
             read_position = content_len - 3 * read_size;
             decrypted = se
-                .read(read_position as u64, read_size as u64)
+                .read(read_position, read_size)
                 .await
                 .expect("Reading past end of encryptor shouldn't fail.");
             assert_eq!(
@@ -106,7 +106,7 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
             // read again at beginning of file
             read_position = 5usize;
             decrypted = se
-                .read(read_position as u64, read_size as u64)
+                .read(read_position, read_size)
                 .await
                 .expect("Reading from start of encryptor shouldn't fail.");
             assert_eq!(
@@ -121,7 +121,7 @@ async fn new_read() -> Result<(), SelfEncryptionError> {
             read_position = 0usize;
             for i in 0..15 {
                 decrypted.extend(
-                    se.read(read_position as u64, read_size as u64)
+                    se.read(read_position, read_size)
                         .await
                         .unwrap_or_else(|_| {
                             panic!("Reading attempt {} from encryptor shouldn't fail", i)
@@ -143,10 +143,9 @@ async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEn
     let mut rng = new_test_rng()?;
     let mut storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
-    let original = random_bytes(&mut rng, DATA_SIZE as usize);
+    let original = random_bytes(&mut rng, DATA_SIZE);
     // estimate number of broken pieces, not known in advance
-    let mut broken_data: Vec<(u32, &[u8])> =
-        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+    let mut broken_data: Vec<(usize, &[u8])> = Vec::with_capacity(DATA_SIZE / max_broken_size);
 
     let mut offset = 0;
     let mut last_piece = 0;
@@ -156,9 +155,9 @@ async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEn
             size = DATA_SIZE - offset;
             last_piece = offset;
         } else {
-            size = rand::random::<u32>() % max_broken_size;
+            size = rand::random::<usize>() % max_broken_size;
         }
-        let piece: (u32, &[u8]) = (offset, &original[offset as usize..(offset + size) as usize]);
+        let piece: (usize, &[u8]) = (offset, &original[offset..(offset + size)]);
         broken_data.push(piece);
         offset += size;
     }
@@ -173,14 +172,14 @@ async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEn
         Some(overlap) => {
             let mut extra: Vec<u8> = overlap.1.to_vec();
             extra.extend(random_bytes(&mut rng, 7usize)[..].iter().cloned());
-            let post_overlap: (u32, &[u8]) = (overlap.0, &mut extra[..]);
-            let post_position = overlap.0 as usize + overlap.1.len();
+            let post_overlap: (usize, &[u8]) = (overlap.0, &mut extra[..]);
+            let post_position = overlap.0 + overlap.1.len();
             let mut wtotal = 0;
             let mut data_map_orig = DataMap::None;
             for element in &broken_data {
                 let se = SelfEncryptor::new(storage, data_map_orig)
                     .expect("Encryptor construction shouldn't fail.");
-                se.write(element.1, element.0 as u64)
+                se.write(element.1, element.0)
                     .await
                     .expect("Writing broken data to encryptor shouldn't fail.");
                 wtotal += element.1.len();
@@ -191,27 +190,23 @@ async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEn
                 data_map_orig = data_map;
                 storage = storage_tmp;
             }
-            assert_eq!(wtotal, DATA_SIZE as usize);
+            assert_eq!(wtotal, DATA_SIZE);
             let se = SelfEncryptor::new(storage, data_map_orig)
                 .expect("Encryptor construction shouldn't fail.");
             let mut decrypted = se
-                .read(0u64, DATA_SIZE as u64)
+                .read(0, DATA_SIZE)
                 .await
                 .expect("Reading broken data from encryptor shouldn't fail.");
             assert_eq!(original, decrypted);
 
-            let mut overwrite = original[0..post_overlap.0 as usize].to_vec();
+            let mut overwrite = original[0..post_overlap.0].to_vec();
             overwrite.extend((post_overlap.1).to_vec().iter().cloned());
-            overwrite.extend(
-                original[post_position + 7..DATA_SIZE as usize]
-                    .iter()
-                    .cloned(),
-            );
-            se.write(post_overlap.1, post_overlap.0 as u64)
+            overwrite.extend(original[post_position + 7..DATA_SIZE].iter().cloned());
+            se.write(post_overlap.1, post_overlap.0)
                 .await
                 .expect("Writing overlap to encryptor shouldn't fail.");
             decrypted = se
-                .read(0u64, DATA_SIZE as u64)
+                .read(0, DATA_SIZE)
                 .await
                 .expect("Reading all data from encryptor shouldn't fail.");
             assert_eq!(overwrite.len(), decrypted.len());
@@ -226,10 +221,9 @@ async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionEr
     let mut rng = new_test_rng()?;
     let storage = SimpleStorage::new();
     let max_broken_size = 20 * 1024;
-    let original = random_bytes(&mut rng, DATA_SIZE as usize);
+    let original = random_bytes(&mut rng, DATA_SIZE);
     // estimate number of broken pieces, not known in advance
-    let mut broken_data: Vec<(u32, &[u8])> =
-        Vec::with_capacity((DATA_SIZE / max_broken_size) as usize);
+    let mut broken_data: Vec<(usize, &[u8])> = Vec::with_capacity(DATA_SIZE / max_broken_size);
 
     let mut offset = 0;
     let mut last_piece = 0;
@@ -239,9 +233,9 @@ async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionEr
             size = DATA_SIZE - offset;
             last_piece = offset;
         } else {
-            size = rand::random::<u32>() % max_broken_size;
+            size = rand::random::<usize>() % max_broken_size;
         }
-        let piece: (u32, &[u8]) = (offset, &original[offset as usize..(offset + size) as usize]);
+        let piece: (usize, &[u8]) = (offset, &original[offset..(offset + size)]);
         broken_data.push(piece);
         offset += size;
     }
@@ -256,37 +250,33 @@ async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionEr
         Some(overlap) => {
             let mut extra: Vec<u8> = overlap.1.to_vec();
             extra.extend(random_bytes(&mut rng, 7usize)[..].iter().cloned());
-            let post_overlap: (u32, &[u8]) = (overlap.0, &mut extra[..]);
-            let post_position = overlap.0 as usize + overlap.1.len();
+            let post_overlap: (usize, &[u8]) = (overlap.0, &mut extra[..]);
+            let post_position = overlap.0 + overlap.1.len();
             let mut wtotal = 0;
 
             let se = SelfEncryptor::new(storage, DataMap::None)
                 .expect("Encryptor construction shouldn't fail.");
             for element in &broken_data {
-                se.write(element.1, element.0 as u64)
+                se.write(element.1, element.0)
                     .await
                     .expect("Writing broken data to encryptor shouldn't fail.");
                 wtotal += element.1.len();
             }
-            assert_eq!(wtotal, DATA_SIZE as usize);
+            assert_eq!(wtotal, DATA_SIZE);
             let mut decrypted = se
-                .read(0u64, DATA_SIZE as u64)
+                .read(0, DATA_SIZE)
                 .await
                 .expect("Reading broken data from encryptor shouldn't fail.");
             assert_eq!(original, decrypted);
 
-            let mut overwrite = original[0..post_overlap.0 as usize].to_vec();
+            let mut overwrite = original[0..post_overlap.0].to_vec();
             overwrite.extend((post_overlap.1).to_vec().iter().cloned());
-            overwrite.extend(
-                original[post_position + 7..DATA_SIZE as usize]
-                    .iter()
-                    .cloned(),
-            );
-            se.write(post_overlap.1, post_overlap.0 as u64)
+            overwrite.extend(original[post_position + 7..DATA_SIZE].iter().cloned());
+            se.write(post_overlap.1, post_overlap.0)
                 .await
                 .expect("Writing overlap to encryptor shouldn't fail.");
             decrypted = se
-                .read(0u64, DATA_SIZE as u64)
+                .read(0, DATA_SIZE)
                 .await
                 .expect("Reading all data from encryptor shouldn't fail.");
             assert_eq!(overwrite.len(), decrypted.len());
@@ -304,8 +294,8 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
     let parts = 20usize;
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
     let mut rng = new_test_rng()?;
-    let mut total_size = 0u64;
-    let mut original = vec![0u8; DATA_SIZE as usize];
+    let mut total_size = 0;
+    let mut original = vec![0u8; DATA_SIZE];
 
     let (data_map, storage) = {
         let storage = SimpleStorage::new();
@@ -315,22 +305,20 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
             // Get random values for the piece size and intended offset
             let piece_size = rng.gen_range(1, MAX_CHUNK_SIZE + 1);
             let offset = rng.gen_range(0, DATA_SIZE - MAX_CHUNK_SIZE);
-            total_size = std::cmp::max(total_size, (offset + piece_size) as u64);
-            assert!(DATA_SIZE as u64 >= total_size);
+            total_size = std::cmp::max(total_size, offset + piece_size);
+            assert!(DATA_SIZE >= total_size);
 
             // Create the random piece and copy to the comparison vector.
-            let piece = random_bytes(&mut rng, piece_size as usize);
-            for a in 0..piece_size {
-                original[(offset + a) as usize] = piece[a as usize];
-            }
+            let piece = random_bytes(&mut rng, piece_size);
+            original[offset..(piece_size + offset)].clone_from_slice(&piece[..piece_size]);
 
             // Write the piece to the encryptor and check it can be read back.
             self_encryptor
-                .write(&piece, offset as u64)
+                .write(&piece, offset)
                 .await
                 .unwrap_or_else(|_| panic!("Writing part {} to encryptor shouldn't fail.", i));
             let decrypted = self_encryptor
-                .read(offset as u64, piece_size as u64)
+                .read(offset, piece_size)
                 .await
                 .unwrap_or_else(|_| panic!("Reading part {} from encryptor shouldn't fail.", i));
             assert_eq!(decrypted, piece);
@@ -340,10 +328,10 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
         // Read back DATA_SIZE from the encryptor.  This will contain all that was written, plus
         // likely will be reading past EOF.  Reading past the end shouldn't affect the file size.
         let decrypted = self_encryptor
-            .read(0u64, DATA_SIZE as u64)
+            .read(0, DATA_SIZE)
             .await
             .expect("Reading all data from encryptor shouldn't fail.");
-        assert_eq!(decrypted.len(), DATA_SIZE as usize);
+        assert_eq!(decrypted.len(), DATA_SIZE);
         assert_eq!(decrypted, original);
         assert_eq!(total_size, self_encryptor.len().await);
 
@@ -358,10 +346,10 @@ async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
     let self_encryptor =
         SelfEncryptor::new(storage, data_map).expect("Encryptor construction shouldn't fail.");
     let decrypted = self_encryptor
-        .read(0u64, DATA_SIZE as u64)
+        .read(0, DATA_SIZE)
         .await
         .expect("Reading all data again from encryptor shouldn't fail.");
-    assert_eq!(decrypted.len(), DATA_SIZE as usize);
+    assert_eq!(decrypted.len(), DATA_SIZE);
     assert_eq!(decrypted, original);
     assert_eq!(total_size, self_encryptor.len().await);
     Ok(())
@@ -401,11 +389,11 @@ async fn cross_platform_check() {
             .await
             .expect("Writing first slice to encryptor shouldn't fail.");
         self_encryptor
-            .write(&chars1[..], chars0.len() as u64)
+            .write(&chars1[..], chars0.len())
             .await
             .expect("Writing second slice to encryptor shouldn't fail.");
         self_encryptor
-            .write(&chars2[..], chars0.len() as u64 + chars1.len() as u64)
+            .write(&chars2[..], chars0.len() + chars1.len())
             .await
             .expect("Writing third slice to encryptor shouldn't fail.");
         self_encryptor

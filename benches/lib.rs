@@ -62,12 +62,12 @@ fn custom_criterion() -> Criterion {
     Criterion::default().sample_size(SAMPLE_SIZE)
 }
 
-fn write(b: &mut Bencher<'_>, bytes_len: u64) {
+fn write(b: &mut Bencher<'_>, bytes_len: usize) {
     b.iter_batched(
         // the setup
         || {
             let mut rng = new_test_rng().unwrap();
-            let bytes = random_bytes(&mut rng, bytes_len as usize);
+            let bytes = random_bytes(&mut rng, bytes_len);
             let storage = Some(SimpleStorage::new());
 
             (bytes, storage)
@@ -87,12 +87,12 @@ fn write(b: &mut Bencher<'_>, bytes_len: u64) {
     );
 }
 
-fn read(b: &mut Bencher, bytes_len: u64) {
+fn read(b: &mut Bencher, bytes_len: usize) {
     b.iter_batched(
         // the setup
         || {
             let mut rng = new_test_rng().unwrap();
-            let bytes = random_bytes(&mut rng, bytes_len as usize);
+            let bytes = random_bytes(&mut rng, bytes_len);
             let storage = SimpleStorage::new();
             let self_encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
 
