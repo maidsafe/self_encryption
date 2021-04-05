@@ -49,7 +49,7 @@ where
         }
     }
 
-    fn len(&self) -> u64 {
+    fn len(&self) -> usize {
         match *self {
             State::Small(ref encryptor) => encryptor.len(),
             State::Medium(ref encryptor) => encryptor.len(),
@@ -169,7 +169,7 @@ where
 
         let next_state = match prev_state {
             State::Small(small) => {
-                let new_len = small.len() + data.len() as u64;
+                let new_len = small.len() + data.len();
                 if new_len >= large_encryptor::MIN {
                     State::from(LargeEncryptor::from(small))
                 } else if new_len >= medium_encryptor::MIN {
@@ -179,7 +179,7 @@ where
                 }
             }
             State::Medium(medium) => {
-                if medium.len() + data.len() as u64 >= large_encryptor::MIN {
+                if medium.len() + data.len() >= large_encryptor::MIN {
                     State::from(LargeEncryptor::from_medium(medium).await?)
                 } else {
                     State::from(medium)
@@ -209,7 +209,7 @@ where
     ///
     /// E.g. if this encryptor was constructed with a `DataMap` whose `len()` yields 100, and it
     /// then handles a `write()` of 100 bytes, `len()` will return 200.
-    pub async fn len(&self) -> u64 {
+    pub async fn len(&self) -> usize {
         self.state.lock().await.len()
     }
 
@@ -246,7 +246,7 @@ mod tests {
         data_map: &DataMap,
     ) -> Result<SimpleStorage, SelfEncryptionError> {
         let self_encryptor = SelfEncryptor::new(storage, data_map.clone())?;
-        let fetched = self_encryptor.read(0, expected_data.len() as u64).await?;
+        let fetched = self_encryptor.read(0, expected_data.len()).await?;
         assert_eq!(Blob(&fetched), Blob(expected_data));
         Ok(self_encryptor.into_storage().await)
     }
@@ -259,7 +259,7 @@ mod tests {
     ) -> Result<SimpleStorage, SelfEncryptionError> {
         let encryptor = Encryptor::new(storage, Some(data_map.clone())).await?;
         encryptor.write(data).await?;
-        assert_eq!(encryptor.len().await, expected_len as u64);
+        assert_eq!(encryptor.len().await, expected_len);
         let (data_map2, storage) = encryptor.close().await?;
         *data_map = data_map2;
         Ok(storage)
@@ -268,7 +268,7 @@ mod tests {
     #[tokio::test]
     async fn transitions() -> Result<(), SelfEncryptionError> {
         let mut rng = new_test_rng()?;
-        let data = random_bytes(&mut rng, 4 * MAX_CHUNK_SIZE as usize + 1);
+        let data = random_bytes(&mut rng, 4 * MAX_CHUNK_SIZE + 1);
 
         // Write 0 bytes.
         let (mut data_map, mut storage) = {
@@ -298,7 +298,7 @@ mod tests {
 
         // Append as far as `small_encryptor::MAX` bytes.
         index_start = index_end;
-        index_end = small_encryptor::MAX as usize;
+        index_end = small_encryptor::MAX;
         storage = write(
             &data[index_start..index_end],
             storage,
@@ -310,7 +310,7 @@ mod tests {
 
         // Append a further single byte.
         index_start = index_end;
-        index_end = small_encryptor::MAX as usize + 1;
+        index_end = small_encryptor::MAX + 1;
         storage = write(
             &data[index_start..index_end],
             storage,
@@ -322,7 +322,7 @@ mod tests {
 
         // Append as far as `medium_encryptor::MAX` bytes.
         index_start = index_end;
-        index_end = medium_encryptor::MAX as usize;
+        index_end = medium_encryptor::MAX;
         storage = write(
             &data[index_start..index_end],
             storage,
@@ -334,7 +334,7 @@ mod tests {
 
         // Append a further single byte.
         index_start = index_end;
-        index_end = medium_encryptor::MAX as usize + 1;
+        index_end = medium_encryptor::MAX + 1;
         storage = write(
             &data[index_start..index_end],
             storage,
