@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: '0'
+          fetch-depth: "0"
       - uses: maidsafe/pr_size_checker@v2
         with:
           max_lines_changed: 200
@@ -150,6 +150,36 @@ jobs:
       # Run tests.
       - name: Cargo test
         run: cargo test --release
+
+  tests32:
+    name: Test 32bit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # Install Rust
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      # Install 32 Bit compiler
+      - name: Install 32bit target
+        run: rustup target install i686-unknown-linux-gnu
+      - name: Install GCC Multilib
+        run: sudo apt install gcc-multilib
+      # Cache.
+      - name: Cargo cache registry, index and build
+        uses: actions/cache@v2.1.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
+
+      # Run tests.
+      - name: Cargo test
+        run: cargo test --release --target=i686-unknown-linux-gnu
 
   # Test publish using --dry-run.
   test-publish:
