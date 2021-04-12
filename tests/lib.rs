@@ -55,7 +55,12 @@ use self_encryption::{
     ChunkDetails, DataMap, SelfEncryptionError, SelfEncryptor, MAX_CHUNK_SIZE,
 };
 
-const DATA_SIZE: usize = 20 * 1024 * 1024;
+const DATA_SIZE: usize = (if cfg!(target_pointer_width = "32") {
+    4
+} else {
+    20
+}) * 1024
+    * 1024;
 
 #[tokio::test]
 async fn new_read() -> Result<(), SelfEncryptionError> {
@@ -291,7 +296,11 @@ async fn write_random_sizes_at_random_positions() -> Result<(), SelfEncryptionEr
 // pieces may overlap or leave gaps in the file.  Gaps should be filled with 0s when read back.
 async fn write_random_sizes_out_of_sequence_with_gaps_and_overlaps(
 ) -> Result<(), SelfEncryptionError> {
-    let parts = 20usize;
+    let parts: usize = if cfg!(target_pointer_width = "32") {
+        4
+    } else {
+        20
+    };
     assert!((DATA_SIZE / MAX_CHUNK_SIZE) as u64 >= parts as u64);
     let mut rng = new_test_rng()?;
     let mut total_size = 0;
