@@ -600,8 +600,8 @@ fn get_pad_key_and_iv(
     let this_pre_hash = &sorted_map[chunk_number].pre_hash;
     let n_1_pre_hash = &sorted_map[n_1].pre_hash;
     let n_2_pre_hash = &sorted_map[n_2].pre_hash;
-    assert_ne!(n_1_pre_hash.len(), 0);
-    assert_ne!(n_2_pre_hash.len(), 0);
+    assert_eq!(n_1_pre_hash.len(), HASH_SIZE);
+    assert_eq!(n_2_pre_hash.len(), HASH_SIZE);
 
     let mut pad = [0u8; PAD_SIZE];
     let mut key = [0u8; KEY_SIZE];
@@ -609,13 +609,12 @@ fn get_pad_key_and_iv(
 
     for (pad_iv_el, element) in pad
         .iter_mut()
-        .chain(iv.iter_mut())
         .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter()))
     {
         *pad_iv_el = *element;
     }
 
-    for (key_el, element) in key.iter_mut().zip(n_1_pre_hash.iter()) {
+    for (key_el, element) in key.iter_mut().chain(iv.iter_mut()).zip(n_1_pre_hash.iter()) {
         *key_el = *element;
     }
 
