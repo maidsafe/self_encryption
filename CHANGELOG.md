@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.23.0](https://github.com/maidsafe/self_encryption/compare/v0.22.0...v0.23.0) (2021-04-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **test/lib.rs:** Last commit changed the argument types of the SE API
+
+### Bug Fixes
+
+* **tests/lib.rs:** Make different data size for 32 and 64 bit binaries ([c6e5ca1](https://github.com/maidsafe/self_encryption/commit/c6e5ca121f577b824539cb7cc8e6e84f1ea5e7ed))
+
+
+* **test/lib.rs:** Add more crossplatform tests ([136be7f](https://github.com/maidsafe/self_encryption/commit/136be7fd58b7a23c4522244938492c44c7b27b25))
+
 ## [0.22.0](https://github.com/maidsafe/self_encryption/compare/v0.21.0...v0.22.0) (2021-04-05)
 
 
