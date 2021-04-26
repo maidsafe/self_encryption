@@ -21,6 +21,10 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_enc
 ## Video of the process
 [self_encryption process and use case video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
+## Whitepaper
+
+[Self Encrypting Data](https://docs.maidsafe.net/Whitepapers/pdf/SelfEncryptingData.pdf), David Irvine, First published September 2010, Revised June 2015.
+
 ## Examples
 
 ### Using `self_encryptor`
