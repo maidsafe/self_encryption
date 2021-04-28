@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.24.0](https://github.com/maidsafe/self_encryption/compare/v0.23.1...v0.24.0) (2021-04-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **self_encryptor.rs:** As this makes the previous data unusable, this is a breaking change.
+
+### Bug Fixes
+
+* **self_encryptor.rs:** Set IV to second half of last chunk hash ([61852dc](https://github.com/maidsafe/self_encryption/commit/61852dcb73240fd6ce91dd412c269740166f607c))
+
 ### [0.23.1](https://github.com/maidsafe/self_encryption/compare/v0.23.0...v0.23.1) (2021-04-26)
 
 ## [0.23.0](https://github.com/maidsafe/self_encryption/compare/v0.22.0...v0.23.0) (2021-04-13)
