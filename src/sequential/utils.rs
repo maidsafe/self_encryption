@@ -35,13 +35,12 @@ pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, 
 
     for (pad_iv_el, element) in pad
         .iter_mut()
-        .chain(iv.iter_mut())
         .zip(this_pre_hash.iter().chain(n_2_pre_hash.iter()))
     {
         *pad_iv_el = *element;
     }
 
-    for (key_el, element) in key.iter_mut().zip(n_1_pre_hash.iter()) {
+    for (key_el, element) in key.iter_mut().chain(iv.iter_mut()).zip(n_1_pre_hash.iter()) {
         *key_el = *element;
     }
 
