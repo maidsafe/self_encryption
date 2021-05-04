@@ -25,9 +25,9 @@ pub enum SelfEncryptionError {
     Decryption(#[source] BlockModeError),
     #[error(display = "A generic I/O error")]
     Io(#[source] IoError),
-    #[error(display = "An error in putting or retrieving chunks from the storage object.")]
-    Storage,
-    #[error(display = "Generic error")]
+    #[error(display = "StorageError({:?})", _0)]
+    Storage(String),
+    #[error(display = "Generic error({})", _0)]
     Generic(String),
     #[error(display = "Serialisation error")]
     Bincode(#[source] Box<ErrorKind>),
@@ -37,4 +37,6 @@ pub enum SelfEncryptionError {
     NumParse(#[source] std::num::ParseIntError),
     #[error(display = "Rng error")]
     Rng(#[source] rand::Error),
+    #[error(display = "Unable to obtain lock")]
+    Poison,
 }

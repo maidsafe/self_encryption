@@ -18,6 +18,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{
     cmp, env,
     fmt::{self, Debug, Formatter},
+    sync::{Arc, RwLock},
     thread,
 };
 use tiny_keccak::{Hasher, Sha3};
@@ -40,27 +41,39 @@ impl<'a> Debug for Blob<'a> {
     }
 }
 
+#[derive(Clone)]
 struct Entry {
     name: Vec<u8>,
     data: Vec<u8>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SimpleStorage {
-    entries: Vec<Entry>,
+    entries: Arc<RwLock<Vec<Entry>>>,
 }
 
 impl SimpleStorage {
     pub fn new() -> SimpleStorage {
-        SimpleStorage { entries: vec![] }
+        SimpleStorage {
+            entries: Arc::new(RwLock::new(vec![])),
+        }
     }
 
-    pub fn has_chunk(&self, name: &[u8]) -> bool {
-        self.entries.iter().any(|entry| entry.name == name)
+    pub async fn has_chunk(&self, name: &[u8]) -> Result<bool, SelfEncryptionError> {
+        Ok(self
+            .entries
+            .read()
+            .map_err(|_| SelfEncryptionError::Poison)?
+            .iter()
+            .any(|entry| entry.name == name))
     }
 
-    pub fn num_entries(&self) -> usize {
-        self.entries.len()
+    pub async fn num_entries(&self) -> Result<usize, SelfEncryptionError> {
+        Ok(self
+            .entries
+            .read()
+            .map_err(|_| SelfEncryptionError::Poison)?
+            .len())
     }
 }
 
@@ -69,20 +82,34 @@ impl Storage for SimpleStorage {
     // type Error = SelfEncryptionError;
 
     async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
-        match self.entries.iter().find(|entry| entry.name == name) {
+        match self
+            .entries
+            .read()
+            .map_err(|_| SelfEncryptionError::Poison)?
+            .iter()
+            .find(|entry| entry.name == name)
+        {
             Some(entry) => Ok(entry.data.clone()),
-            None => Err(SelfEncryptionError::Storage),
+            None => Err(SelfEncryptionError::Storage(
+                "Chunk missing in storage".into(),
+            )),
         }
     }
 
     async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SelfEncryptionError> {
-        self.entries.push(Entry { name, data });
+        self.entries
+            .write()
+            .map_err(|_| SelfEncryptionError::Poison)?
+            .push(Entry { name, data });
 
         Ok(())
     }
 
     async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
-        self.entries.retain(|entry| entry.name != name);
+        self.entries
+            .write()
+            .map_err(|_| SelfEncryptionError::Poison)?
+            .retain(|entry| entry.name != name);
 
         Ok(())
     }

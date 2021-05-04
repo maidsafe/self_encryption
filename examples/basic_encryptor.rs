@@ -98,6 +98,7 @@ fn file_name(name: &[u8]) -> String {
     string
 }
 
+#[derive(Clone)]
 struct DiskBasedStorage {
     pub storage_path: String,
 }

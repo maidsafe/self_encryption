@@ -14,12 +14,13 @@ use crate::{
     sequential::{Iv, Key},
 };
 use brotli::{self, enc::BrotliEncoderParams};
-use futures::lock::Mutex;
+use futures::{future::join_all, lock::Mutex, Future};
 use std::{
     cmp,
     fmt::{self, Debug, Formatter},
     io::Cursor,
     iter,
+    pin::Pin,
     sync::Arc,
 };
 
@@ -60,11 +61,11 @@ impl Chunk {
 /// This is the encryption object and all file handling should be done using this object as the low
 /// level mechanism to read and write *content*.  This library has no knowledge of file metadata.
 #[derive(Debug)]
-pub struct SelfEncryptor<S: Storage + Send + Sync + 'static>(Arc<Mutex<State<S>>>);
+pub struct SelfEncryptor<S: Storage + Send + Sync + Clone + 'static>(Arc<Mutex<State<S>>>);
 
 impl<S> SelfEncryptor<S>
 where
-    S: Storage + Send + Sync + 'static,
+    S: Storage + Send + Sync + Clone + 'static,
 {
     /// This is the only constructor for an encryptor object.  Each `SelfEncryptor` is used for a
     /// single file.  The parameters are a `Storage` object and a `DataMap`.  For a file which has
@@ -220,7 +221,7 @@ where
     }
 }
 
-struct State<S: Storage + Send + Sync> {
+struct State<S: Storage + Send + Sync + Clone> {
     storage: S,
     sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
     chunks: Vec<Chunk>,            // this is sorted as well
@@ -230,7 +231,7 @@ struct State<S: Storage + Send + Sync> {
 
 impl<S> State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn extend_sequencer_up_to(&mut self, new_len: usize) {
         let old_len = self.sequencer.len();
@@ -266,6 +267,7 @@ where
             }
         }
 
+        // let mut network_storage_futures = vec![];
         for i in 0..num_chunks {
             if self.chunks[i].status == ChunkStatus::AlreadyEncrypted {
                 new_map[i].hash = self.sorted_map[i].hash.clone();
@@ -281,16 +283,21 @@ where
                 };
                 let name = self.storage.generate_address(&content).await?;
 
-                self.storage.put(name.to_vec(), content).await?;
-
                 new_map[i].hash = name.to_vec();
+                self.storage.put(name.to_vec(), content).await?;
+                // let mut storage = self.storage.clone();
+                // network_storage_futures.push(async move { storage.put(name.to_vec(), content).await });
             }
         }
+        // let results = join_all(network_storage_futures.into_iter()).await;
+        // for result in results {
+        //     result?;
+        // }
         Ok(DataMap::Chunks(new_map))
     }
 }
 
-impl<S: Storage + Send + Sync> Debug for State<S> {
+impl<S: Storage + Send + Sync + Clone> Debug for State<S> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         write!(formatter, "SelfEncryptor internal state")
     }
@@ -302,7 +309,7 @@ async fn prepare_window_for_writing<S>(
     length: usize,
 ) -> Result<(), SelfEncryptionError>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     let (chunks_start, chunks_end, next_two) = {
         let mut state = state.lock().await;
@@ -335,6 +342,8 @@ where
 
     // Middle chunks don't need decrypting since they'll get overwritten.
     // TODO If first/last chunk gets completely overwritten, no need to decrypt.
+    let mut decryption_futures = Vec::new();
+    let mut positions = Vec::new();
     let mut decrypted_chunks = Vec::new();
     {
         let mut state = state.lock().await;
@@ -343,10 +352,14 @@ where
                 continue;
             }
             state.chunks[i].in_sequencer = true;
-            let pos = get_start_end_positions(state.file_size, i).0;
-            let vec = decrypt_chunk(&mut *state, i).await?;
-            decrypted_chunks.push((vec, pos));
+            positions.push(get_start_end_positions(state.file_size, i).0);
+            decryption_futures.push(decrypt_chunk(&mut *state, i).await);
         }
+    }
+    let decrypted_data = join_all(decryption_futures).await;
+    let mut pos_iter = positions.into_iter();
+    for chunk in decrypted_data {
+        decrypted_chunks.push((chunk?, pos_iter.next().unwrap_or(0)))
     }
 
     let mut state = state.lock().await;
@@ -374,7 +387,7 @@ async fn flush_after_write<S>(
     length: usize,
 ) -> Result<(), SelfEncryptionError>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     let old_size = {
         let state = state.lock().await;
@@ -486,7 +499,7 @@ async fn prepare_window_for_reading<S>(
     length: usize,
 ) -> Result<(), SelfEncryptionError>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     let (chunks_start, chunks_end) = {
         let state = state.lock().await;
@@ -508,6 +521,8 @@ where
 
         state.extend_sequencer_up_to(required_len);
     }
+    let mut decryption_futures = Vec::new();
+    let mut positions = Vec::new();
     let mut decrypted_chunks = Vec::new();
     let mut state = state.lock().await;
     for i in chunks_start..chunks_end {
@@ -515,9 +530,14 @@ where
             continue;
         }
         state.chunks[i].in_sequencer = true;
-        let pos = get_start_end_positions(state.file_size, i).0;
-        let chunk_data = decrypt_chunk(&mut *state, i).await?;
-        decrypted_chunks.push((chunk_data, pos));
+        positions.push(get_start_end_positions(state.file_size, i).0);
+        decryption_futures.push(decrypt_chunk(&mut *state, i).await);
+    }
+
+    let chunks = join_all(decryption_futures.into_iter()).await;
+    let mut pos_iter = positions.into_iter();
+    for chunk in chunks {
+        decrypted_chunks.push((chunk.unwrap(), pos_iter.next().unwrap_or(0)))
     }
 
     for (vec, pos) in &decrypted_chunks {
@@ -534,7 +554,7 @@ async fn prepare_chunk_for_reading<S>(
     index: usize,
 ) -> Result<(), SelfEncryptionError>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     let mut state = state.lock().await;
     if state.chunks[index].in_sequencer {
@@ -543,7 +563,7 @@ where
     state.chunks[index].in_sequencer = true;
     let (pos, end) = get_start_end_positions(state.file_size, index);
     state.extend_sequencer_up_to(end);
-    let chunk_data = decrypt_chunk(&mut *state, index).await?;
+    let chunk_data = decrypt_chunk(&mut *state, index).await.await?;
 
     for (p, byte) in state.sequencer.iter_mut().skip(pos).zip(chunk_data) {
         *p = byte;
@@ -555,24 +575,28 @@ where
 async fn decrypt_chunk<S>(
     state: &mut State<S>,
     chunk_number: usize,
-) -> Result<Vec<u8>, SelfEncryptionError>
+) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, SelfEncryptionError>>>>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
-    let name = &state.sorted_map[chunk_number].hash;
+    let name = state.sorted_map[chunk_number].hash.clone();
     let (pad, key, iv) = get_pad_key_and_iv(chunk_number, &state.sorted_map, state.file_size);
 
-    match state.storage.get(name).await {
-        Err(_) => Err(SelfEncryptionError::Storage),
-        Ok(content) => {
-            let xor_result = xor(&content, &pad);
-            let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
-            let mut decompressed = vec![];
-            brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed)
-                .map(|_| decompressed)
-                .map_err(|_| SelfEncryptionError::Compression)
+    let mut storage = state.storage.clone();
+
+    Box::pin(async move {
+        match storage.get(&name).await {
+            Err(err) => Err(SelfEncryptionError::Storage(format!("{}", err))),
+            Ok(content) => {
+                let xor_result = xor(&content, &pad);
+                let decrypted = encryption::decrypt(&xor_result, &key, &iv)?;
+                let mut decompressed = vec![];
+                brotli::BrotliDecompress(&mut Cursor::new(decrypted), &mut decompressed)
+                    .map(|_| decompressed)
+                    .map_err(|_| SelfEncryptionError::Compression)
+            }
         }
-    }
+    })
 }
 
 fn encrypt_chunk(content: &[u8], pki: (Pad, Key, Iv)) -> Result<Vec<u8>, SelfEncryptionError> {
@@ -937,7 +961,7 @@ mod tests {
         );
     }
 
-    async fn check_file_size<S: Storage + Send + Sync>(
+    async fn check_file_size<S: Storage + Send + Sync + Clone>(
         se: &SelfEncryptor<S>,
         expected_file_size: usize,
     ) {
@@ -1115,9 +1139,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 3);
+                assert_eq!(storage.num_entries().await?, 3);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1146,9 +1170,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 3);
+                assert_eq!(storage.num_entries().await?, 3);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1176,9 +1200,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 3);
-                assert_eq!(storage.num_entries(), 3);
+                assert_eq!(storage.num_entries().await?, 3);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1207,9 +1231,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 4);
-                assert_eq!(storage.num_entries(), 4);
+                assert_eq!(storage.num_entries().await?, 4);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1238,9 +1262,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 8);
-                assert_eq!(storage.num_entries(), 8);
+                assert_eq!(storage.num_entries().await?, 8);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1269,9 +1293,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks);
-                assert_eq!(storage.num_entries(), number_of_chunks);
+                assert_eq!(storage.num_entries().await?, number_of_chunks);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1303,9 +1327,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks + 1);
-                assert_eq!(storage.num_entries(), number_of_chunks + 1);
+                assert_eq!(storage.num_entries().await?, number_of_chunks + 1);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1343,9 +1367,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks + 1);
-                assert_eq!(storage.num_entries(), number_of_chunks + 1);
+                assert_eq!(storage.num_entries().await?, number_of_chunks + 1);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1382,9 +1406,9 @@ mod tests {
         match data_map {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), number_of_chunks);
-                assert_eq!(storage.num_entries(), number_of_chunks);
+                assert_eq!(storage.num_entries().await?, number_of_chunks);
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             DataMap::Content(_) => panic!("shall not return DataMap::Content"),
@@ -1466,9 +1490,9 @@ mod tests {
         match data_map2 {
             DataMap::Chunks(ref chunks) => {
                 assert_eq!(chunks.len(), 4);
-                assert_eq!(storage.num_entries(), 7); // old ones + new ones
+                assert_eq!(storage.num_entries().await?, 7); // old ones + new ones
                 for chunk_detail in chunks.iter() {
-                    assert!(storage.has_chunk(&chunk_detail.hash));
+                    assert!(storage.has_chunk(&chunk_detail.hash).await?);
                 }
             }
             _ => panic!("data_map should be DataMap::Chunks"),
