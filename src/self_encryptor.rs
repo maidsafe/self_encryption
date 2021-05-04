@@ -537,7 +537,7 @@ where
     let chunks = join_all(decryption_futures.into_iter()).await;
     let mut pos_iter = positions.into_iter();
     for chunk in chunks {
-        decrypted_chunks.push((chunk.unwrap(), pos_iter.next().unwrap_or(0)))
+        decrypted_chunks.push((chunk?, pos_iter.next().unwrap_or(0)))
     }
 
     for (vec, pos) in &decrypted_chunks {

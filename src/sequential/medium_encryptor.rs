@@ -46,15 +46,15 @@ where
         for (index, chunk) in chunks.iter().enumerate() {
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
             let mut storage = storage.clone();
-            get_futures
-                .push(async move { storage.get(&chunk.hash).await.map(|res| (res, pad_key_iv)) });
+            get_futures.push(async move {
+                let chunk = storage.get(&chunk.hash).await?;
+                let decrypted_chunk = utils::decrypt_chunk(&chunk, pad_key_iv)?;
+                Ok::<_, SelfEncryptionError>(decrypted_chunk)
+            });
         }
         let results = join_all(get_futures.into_iter()).await;
         for chunk in results {
-            let (chunk, pad_key_iv) = chunk?;
-            let decrypted_chunk = utils::decrypt_chunk(&chunk, pad_key_iv)?;
-
-            data.push(decrypted_chunk);
+            data.push(chunk?);
         }
 
         let init = Vec::with_capacity(MAX);
