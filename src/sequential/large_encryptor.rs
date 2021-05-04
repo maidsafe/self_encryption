@@ -11,7 +11,7 @@ use super::{
     Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
 use crate::data_map::{ChunkDetails, DataMap};
-use std::{cmp, convert::From, mem};
+use std::{cmp, convert::From, mem, pin::Pin};
 pub const MIN: usize = 3 * MAX_CHUNK_SIZE + 1;
 const MAX_BUFFER_LEN: usize = MAX_CHUNK_SIZE + MIN_CHUNK_SIZE;
 
@@ -30,7 +30,7 @@ pub struct LargeEncryptor<S: Storage + Send + Sync> {
 
 impl<S> LargeEncryptor<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are more than three
     // chunks.  Retrieves the first two and and last two chunks from storage and decrypts them to
@@ -61,7 +61,11 @@ where
                     chunk_0_data = utils::decrypt_chunk(&chunk_0_data, pad_key_iv)?;
                     chunk.hash.clear();
                 }
-                None => return Err(SelfEncryptionError::Storage),
+                None => {
+                    return Err(SelfEncryptionError::Storage(
+                        "Error fetching first chunk".into(),
+                    ))
+                }
             };
 
             match start_iter.next() {
@@ -71,7 +75,11 @@ where
                     chunk_1_data = utils::decrypt_chunk(&chunk_1_data, pad_key_iv)?;
                     chunk.hash.clear();
                 }
-                None => return Err(SelfEncryptionError::Storage),
+                None => {
+                    return Err(SelfEncryptionError::Storage(
+                        "Error fetching second chunk".into(),
+                    ))
+                }
             };
 
             // If the penultimate chunk is not at MAX_CHUNK_SIZE, decrypt it to `buffer`
@@ -88,7 +96,11 @@ where
                         Vec::with_capacity(MAX_BUFFER_LEN)
                     };
                 }
-                None => return Err(SelfEncryptionError::Storage),
+                None => {
+                    return Err(SelfEncryptionError::Storage(
+                        "Error fetching second-last chunk".into(),
+                    ))
+                }
             };
 
             // Decrypt the last chunk to `buffer`
@@ -99,7 +111,11 @@ where
 
                     buffer_extension = utils::decrypt_chunk(&data, pad_key_iv)?
                 }
-                None => return Err(SelfEncryptionError::Storage),
+                None => {
+                    return Err(SelfEncryptionError::Storage(
+                        "Error fetching last chunk".into(),
+                    ))
+                }
             };
         }
 
@@ -143,7 +159,7 @@ where
         data = self.fill_chunk_buffer(data, 0).await?;
         data = self.fill_chunk_buffer(data, 1).await?;
 
-        let mut all_things = Vec::new();
+        // let mut storage_futures = Vec::new();
 
         while !data.is_empty() {
             let amount = cmp::min(MAX_BUFFER_LEN - self.buffer.len(), data.len());
@@ -156,9 +172,14 @@ where
                 let mut data_to_encrypt = self.buffer.split_off(MAX_CHUNK_SIZE);
                 mem::swap(&mut self.buffer, &mut data_to_encrypt);
                 let index = self.chunks.len();
-                all_things.push(self.encrypt_chunk(&data_to_encrypt, index).await?);
+                self.encrypt_chunk(&data_to_encrypt, index).await?.await?
+                // storage_futures.push(self.encrypt_chunk(&data_to_encrypt, index).await?);
             }
         }
+        // let results = futures::future::join_all(storage_futures.into_iter()).await;
+        // for result in results {
+        //     result?;
+        // }
 
         Ok(self)
     }
@@ -189,21 +210,23 @@ where
         mem::swap(&mut swapped_buffer, &mut self.buffer);
         all_chunks.push(
             self.encrypt_chunk(&swapped_buffer[..first_len], index)
+                .await?
                 .await?,
         );
         if need_two_chunks {
             index += 1;
             all_chunks.push(
                 self.encrypt_chunk(&swapped_buffer[first_len..], index)
+                    .await?
                     .await?,
             );
         }
 
         // Handle encrypting and storing the contents of the first two chunks' buffers.
         mem::swap(&mut swapped_buffer, &mut self.chunk_0_data);
-        all_chunks.push(self.encrypt_chunk(&swapped_buffer, 0).await?);
+        all_chunks.push(self.encrypt_chunk(&swapped_buffer, 0).await?.await?);
         mem::swap(&mut swapped_buffer, &mut self.chunk_1_data);
-        all_chunks.push(self.encrypt_chunk(&swapped_buffer, 1).await?);
+        all_chunks.push(self.encrypt_chunk(&swapped_buffer, 1).await?.await?);
 
         let mut swapped_chunks = vec![];
         mem::swap(&mut swapped_chunks, &mut self.chunks);
@@ -254,7 +277,10 @@ where
         &mut self,
         data: &[u8],
         index: usize,
-    ) -> Result<(), SelfEncryptionError> {
+    ) -> Result<
+        Pin<Box<dyn futures::Future<Output = Result<(), SelfEncryptionError>>>>,
+        SelfEncryptionError,
+    > {
         if index > 1 {
             self.chunks.push(ChunkDetails {
                 chunk_num: index,
@@ -270,10 +296,12 @@ where
         let hash = self.storage.generate_address(&encrypted_contents).await?;
         self.chunks[index].hash = hash.to_vec();
 
-        self.storage
-            .put(hash.to_vec(), encrypted_contents.to_vec())
-            .await?;
-        Ok(())
+        let mut storage = self.storage.clone();
+        Ok(Box::pin(async move {
+            storage
+                .put(hash.to_vec(), encrypted_contents.to_vec())
+                .await
+        }))
     }
 }
 

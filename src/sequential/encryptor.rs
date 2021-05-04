@@ -20,7 +20,7 @@ use std::{
     sync::Arc,
 };
 
-enum State<S: Storage + Send + Sync> {
+enum State<S: Storage + Send + Sync + Clone> {
     Small(SmallEncryptor<S>),
     Medium(MediumEncryptor<S>),
     Large(LargeEncryptor<S>),
@@ -29,7 +29,7 @@ enum State<S: Storage + Send + Sync> {
 
 impl<S> State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     async fn write(self, data: &[u8]) -> Result<Self, SelfEncryptionError> {
         match self {
@@ -70,7 +70,7 @@ where
 
 impl<S> From<SmallEncryptor<S>> for State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn from(e: SmallEncryptor<S>) -> Self {
         State::Small(e)
@@ -79,7 +79,7 @@ where
 
 impl<S> From<MediumEncryptor<S>> for State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn from(e: MediumEncryptor<S>) -> Self {
         State::Medium(e)
@@ -88,7 +88,7 @@ where
 
 impl<S> From<LargeEncryptor<S>> for State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn from(e: LargeEncryptor<S>) -> Self {
         State::Large(e)
@@ -97,7 +97,7 @@ where
 
 impl<S> Debug for State<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "SequentialEncryptor internal state")
@@ -122,13 +122,13 @@ where
 ///
 /// Due to the reduced complexity, a side effect is that this encryptor outperforms `SelfEncryptor`,
 /// particularly for small data (below `MIN_CHUNK_SIZE * 3` bytes) where no chunks are generated.
-pub struct Encryptor<S: Storage + 'static + Send + Sync> {
+pub struct Encryptor<S: Storage + 'static + Send + Sync + Clone> {
     state: Arc<Mutex<State<S>>>,
 }
 
 impl<S> Encryptor<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     /// Creates an `Encryptor`, using an existing `DataMap` if `data_map` is not `None`.
     // TODO - split into two separate c'tors rather than passing optional `DataMap`.
@@ -221,7 +221,7 @@ where
 
 impl<S> From<State<S>> for Encryptor<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     fn from(s: State<S>) -> Self {
         Encryptor {

@@ -6,6 +6,8 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
+use futures::future::join_all;
+
 use super::{
     small_encryptor::SmallEncryptor, utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE,
     MIN_CHUNK_SIZE,
@@ -18,7 +20,7 @@ pub const MAX: usize = 3 * MAX_CHUNK_SIZE;
 // An encryptor for data which will be split into exactly three chunks (i.e. size is between
 // `3 * MIN_CHUNK_SIZE` and `3 * MAX_CHUNK_SIZE` inclusive).  Only `close()` will actually cause
 // chunks to be stored.  Until then, data is held internally in `buffer`.
-pub struct MediumEncryptor<S: Storage + Send + Sync> {
+pub struct MediumEncryptor<S: Storage + Send + Sync + Clone> {
     pub storage: S,
     pub buffer: Vec<u8>,
     original_chunks: Option<Vec<ChunkDetails>>,
@@ -26,13 +28,13 @@ pub struct MediumEncryptor<S: Storage + Send + Sync> {
 
 impl<S> MediumEncryptor<S>
 where
-    S: Storage + 'static + Send + Sync,
+    S: Storage + 'static + Send + Sync + Clone,
 {
     // Constructor for use with pre-existing `DataMap::Chunks` where there are exactly three chunks.
     // Retrieves the chunks from storage and decrypts them to its internal `buffer`.
     #[allow(clippy::new_ret_no_self)]
     pub async fn new(
-        mut storage: S,
+        storage: S,
         chunks: Vec<ChunkDetails>,
     ) -> Result<MediumEncryptor<S>, SelfEncryptionError> {
         debug_assert_eq!(chunks.len(), 3);
@@ -40,12 +42,19 @@ where
         debug_assert!(chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size) <= MAX);
 
         let mut data = Vec::with_capacity(chunks.len());
+        let mut get_futures = Vec::new();
         for (index, chunk) in chunks.iter().enumerate() {
             let pad_key_iv = utils::get_pad_key_and_iv(index, &chunks);
-            let chunk = storage.get(&chunk.hash).await?;
-            let decrypted_chunk = utils::decrypt_chunk(&chunk, pad_key_iv)?;
-
-            data.push(decrypted_chunk);
+            let mut storage = storage.clone();
+            get_futures.push(async move {
+                let chunk = storage.get(&chunk.hash).await?;
+                let decrypted_chunk = utils::decrypt_chunk(&chunk, pad_key_iv)?;
+                Ok::<_, SelfEncryptionError>(decrypted_chunk)
+            });
+        }
+        let results = join_all(get_futures.into_iter()).await;
+        for chunk in results {
+            data.push(chunk?);
         }
 
         let init = Vec::with_capacity(MAX);
@@ -78,7 +87,7 @@ where
             return Ok((DataMap::Chunks(chunks), self.storage));
         }
 
-        let mut all_chunks;
+        // let mut chunk_storage_futures;
         let mut chunk_details;
 
         {
@@ -100,7 +109,7 @@ where
             }
             // Encrypt the chunks and note the post-encryption hashes
             let partial_details = chunk_details.clone();
-            all_chunks = Vec::with_capacity(chunk_contents.len());
+            // chunk_storage_futures = Vec::with_capacity(chunk_contents.len());
             // FIXME: rust-nightly requires this to be mutable while rust-stable does not
             #[allow(unused)]
             for (index, (contents, mut details)) in chunk_contents
@@ -113,9 +122,15 @@ where
 
                 let hash = self.storage.generate_address(&encrypted_contents).await?;
                 details.hash = hash.to_vec();
-                all_chunks.push(self.storage.put(hash.to_vec(), encrypted_contents).await?);
+                self.storage.put(hash.to_vec(), encrypted_contents).await?
+                // let mut storage = self.storage.clone();
+                // chunk_storage_futures.push(async move { storage.put(hash.to_vec(), encrypted_contents).await });
             }
         }
+        // let results = join_all(chunk_storage_futures.into_iter()).await;
+        // for result in results {
+        //     result?;
+        // }
 
         Ok((DataMap::Chunks(chunk_details), self.storage))
     }
@@ -129,7 +144,7 @@ where
     }
 }
 
-impl<S: Storage + Send + Sync> From<SmallEncryptor<S>> for MediumEncryptor<S> {
+impl<S: Storage + Send + Sync + Clone> From<SmallEncryptor<S>> for MediumEncryptor<S> {
     fn from(small_encryptor: SmallEncryptor<S>) -> MediumEncryptor<S> {
         MediumEncryptor {
             storage: small_encryptor.storage,
