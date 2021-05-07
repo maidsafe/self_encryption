@@ -7,6 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{SelfEncryptionError, Storage, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
+use crate::encryption::encrypt;
 use crate::{
     data_map::{ChunkDetails, DataMap},
     encryption::{self, IV_SIZE, KEY_SIZE},
@@ -22,17 +23,37 @@ use std::{
     iter,
     sync::Arc,
 };
+use tiny_keccak::{Hasher, Sha3};
 
 const HASH_SIZE: usize = 32;
 const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 struct Pad(pub [u8; PAD_SIZE]);
 
-// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
+// Helper function to XOR a data with a pad (pad will be hashed at each stage to fill the length)
 fn xor(data: &[u8], &Pad(pad): &Pad) -> Vec<u8> {
-    data.iter()
-        .zip(pad.iter().cycle())
-        .map(|(&a, &b)| a ^ b)
+    let chunks = data.chunks(pad.len()).collect::<Vec<_>>();
+    let pads = chunks
+        .iter()
+        .scan(pad, |pad, _| {
+            let mut hasher = Sha3::v512();
+            let mut output = [0u8; 64];
+            hasher.update(&pad[..]);
+            hasher.finalize(&mut output);
+            Some(Pad(output))
+        })
+        .collect::<Vec<Pad>>();
+
+    chunks
+        .iter()
+        .zip(pads.iter())
+        .map(|(&a, &Pad(b))| {
+            a.iter()
+                .zip(b.iter())
+                .map(|(a, b)| a ^ b)
+                .collect::<Vec<u8>>()
+        })
+        .flatten()
         .collect()
 }
 
@@ -586,7 +607,7 @@ fn encrypt_chunk(content: &[u8], pki: (Pad, Key, Iv)) -> Result<Vec<u8>, SelfEnc
     if result.is_err() {
         return Err(SelfEncryptionError::Compression);
     }
-    let encrypted = encryption::encrypt(&compressed, &key, &iv)?;
+    let encrypted = encrypt(&compressed, &key, &iv)?;
     Ok(xor(&encrypted, &pad))
 }
 
