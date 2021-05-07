@@ -221,11 +221,13 @@ where
     }
 
     /// Current file size as is known by encryptor.
+    #[allow(clippy::len_without_is_empty)]
     pub async fn len(&self) -> usize {
         self.0.lock().await.file_size
     }
 
     /// Returns true if file size as is known by encryptor == 0.
+    #[allow(clippy::len_without_is_empty)]
     pub async fn is_empty(&self) -> bool {
         self.0.lock().await.file_size == 0
     }
