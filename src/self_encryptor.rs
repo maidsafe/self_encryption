@@ -575,7 +575,7 @@ where
 async fn decrypt_chunk<S>(
     state: &mut State<S>,
     chunk_number: usize,
-) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, SelfEncryptionError>>>>
+) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, SelfEncryptionError>> + Send>>
 where
     S: Storage + 'static + Send + Sync + Clone,
 {
