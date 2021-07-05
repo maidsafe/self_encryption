@@ -267,7 +267,7 @@ where
             }
         }
 
-        // let mut network_storage_futures = vec![];
+        let mut network_storage_futures = vec![];
         for i in 0..num_chunks {
             if self.chunks[i].status == ChunkStatus::AlreadyEncrypted {
                 new_map[i].hash = self.sorted_map[i].hash.clone();
@@ -284,15 +284,15 @@ where
                 let name = self.storage.generate_address(&content).await?;
 
                 new_map[i].hash = name.to_vec();
-                self.storage.put(name.to_vec(), content).await?;
-                // let mut storage = self.storage.clone();
-                // network_storage_futures.push(async move { storage.put(name.to_vec(), content).await });
+                let mut storage = self.storage.clone();
+                network_storage_futures
+                    .push(async move { storage.put(name.to_vec(), content).await });
             }
         }
-        // let results = join_all(network_storage_futures.into_iter()).await;
-        // for result in results {
-        //     result?;
-        // }
+        let results = join_all(network_storage_futures.into_iter()).await;
+        for result in results {
+            result?;
+        }
         Ok(DataMap::Chunks(new_map))
     }
 }

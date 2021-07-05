@@ -82,12 +82,12 @@ where
     // This finalises the encryptor - it should not be used again after this call.  Exactly three
     // chunks will be generated and stored by calling this unless the encryptor didn't receive any
     // `write()` calls.
-    pub async fn close(mut self) -> Result<(DataMap, S), SelfEncryptionError> {
+    pub async fn close(self) -> Result<(DataMap, S), SelfEncryptionError> {
         if let Some(chunks) = self.original_chunks {
             return Ok((DataMap::Chunks(chunks), self.storage));
         }
 
-        // let mut chunk_storage_futures;
+        let mut chunk_storage_futures;
         let mut chunk_details;
 
         {
@@ -109,9 +109,7 @@ where
             }
             // Encrypt the chunks and note the post-encryption hashes
             let partial_details = chunk_details.clone();
-            // chunk_storage_futures = Vec::with_capacity(chunk_contents.len());
-            // FIXME: rust-nightly requires this to be mutable while rust-stable does not
-            #[allow(unused)]
+            chunk_storage_futures = Vec::with_capacity(chunk_contents.len());
             for (index, (contents, mut details)) in chunk_contents
                 .iter()
                 .zip(chunk_details.iter_mut())
@@ -122,15 +120,16 @@ where
 
                 let hash = self.storage.generate_address(&encrypted_contents).await?;
                 details.hash = hash.to_vec();
-                self.storage.put(hash.to_vec(), encrypted_contents).await?
-                // let mut storage = self.storage.clone();
-                // chunk_storage_futures.push(async move { storage.put(hash.to_vec(), encrypted_contents).await });
+                let mut storage = self.storage.clone();
+                chunk_storage_futures
+                    .push(async move { storage.put(hash.to_vec(), encrypted_contents).await });
             }
         }
-        // let results = join_all(chunk_storage_futures.into_iter()).await;
-        // for result in results {
-        //     result?;
-        // }
+        dbg!("{}", chunk_storage_futures.len());
+        let results = join_all(chunk_storage_futures.into_iter()).await;
+        for result in results {
+            result?;
+        }
 
         Ok((DataMap::Chunks(chunk_details), self.storage))
     }
