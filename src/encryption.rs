@@ -17,13 +17,11 @@ pub const KEY_SIZE: usize = 16;
 pub const IV_SIZE: usize = 16;
 
 pub fn encrypt(data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError> {
-    let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref())
-        .map_err(|e| SelfEncryptionError::Cipher(format!("{:?}", e)))?;
+    let cipher = Aes128Cbc::new_fix(key.0.as_ref().into(), iv.0.as_ref().into());
     Ok(cipher.encrypt_vec(data))
 }
 
 pub fn decrypt(encrypted_data: &[u8], key: &Key, iv: &Iv) -> Result<Vec<u8>, SelfEncryptionError> {
-    let cipher = Aes128Cbc::new_var(key.0.as_ref(), iv.0.as_ref())
-        .map_err(|err| SelfEncryptionError::Cipher(format!("{:?}", err)))?;
+    let cipher = Aes128Cbc::new_fix(key.0.as_ref().into(), iv.0.as_ref().into());
     Ok(cipher.decrypt_vec(encrypted_data)?)
 }
