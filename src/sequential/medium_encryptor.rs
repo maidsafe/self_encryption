@@ -125,7 +125,6 @@ where
                     .push(async move { storage.put(hash.to_vec(), encrypted_contents).await });
             }
         }
-        dbg!("{}", chunk_storage_futures.len());
         let results = join_all(chunk_storage_futures.into_iter()).await;
         for result in results {
             result?;
