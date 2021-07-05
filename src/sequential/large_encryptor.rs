@@ -159,7 +159,7 @@ where
         data = self.fill_chunk_buffer(data, 0).await?;
         data = self.fill_chunk_buffer(data, 1).await?;
 
-        // let mut storage_futures = Vec::new();
+        let mut storage_futures = Vec::new();
 
         while !data.is_empty() {
             let amount = cmp::min(MAX_BUFFER_LEN - self.buffer.len(), data.len());
@@ -172,14 +172,13 @@ where
                 let mut data_to_encrypt = self.buffer.split_off(MAX_CHUNK_SIZE);
                 mem::swap(&mut self.buffer, &mut data_to_encrypt);
                 let index = self.chunks.len();
-                self.encrypt_chunk(&data_to_encrypt, index).await?.await?
-                // storage_futures.push(self.encrypt_chunk(&data_to_encrypt, index).await?);
+                storage_futures.push(self.encrypt_chunk(&data_to_encrypt, index).await?);
             }
         }
-        // let results = futures::future::join_all(storage_futures.into_iter()).await;
-        // for result in results {
-        //     result?;
-        // }
+        let results = futures::future::join_all(storage_futures.into_iter()).await;
+        for result in results {
+            result?;
+        }
 
         Ok(self)
     }

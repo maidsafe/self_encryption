@@ -182,7 +182,7 @@ async fn write_and_close_random_sizes_at_random_positions() -> Result<(), SelfEn
             let mut wtotal = 0;
             let mut data_map_orig = DataMap::None;
             for element in &broken_data {
-                let se = SelfEncryptor::new(storage, data_map_orig)
+                let se = SelfEncryptor::new(storage.clone(), data_map_orig)
                     .expect("Encryptor construction shouldn't fail.");
                 se.write(element.1, element.0)
                     .await
