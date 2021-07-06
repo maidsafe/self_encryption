@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.25.0](https://github.com/maidsafe/self_encryption/compare/v0.24.3...v0.25.0) (2021-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** underlying deps were updated
+
+### Bug Fixes
+
+* **writes:** process network writes in parallel ([4974a95](https://github.com/maidsafe/self_encryption/commit/4974a95d7117e796aafcc973124c3033b4c5fb04))
+
+
+### update
+
+* **deps:** update deps flagged by security audit ([df8f2ac](https://github.com/maidsafe/self_encryption/commit/df8f2ac3cd048706d5237f10f1d08d97d4f6ea59))
+
 ### [0.24.3](https://github.com/maidsafe/self_encryption/compare/v0.24.2...v0.24.3) (2021-06-24)
 
 
