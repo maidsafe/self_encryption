@@ -19,7 +19,6 @@ use std::{
     cmp, env,
     fmt::{self, Debug, Formatter},
     sync::{Arc, RwLock},
-    thread,
 };
 use tiny_keccak::{Hasher, Sha3};
 
@@ -133,11 +132,11 @@ pub fn new_test_rng() -> Result<TestRng, SelfEncryptionError> {
         rand::thread_rng().gen()
     };
 
-    println!(
-        "RNG seed for thread {:?}: {}",
-        thread::current().name().unwrap(),
-        seed
-    );
+    // println!(
+    //     "RNG seed for thread {:?}: {}",
+    //     thread::current().name().unwrap(),
+    //     seed
+    // );
 
     Ok(TestRng::seed_from_u64(seed))
 }

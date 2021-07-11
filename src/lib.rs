@@ -174,6 +174,8 @@
 mod data_map;
 mod encryption;
 mod error;
+/// blah
+pub mod rehaul;
 mod self_encryptor;
 mod sequencer;
 mod sequential;
