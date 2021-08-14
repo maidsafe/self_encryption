@@ -1,4 +1,4 @@
-// Copyright 2018 MaidSafe.net limited.
+// Copyright 2021 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under The General Public License (GPL), version 3.
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
@@ -11,10 +11,13 @@ use block_modes::BlockModeError;
 use err_derive::Error;
 use std::io::Error as IoError;
 
+/// Specialisation of `std::Result` for crate.
+pub type Result<T, E = Error> = std::result::Result<T, E>;
+
 /// Errors which can arise during self_encryption or -decryption.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
-pub enum SelfEncryptionError {
+pub enum Error {
     #[error(display = "An error during compression or decompression.")]
     Compression,
     #[error(display = "An error during initializing CBC-AES cipher instance.")]

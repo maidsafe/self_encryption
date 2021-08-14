@@ -1,4 +1,4 @@
-// Copyright 2018 MaidSafe.net limited.
+// Copyright 2021 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under The General Public License (GPL), version 3.
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
@@ -8,52 +8,50 @@
 
 //! Basic example usage of a `SelfEncryptor`.
 
-// For explanation of lint checks, run `rustc -W help` or see
-// https://github.com/maidsafe/QA/blob/master/Documentation/Rust%20Lint%20Checks.md
+// For quick_error
+#![recursion_limit = "256"]
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/maidsafe/QA/master/Images/maidsafe_logo.png",
+    html_favicon_url = "https://maidsafe.net/img/favicon.ico",
+    test(attr(deny(warnings)))
+)]
+// Forbid some very bad patterns. Forbid is stronger than `deny`, preventing us from suppressing the
+// lint with `#[allow(...)]` et-all.
 #![forbid(
     arithmetic_overflow,
     mutable_transmutes,
     no_mangle_const_items,
-    unknown_crate_types
+    unknown_crate_types,
+    unsafe_code
 )]
-#![deny(
-    bad_style,
-    deprecated,
-    improper_ctypes,
-    missing_docs,
-    non_shorthand_field_patterns,
-    overflowing_literals,
-    stable_features,
-    unconditional_recursion,
-    unknown_lints,
-    unsafe_code,
-    unused,
-    unused_allocation,
-    unused_attributes,
-    unused_comparisons,
-    unused_features,
-    unused_parens,
-    while_true,
-    warnings
-)]
+// Turn on some additional warnings to encourage good style.
 #![warn(
+    missing_debug_implementations,
+    missing_docs,
     trivial_casts,
     trivial_numeric_casts,
+    unreachable_pub,
     unused_extern_crates,
     unused_import_braces,
     unused_qualifications,
-    unused_results
-)]
-#![allow(
-    box_pointers,
-    missing_copy_implementations,
-    missing_debug_implementations,
-    variant_size_differences
+    unused_results,
+    clippy::unicode_not_nfc
 )]
 
+// #![allow(
+//     box_pointers,
+//     missing_copy_implementations,
+//     missing_debug_implementations,
+//     variant_size_differences
+// )]
+
 use async_trait::async_trait;
+use bytes::Bytes;
 use docopt::Docopt;
-use self_encryption::{self, test_helpers, DataMap, SelfEncryptionError, SelfEncryptor, Storage};
+use futures::future::join_all;
+use self_encryption::{
+    self, test_helpers, to_chunks, DataMap, Error, Generator, MemFileReader, Result, Storage,
+};
 use serde::Deserialize;
 use std::{
     env,
@@ -62,8 +60,10 @@ use std::{
     io::{Read, Write},
     path::PathBuf,
     string::String,
+    sync::Arc,
 };
 use tiny_keccak::{Hasher, Sha3};
+use tokio::task;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -90,21 +90,21 @@ fn to_hex(ch: u8) -> String {
     fmt::format(format_args!("{:02x}", ch))
 }
 
-fn file_name(name: &[u8]) -> String {
+fn file_name(name: Bytes) -> String {
     let mut string = String::new();
     for ch in name {
-        string.push_str(&to_hex(*ch));
+        string.push_str(&to_hex(ch));
     }
     string
 }
 
 #[derive(Clone)]
 struct DiskBasedStorage {
-    pub storage_path: String,
+    pub(crate) storage_path: String,
 }
 
 impl DiskBasedStorage {
-    fn calculate_path(&self, name: &[u8]) -> PathBuf {
+    fn calculate_path(&self, name: Bytes) -> PathBuf {
         let mut path = PathBuf::from(self.storage_path.clone());
         path.push(file_name(name));
         path
@@ -113,19 +113,17 @@ impl DiskBasedStorage {
 
 #[async_trait]
 impl Storage for DiskBasedStorage {
-    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
+    async fn get(&self, name: Bytes) -> Result<Bytes, Error> {
         let path = self.calculate_path(name);
         let mut file = File::open(&path)?;
         let mut data = Vec::new();
         let _ = file.read_to_end(&mut data);
-
-        Ok(data)
+        Ok(Bytes::from(data))
     }
 
-    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(), SelfEncryptionError> {
-        let path = self.calculate_path(&name);
+    async fn put(&self, name: Bytes, data: Bytes) -> Result<()> {
+        let path = self.calculate_path(name);
         let mut file = File::create(&path)?;
-
         file.write_all(&data[..])
             .map(|_| {
                 println!("Chunk written to {:?}", path);
@@ -133,19 +131,18 @@ impl Storage for DiskBasedStorage {
             .map_err(From::from)
     }
 
-    async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
-        let path = self.calculate_path(&name);
+    async fn delete(&self, name: Bytes) -> Result<()> {
+        let path = self.calculate_path(name);
         fs::remove_file(path)?;
-
         Ok(())
     }
 
-    async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
+    async fn generate_address(&self, data: Bytes) -> Result<Bytes, Error> {
         let mut hasher = Sha3::v256();
         let mut output = [0; 32];
         hasher.update(&data);
         hasher.finalize(&mut output);
-        Ok(output.to_vec())
+        Ok(Bytes::from(output.to_vec()))
     }
 }
 
@@ -162,9 +159,8 @@ async fn main() {
     let mut chunk_store_dir = env::temp_dir();
     chunk_store_dir.push("chunk_store_test/");
     let _ = fs::create_dir(chunk_store_dir.clone());
-    let mut storage = DiskBasedStorage {
-        storage_path: chunk_store_dir.to_str().unwrap().to_owned(),
-    };
+    let storage_path = chunk_store_dir.to_str().unwrap().to_owned();
+    let storage = Arc::new(DiskBasedStorage { storage_path });
 
     let mut data_map_file = chunk_store_dir;
     data_map_file.push("data_map");
@@ -188,15 +184,26 @@ async fn main() {
                 Ok(_) => (),
                 Err(error) => return println!("{}", error.to_string()),
             }
+            let data_reader = MemFileReader::new(Bytes::from(data));
+            let address_gen = Generator {};
 
-            let se = SelfEncryptor::new(storage, DataMap::None)
-                .expect("Encryptor construction shouldn't fail.");
-            se.write(&data, 0)
-                .await
-                .expect("Writing to encryptor shouldn't fail.");
-            let (data_map, old_storage) =
-                se.close().await.expect("Closing encryptor shouldn't fail.");
-            storage = old_storage;
+            let content = to_chunks(data_reader, address_gen).unwrap();
+
+            let tasks = content
+                .clone()
+                .into_iter()
+                .map(|c| (c, storage.clone()))
+                .map(|(c, store)| {
+                    task::spawn(async move {
+                        store
+                            .put(c.details.dst_hash.clone(), c.encrypted_content.clone())
+                            .await
+                    })
+                });
+
+            let _ = join_all(tasks).await;
+
+            let data_map = DataMap::Chunks(content.into_iter().map(|c| c.details).collect());
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
@@ -229,28 +236,28 @@ async fn main() {
             let _ = file.read_to_end(&mut data).unwrap();
 
             match test_helpers::deserialise::<DataMap>(&data) {
-                Ok(data_map) => {
-                    let se = SelfEncryptor::new(storage, data_map)
-                        .expect("Encryptor construction shouldn't fail.");
-                    let length = se.len().await;
-                    if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
-                        let content = se
-                            .read(0, length)
-                            .await
-                            .expect("Reading from encryptor shouldn't fail.");
-                        match file.write_all(&content[..]) {
-                            Err(error) => println!("File write failed - {:?}", error),
-                            Ok(_) => println!(
-                                "File decrypted to {:?}",
-                                args.arg_destination.clone().unwrap()
-                            ),
-                        };
-                    } else {
-                        println!(
-                            "Failed to create {}",
-                            (args.arg_destination.clone().unwrap())
-                        );
-                    }
+                Ok(_data_map) => {
+                    // let se = SelfEncryptor::new(storage, data_map)
+                    //     .expect("Encryptor construction shouldn't fail.");
+                    // let length = se.len().await;
+                    // if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
+                    //     let content = se
+                    //         .read(0, length)
+                    //         .await
+                    //         .expect("Reading from encryptor shouldn't fail.");
+                    //     match file.write_all(&content[..]) {
+                    //         Err(error) => println!("File write failed - {:?}", error),
+                    //         Ok(_) => println!(
+                    //             "File decrypted to {:?}",
+                    //             args.arg_destination.clone().unwrap()
+                    //         ),
+                    //     };
+                    // } else {
+                    //     println!(
+                    //         "Failed to create {}",
+                    //         (args.arg_destination.clone().unwrap())
+                    //     );
+                    // }
                 }
                 Err(_) => {
                     println!("Failed to parse data map - possible corruption");

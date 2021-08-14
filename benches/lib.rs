@@ -49,10 +49,9 @@
 
 use bytes::Bytes;
 use criterion::{BatchSize, Bencher, Criterion};
-use self_encryption::{
-    rehaul::{encrypt, hashes, DataReader, Generator, MemFileReader},
+use self_encryption::new::{
     test_helpers::{new_test_rng, random_bytes},
-    SelfEncryptionError,
+    to_chunks, DataReader, Generator, MemFileReader, Result,
 };
 use std::time::Duration;
 
@@ -64,7 +63,7 @@ fn custom_criterion() -> Criterion {
     Criterion::default().sample_size(SAMPLE_SIZE)
 }
 
-fn get_mem_reader(file_size: usize) -> Result<impl DataReader, SelfEncryptionError> {
+fn get_mem_reader(file_size: usize) -> Result<impl DataReader> {
     let mut rng = new_test_rng()?;
     let the_bytes = random_bytes(&mut rng, file_size);
     Ok(MemFileReader::new(Bytes::from(the_bytes)))
@@ -77,8 +76,7 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
         // actual benchmark
         |reader| {
             let address_gen = Generator {};
-            let batches = hashes(reader, address_gen);
-            let _results = encrypt(batches);
+            let _chunks = to_chunks(reader, address_gen).unwrap();
         },
         BatchSize::SmallInput,
     );
