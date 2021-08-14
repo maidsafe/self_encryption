@@ -1,4 +1,4 @@
-// Copyright 2018 MaidSafe.net limited.
+// Copyright 2021 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under The General Public License (GPL), version 3.
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
@@ -171,23 +171,12 @@
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
 #![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
-mod data_map;
-mod encryption;
-mod error;
 /// blah
-pub mod rehaul;
-mod self_encryptor;
-mod sequencer;
-mod sequential;
-mod storage;
-pub mod test_helpers;
+pub mod new;
 
-pub use crate::{
-    data_map::{ChunkDetails, DataMap},
-    error::SelfEncryptionError,
-    self_encryptor::SelfEncryptor,
-    sequential::encryptor::Encryptor as SequentialEncryptor,
-    storage::Storage,
+pub use crate::new::{
+    test_helpers, to_chunks, AddressGen, ChunkContent, ChunkDetails, DataMap, DataReader, Error,
+    FileReader, Generator, MemFileReader, Result, Storage,
 };
 
 /// The maximum size of file which can be self_encrypted, defined as 1GB.
