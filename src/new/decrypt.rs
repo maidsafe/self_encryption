@@ -19,7 +19,7 @@ use std::sync::Arc;
 pub fn decrypt(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
     let num_chunks = encrypted_chunks.len();
     let encrypted_chunks = encrypted_chunks
-        .into_iter()
+        .iter()
         .sorted_by_key(|c| c.details.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
@@ -34,7 +34,7 @@ pub fn decrypt(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
         .par_bridge()
         .map(|batch| DecryptionBatch {
             jobs: batch
-                .into_iter()
+                .iter()
                 .map(|c| DecryptionJob {
                     index: c.details.index,
                     encrypted_content: c.encrypted_content.clone(),

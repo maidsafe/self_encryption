@@ -58,12 +58,10 @@ fn run_test(data_size: usize) -> Result<(), Error> {
     println!("Chunks decrypted in {} ms.", decrypt_time.as_millis());
     println!("Comparing results..");
 
-    let mut counter = 0;
-    for (a, b) in bytes.into_iter().zip(raw_data) {
+    for (counter, (a, b)) in bytes.into_iter().zip(raw_data).enumerate() {
         if a != b {
             panic!("Not equal! Counter: {}", counter)
         }
-        counter += 1;
     }
 
     Ok(())

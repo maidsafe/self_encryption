@@ -58,8 +58,8 @@ pub struct ChunkContent {
 }
 
 ///
-pub fn to_chunks<G: AddressGen>(bytes: Bytes, address_gen: G) -> Result<Vec<ChunkContent>> {
-    let batches = hash::hashes(bytes, address_gen);
+pub fn to_chunks(bytes: Bytes) -> Result<Vec<ChunkContent>> {
+    let batches = hash::hashes(bytes, Generator {});
     let chunks = encrypt::encrypt(batches);
     let count = chunks.len();
     let chunks: Vec<_> = chunks.into_iter().flatten().collect();
