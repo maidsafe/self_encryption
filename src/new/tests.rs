@@ -6,8 +6,10 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{encrypt::encrypt, hash::hashes, Error};
-use crate::new::{decrypt::decrypt, get_num_chunks, test_helpers::random_bytes, Generator};
+use crate::new::{
+    decrypt::decrypt, encrypt::encrypt, get_num_chunks, hash::hashes, test_helpers::random_bytes,
+    Error,
+};
 use itertools::Itertools;
 use std::time::Instant;
 
@@ -19,7 +21,6 @@ fn read_write() -> Result<(), Error> {
 }
 
 fn run_test(data_size: usize) -> Result<(), Error> {
-    let address_gen = Generator {};
     let bytes = random_bytes(data_size);
 
     println!("Encrypting chunks..");
@@ -27,7 +28,7 @@ fn run_test(data_size: usize) -> Result<(), Error> {
     let total_timer = Instant::now();
 
     let batch_timer = Instant::now();
-    let batches = hashes(bytes.clone(), address_gen);
+    let batches = hashes(bytes.clone());
     let batch_time = batch_timer.elapsed();
 
     let encrypt_timer = Instant::now();

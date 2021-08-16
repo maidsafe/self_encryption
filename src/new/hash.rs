@@ -6,25 +6,25 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{AddressGen, EncryptionBatch};
+use super::{address, EncryptionBatch};
 use crate::new::{data_map::ChunkInfo, get_chunk_size, get_num_chunks, get_start_end_positions};
 use bytes::Bytes;
 use rayon::prelude::*;
 
 /// Hash all the chunks.
 /// Creates [num cores] batches.
-pub(crate) fn hashes<G: AddressGen>(bytes: Bytes, address_gen: G) -> Vec<EncryptionBatch<G>> {
+pub(crate) fn hashes(bytes: Bytes) -> Vec<EncryptionBatch> {
     let data_size = bytes.len();
     let num_chunks = get_num_chunks(data_size);
 
     let chunk_infos: Vec<_> = (0..num_chunks)
         .into_iter()
-        .map(|index| (index, address_gen.clone(), bytes.clone()))
+        .map(|index| (index, bytes.clone()))
         .par_bridge()
-        .map(|(index, address_gen, bytes)| {
+        .map(|(index, bytes)| {
             let (start, end) = get_start_end_positions(data_size, index);
             let data = bytes.slice(start..end);
-            let src_hash = address_gen.generate(data.as_ref());
+            let src_hash = address(data.as_ref());
             let src_size = get_chunk_size(data_size, index);
             ChunkInfo {
                 index,
@@ -44,7 +44,6 @@ pub(crate) fn hashes<G: AddressGen>(bytes: Bytes, address_gen: G) -> Vec<Encrypt
     while chunk_infos.peek().is_some() {
         let _ = batches.push(EncryptionBatch {
             data_size: bytes.len(),
-            address_gen: address_gen.clone(),
             chunk_infos: chunk_infos.by_ref().take(chunks_per_batch).collect(),
         });
     }

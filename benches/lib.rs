@@ -49,8 +49,8 @@
 
 use criterion::{BatchSize, Bencher, Criterion};
 use self_encryption::{
-    from_chunks,
-    new::{test_helpers::random_bytes, to_chunks},
+    decrypt,
+    new::{encrypt, test_helpers::random_bytes},
 };
 use std::time::Duration;
 
@@ -67,8 +67,8 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
         // the setup
         || random_bytes(bytes_len),
         // actual benchmark
-        |reader| {
-            let _chunks = to_chunks(reader).unwrap();
+        |bytes| {
+            let _chunks = encrypt(bytes).unwrap();
         },
         BatchSize::SmallInput,
     );
@@ -77,10 +77,10 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
 fn read(b: &mut Bencher, bytes_len: usize) {
     b.iter_batched(
         // the setup
-        || to_chunks(random_bytes(bytes_len)).unwrap(),
+        || encrypt(random_bytes(bytes_len)).unwrap(),
         // actual benchmark
         |chunks| {
-            let _raw_data = from_chunks(&chunks).unwrap();
+            let _raw_data = decrypt(&chunks).unwrap();
         },
         BatchSize::SmallInput,
     );
