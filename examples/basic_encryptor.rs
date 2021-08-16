@@ -49,7 +49,7 @@ use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, from_chunks, test_helpers, to_chunks, ChunkContent, DataMap, Error, Generator, Result,
+    self, from_chunks, test_helpers, to_chunks, ChunkContent, DataMap, Error, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -165,7 +165,7 @@ async fn main() {
                 Err(error) => return println!("{}", error.to_string()),
             }
 
-            let content = to_chunks(Bytes::from(data), Generator {}).unwrap();
+            let content = to_chunks(Bytes::from(data)).unwrap();
 
             let result = content
                 .par_iter()
@@ -227,16 +227,12 @@ async fn main() {
                         let content = from_chunks(encrypted_chunks.as_ref()).unwrap();
                         match file.write_all(&content[..]) {
                             Err(error) => println!("File write failed - {:?}", error),
-                            Ok(_) => println!(
-                                "File decrypted to {:?}",
-                                args.arg_destination.clone().unwrap()
-                            ),
+                            Ok(_) => {
+                                println!("File decrypted to {:?}", args.arg_destination.unwrap())
+                            }
                         };
                     } else {
-                        println!(
-                            "Failed to create {}",
-                            (args.arg_destination.clone().unwrap())
-                        );
+                        println!("Failed to create {}", (args.arg_destination.unwrap()));
                     }
                 }
                 Ok(_) => {

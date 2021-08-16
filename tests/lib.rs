@@ -51,7 +51,7 @@
 
 use bytes::Bytes;
 use itertools::Itertools;
-use self_encryption::{to_chunks, ChunkDetails, DataMap, Generator, Result};
+use self_encryption::{to_chunks, ChunkDetails, DataMap, Result};
 
 // const DATA_SIZE: usize = (if cfg!(target_pointer_width = "32") {
 //     4
@@ -426,8 +426,7 @@ async fn cross_platform_check2() -> Result<()> {
         *c = (i % 17) as u8;
     }
 
-    let address_gen = Generator {};
-    let chunks = to_chunks(Bytes::from(content), address_gen)?;
+    let chunks = to_chunks(Bytes::from(content))?;
     let data_map = DataMap::Chunks(
         chunks
             .into_iter()
