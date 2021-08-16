@@ -156,7 +156,7 @@ where
 }
 
 /// Generates random bytes using provided `size`.
-pub fn random_bytes(size: usize) -> Vec<u8> {
+pub fn random_bytes(size: usize) -> Bytes {
     use rayon::prelude::*;
     let threads = current_num_threads();
 
@@ -184,5 +184,5 @@ pub fn random_bytes(size: usize) -> Vec<u8> {
 
     bytes.extend(vec![0u8; remainder]);
 
-    bytes
+    Bytes::from(bytes)
 }

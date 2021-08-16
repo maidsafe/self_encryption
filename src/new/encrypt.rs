@@ -6,9 +6,9 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
+use super::data_map::ChunkInfo;
 use super::{
-    data_map::ChunkDetails, get_pad_key_and_iv, get_start_end_positions, AddressGen, ChunkContent,
-    DataReader, EncryptionBatch, Pad,
+    data_map::ChunkDetails, get_pad_key_and_iv, AddressGen, ChunkContent, EncryptionBatch, Pad,
 };
 use super::{
     encryption,
@@ -25,9 +25,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 /// Encrypt the chunks
-pub fn encrypt<R: DataReader, G: AddressGen>(
-    batches: Vec<EncryptionBatch<R, G>>,
-) -> Vec<Result<ChunkContent>> {
+pub fn encrypt<G: AddressGen>(batches: Vec<EncryptionBatch<G>>) -> Vec<Result<ChunkContent>> {
     let src_hashes = Arc::new(
         batches
             .iter()
@@ -48,20 +46,24 @@ pub fn encrypt<R: DataReader, G: AddressGen>(
                 .chunk_infos
                 .par_iter()
                 .map(|chunk| {
-                    let (start, end) = get_start_end_positions(batch.file_size, chunk.index);
-                    let pki = get_pad_key_and_iv(chunk.index, src_hashes.as_ref(), batch.file_size);
+                    let ChunkInfo {
+                        index,
+                        data,
+                        src_hash,
+                        src_size,
+                    } = chunk.clone();
 
-                    let data = batch.file.read(start, end);
+                    let pki = get_pad_key_and_iv(index, src_hashes.as_ref(), batch.data_size);
                     let encrypted_content = encrypt_chunk(data, pki)?;
-                    let hash = batch.address_gen.generate(encrypted_content.clone());
+                    let dst_hash = batch.address_gen.generate(encrypted_content.as_ref());
 
                     Ok(ChunkContent {
                         encrypted_content,
                         details: ChunkDetails {
-                            index: chunk.index,
-                            dst_hash: hash,
-                            src_hash: chunk.src_hash.clone(),
-                            src_size: chunk.src_size,
+                            index,
+                            dst_hash,
+                            src_hash,
+                            src_size,
                         },
                     })
                 })

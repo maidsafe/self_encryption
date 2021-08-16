@@ -6,43 +6,28 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{encrypt::encrypt, hash::hashes, DataReader, Error, FileReader, MemFileReader};
+use super::{encrypt::encrypt, hash::hashes, Error};
 use crate::new::{decrypt::decrypt, get_num_chunks, test_helpers::random_bytes, Generator};
-use bytes::Bytes;
 use itertools::Itertools;
 use std::time::Instant;
-use tempfile::tempdir;
 
 #[test]
-fn mem_reader() -> Result<(), Error> {
-    let file_size = 300_000_000;
+fn read_write() -> Result<(), Error> {
+    let mb_100 = 100_000_000;
 
-    let reader = get_mem_reader(file_size)?;
-
-    run_test(file_size, reader)
+    run_test(mb_100)
 }
 
-#[test]
-fn disk_reader() -> Result<(), Error> {
-    let file_size = 30_000_000;
-
-    let reader = get_disk_reader(file_size)?;
-
-    run_test(file_size, reader)
-}
-
-fn run_test(file_size: usize, reader: impl DataReader) -> Result<(), Error> {
-    assert_eq!(file_size, reader.size());
-
+fn run_test(data_size: usize) -> Result<(), Error> {
     let address_gen = Generator {};
-    let data = reader.read(0, file_size);
+    let bytes = random_bytes(data_size);
 
     println!("Encrypting chunks..");
 
     let total_timer = Instant::now();
 
     let batch_timer = Instant::now();
-    let batches = hashes(reader, address_gen);
+    let batches = hashes(bytes.clone(), address_gen);
     let batch_time = batch_timer.elapsed();
 
     let encrypt_timer = Instant::now();
@@ -58,7 +43,7 @@ fn run_test(file_size: usize, reader: impl DataReader) -> Result<(), Error> {
         total_time.as_millis()
     );
 
-    let num_chunks = get_num_chunks(file_size);
+    let num_chunks = get_num_chunks(data_size);
     assert_eq!(num_chunks, encrypted_chunks.len());
 
     let encrypted_chunks = encrypted_chunks.into_iter().flatten().collect_vec();
@@ -74,7 +59,7 @@ fn run_test(file_size: usize, reader: impl DataReader) -> Result<(), Error> {
     println!("Comparing results..");
 
     let mut counter = 0;
-    for (a, b) in data.into_iter().zip(raw_data) {
+    for (a, b) in bytes.into_iter().zip(raw_data) {
         if a != b {
             panic!("Not equal! Counter: {}", counter)
         }
@@ -82,24 +67,4 @@ fn run_test(file_size: usize, reader: impl DataReader) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn get_mem_reader(file_size: usize) -> Result<impl DataReader, Error> {
-    let the_bytes = random_bytes(file_size);
-    Ok(MemFileReader::new(Bytes::from(the_bytes)))
-}
-
-fn get_disk_reader(file_size: usize) -> Result<impl DataReader, Error> {
-    let bytes = vec![0_u8; file_size];
-
-    // Create a directory inside of `std::env::temp_dir()`.
-    println!("Creating file of {} bytes..", file_size);
-    let dir = tempdir()?;
-    let file_path = dir.path().join("big-file.db");
-    let file = std::fs::File::create(file_path.as_path())?;
-    std::fs::write(file_path.as_path(), bytes)?;
-    file.sync_all()?;
-    println!("File created.");
-
-    Ok(FileReader::new(file_path))
 }

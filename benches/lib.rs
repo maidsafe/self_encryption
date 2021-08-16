@@ -47,11 +47,10 @@
     missing_debug_implementations
 )]
 
-use bytes::Bytes;
 use criterion::{BatchSize, Bencher, Criterion};
 use self_encryption::{
     from_chunks,
-    new::{test_helpers::random_bytes, to_chunks, DataReader, Generator, MemFileReader, Result},
+    new::{test_helpers::random_bytes, to_chunks, Generator},
 };
 use std::time::Duration;
 
@@ -63,15 +62,10 @@ fn custom_criterion() -> Criterion {
     Criterion::default().sample_size(SAMPLE_SIZE)
 }
 
-fn get_mem_reader(file_size: usize) -> Result<impl DataReader> {
-    let the_bytes = random_bytes(file_size);
-    Ok(MemFileReader::new(Bytes::from(the_bytes)))
-}
-
 fn write(b: &mut Bencher<'_>, bytes_len: usize) {
     b.iter_batched(
         // the setup
-        || get_mem_reader(bytes_len).unwrap(),
+        || random_bytes(bytes_len),
         // actual benchmark
         |reader| {
             let address_gen = Generator {};
@@ -85,10 +79,8 @@ fn read(b: &mut Bencher, bytes_len: usize) {
     b.iter_batched(
         // the setup
         || {
-            let reader = get_mem_reader(bytes_len).unwrap();
-            let address_gen = Generator {};
-            let chunks = to_chunks(reader, address_gen).unwrap();
-            chunks
+            let bytes = random_bytes(bytes_len);
+            to_chunks(bytes, Generator {}).unwrap()
         },
         // actual benchmark
         |chunks| {

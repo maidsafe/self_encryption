@@ -35,23 +35,14 @@ use data_map::ChunkInfo;
 ///
 pub trait AddressGen: Send + Sync + 'static + Clone {
     ///
-    fn generate(&self, data: Bytes) -> Bytes;
-}
-
-///
-pub trait DataReader: Send + Sync + 'static + Clone {
-    ///
-    fn size(&self) -> usize;
-    ///
-    fn read(&self, start: usize, end: usize) -> Bytes;
+    fn generate(&self, data: &[u8]) -> Bytes;
 }
 
 ///
 #[derive(Clone)]
-pub struct EncryptionBatch<R: DataReader, G: AddressGen> {
-    file: R,
+pub struct EncryptionBatch<G: AddressGen> {
+    data_size: usize,
     address_gen: G,
-    file_size: usize,
     chunk_infos: Vec<ChunkInfo>,
 }
 
@@ -67,11 +58,8 @@ pub struct ChunkContent {
 }
 
 ///
-pub fn to_chunks<R: DataReader, G: AddressGen>(
-    data_reader: R,
-    address_gen: G,
-) -> Result<Vec<ChunkContent>> {
-    let batches = hash::hashes(data_reader, address_gen);
+pub fn to_chunks<G: AddressGen>(bytes: Bytes, address_gen: G) -> Result<Vec<ChunkContent>> {
+    let batches = hash::hashes(bytes, address_gen);
     let chunks = encrypt::encrypt(batches);
     let count = chunks.len();
     let chunks: Vec<_> = chunks.into_iter().flatten().collect();
@@ -84,6 +72,16 @@ pub fn to_chunks<R: DataReader, G: AddressGen>(
 ///
 pub fn from_chunks(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
     decrypt(encrypted_chunks)
+}
+
+/// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
+pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
+    let vec: Vec<_> = data
+        .iter()
+        .zip(pad.iter().cycle())
+        .map(|(&a, &b)| a ^ b)
+        .collect();
+    Bytes::from(vec)
 }
 
 fn get_pad_key_and_iv(
@@ -188,16 +186,6 @@ fn get_previous_chunk_index(file_size: usize, chunk_index: usize) -> usize {
     (get_num_chunks(file_size) + chunk_index - 1) % get_num_chunks(file_size)
 }
 
-/// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
-pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
-    let vec: Vec<_> = data
-        .iter()
-        .zip(pad.iter().cycle())
-        .map(|(&a, &b)| a ^ b)
-        .collect();
-    Bytes::from(vec)
-}
-
 use tiny_keccak::{Hasher, Sha3};
 
 ///
@@ -205,69 +193,11 @@ use tiny_keccak::{Hasher, Sha3};
 pub struct Generator {}
 
 impl AddressGen for Generator {
-    fn generate(&self, data: Bytes) -> Bytes {
+    fn generate(&self, data: &[u8]) -> Bytes {
         let mut hasher = Sha3::v256();
         let mut output = [0; 32];
-        hasher.update(data.as_ref());
+        hasher.update(data);
         hasher.finalize(&mut output);
         Bytes::from(output.to_vec())
-    }
-}
-
-///
-#[derive(Clone)]
-pub struct MemFileReader {
-    data: Bytes,
-}
-
-impl MemFileReader {
-    ///
-    pub fn new(data: Bytes) -> Self {
-        Self { data }
-    }
-}
-
-impl DataReader for MemFileReader {
-    fn size(&self) -> usize {
-        self.data.len()
-    }
-
-    fn read(&self, start: usize, end: usize) -> Bytes {
-        self.data.slice(start..end)
-    }
-}
-
-///
-#[derive(Clone)]
-pub struct FileReader {
-    size: usize,
-    path: std::path::PathBuf,
-}
-
-impl FileReader {
-    ///
-    pub fn new(path: std::path::PathBuf) -> Self {
-        use std::fs;
-        let metadata = fs::metadata(path.as_path()).unwrap();
-        Self {
-            path,
-            size: metadata.len() as usize,
-        }
-    }
-}
-
-use positioned_io_preview as positioned_io;
-
-impl DataReader for FileReader {
-    fn size(&self) -> usize {
-        self.size
-    }
-
-    fn read(&self, start: usize, end: usize) -> Bytes {
-        use positioned_io::{RandomAccessFile, ReadAt};
-        let raf = RandomAccessFile::open(self.path.as_path()).unwrap();
-        let mut buf = vec![0; end]; // This line creates a vector of size `end` where every element is initialized to 0.
-        let _bytes_read = raf.read_at(start as u64, &mut buf).unwrap();
-        Bytes::from(buf)
     }
 }

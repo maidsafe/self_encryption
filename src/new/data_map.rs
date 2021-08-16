@@ -104,6 +104,8 @@ pub struct ChunkInfo {
     ///
     pub index: usize,
     ///
+    pub data: Bytes,
+    ///
     pub src_hash: Bytes,
     ///
     pub src_size: usize,

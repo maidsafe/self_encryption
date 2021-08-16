@@ -6,30 +6,31 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{AddressGen, DataReader, EncryptionBatch};
+use super::{AddressGen, EncryptionBatch};
 use crate::new::{data_map::ChunkInfo, get_chunk_size, get_num_chunks, get_start_end_positions};
+use bytes::Bytes;
 use rayon::prelude::*;
 
 /// Hash all the chunks.
 /// Creates [num cores] batches.
-pub(crate) fn hashes<R: DataReader, G: AddressGen>(
-    data_reader: R,
-    address_gen: G,
-) -> Vec<EncryptionBatch<R, G>> {
-    let file_size = data_reader.size();
-    let num_chunks = get_num_chunks(file_size);
+pub(crate) fn hashes<G: AddressGen>(bytes: Bytes, address_gen: G) -> Vec<EncryptionBatch<G>> {
+    let data_size = bytes.len();
+    let num_chunks = get_num_chunks(data_size);
 
     let chunk_infos: Vec<_> = (0..num_chunks)
         .into_iter()
-        .map(|index| (index, address_gen.clone(), data_reader.clone()))
+        .map(|index| (index, address_gen.clone(), bytes.clone()))
         .par_bridge()
-        .map(|(index, address_gen, data_reader)| {
-            let (start, end) = get_start_end_positions(file_size, index);
-            let data = data_reader.read(start, end);
+        .map(|(index, address_gen, bytes)| {
+            let (start, end) = get_start_end_positions(data_size, index);
+            let data = bytes.slice(start..end);
+            let src_hash = address_gen.generate(data.as_ref());
+            let src_size = get_chunk_size(data_size, index);
             ChunkInfo {
                 index,
-                src_hash: address_gen.generate(data),
-                src_size: get_chunk_size(file_size, index),
+                data,
+                src_hash,
+                src_size,
             }
         })
         .collect();
@@ -42,9 +43,8 @@ pub(crate) fn hashes<R: DataReader, G: AddressGen>(
 
     while chunk_infos.peek().is_some() {
         let _ = batches.push(EncryptionBatch {
-            file: data_reader.clone(),
+            data_size: bytes.len(),
             address_gen: address_gen.clone(),
-            file_size,
             chunk_infos: chunk_infos.by_ref().take(chunks_per_batch).collect(),
         });
     }
