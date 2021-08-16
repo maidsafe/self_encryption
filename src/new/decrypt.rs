@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::ChunkContent;
+use crate::EncryptedChunk;
 
 use super::get_pad_key_and_iv;
 use super::{encryption, xor, Error, Result};
@@ -16,7 +16,7 @@ use rayon::prelude::*;
 use std::io::Cursor;
 use std::sync::Arc;
 
-pub fn decrypt(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
+pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let num_chunks = encrypted_chunks.len();
     let encrypted_chunks = encrypted_chunks
         .iter()
@@ -90,7 +90,7 @@ struct DecryptionJob {
     src_hashes: Arc<Vec<Bytes>>,
 }
 
-fn extract(chunks: &[ChunkContent]) -> (usize, Arc<Vec<Bytes>>) {
+fn extract(chunks: &[EncryptedChunk]) -> (usize, Arc<Vec<Bytes>>) {
     let mut file_size = 0;
     let mut src_hashes = vec![];
     for c in chunks.iter() {

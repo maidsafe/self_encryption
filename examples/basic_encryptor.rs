@@ -49,7 +49,7 @@ use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, from_chunks, test_helpers, to_chunks, ChunkContent, DataMap, Error, Result,
+    self, decrypt, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -165,7 +165,7 @@ async fn main() {
                 Err(error) => return println!("{}", error.to_string()),
             }
 
-            let content = to_chunks(Bytes::from(data)).unwrap();
+            let content = encrypt(Bytes::from(data)).unwrap();
 
             let result = content
                 .par_iter()
@@ -213,7 +213,7 @@ async fn main() {
                     let encrypted_chunks: Vec<_> = details
                         .par_iter()
                         .map(|details| {
-                            Ok::<ChunkContent, Error>(ChunkContent {
+                            Ok::<EncryptedChunk, Error>(EncryptedChunk {
                                 encrypted_content: storage.get(details.dst_hash.clone())?,
                                 details: details.clone(),
                             })
@@ -224,7 +224,7 @@ async fn main() {
                         .collect();
 
                     if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
-                        let content = from_chunks(encrypted_chunks.as_ref()).unwrap();
+                        let content = decrypt(encrypted_chunks.as_ref()).unwrap();
                         match file.write_all(&content[..]) {
                             Err(error) => println!("File write failed - {:?}", error),
                             Ok(_) => {

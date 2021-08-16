@@ -24,25 +24,18 @@ pub use self::{
     storage::Storage,
 };
 use self::{
-    decrypt::decrypt,
     encryption::{IV_SIZE, KEY_SIZE},
     sequential::{Iv, Key, Pad, PAD_SIZE},
 };
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use bytes::Bytes;
 use data_map::ChunkInfo;
-
-///
-pub trait AddressGen: Send + Sync + 'static + Clone {
-    ///
-    fn generate(&self, data: &[u8]) -> Bytes;
-}
+use tiny_keccak::{Hasher, Sha3};
 
 ///
 #[derive(Clone)]
-pub struct EncryptionBatch<G: AddressGen> {
+pub struct EncryptionBatch {
     data_size: usize,
-    address_gen: G,
     chunk_infos: Vec<ChunkInfo>,
 }
 
@@ -50,7 +43,7 @@ pub struct EncryptionBatch<G: AddressGen> {
 /// of the chunk, and its details for
 /// insertion into a data map.
 #[derive(Clone)]
-pub struct ChunkContent {
+pub struct EncryptedChunk {
     /// Details, used to find the chunk and decrypt it.
     pub details: ChunkDetails,
     /// The encrypted contents of the chunk.
@@ -58,8 +51,8 @@ pub struct ChunkContent {
 }
 
 ///
-pub fn to_chunks(bytes: Bytes) -> Result<Vec<ChunkContent>> {
-    let batches = hash::hashes(bytes, Generator {});
+pub fn encrypt(bytes: Bytes) -> Result<Vec<EncryptedChunk>> {
+    let batches = hash::hashes(bytes);
     let chunks = encrypt::encrypt(batches);
     let count = chunks.len();
     let chunks: Vec<_> = chunks.into_iter().flatten().collect();
@@ -70,8 +63,8 @@ pub fn to_chunks(bytes: Bytes) -> Result<Vec<ChunkContent>> {
 }
 
 ///
-pub fn from_chunks(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
-    decrypt(encrypted_chunks)
+pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
+    decrypt::decrypt(encrypted_chunks)
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
@@ -82,6 +75,14 @@ pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
         .map(|(&a, &b)| a ^ b)
         .collect();
     Bytes::from(vec)
+}
+
+fn address(data: &[u8]) -> Bytes {
+    let mut hasher = Sha3::v256();
+    let mut output = [0; 32];
+    hasher.update(data);
+    hasher.finalize(&mut output);
+    Bytes::from(output.to_vec())
 }
 
 fn get_pad_key_and_iv(
@@ -184,20 +185,4 @@ fn get_previous_chunk_index(file_size: usize, chunk_index: usize) -> usize {
         return 0;
     }
     (get_num_chunks(file_size) + chunk_index - 1) % get_num_chunks(file_size)
-}
-
-use tiny_keccak::{Hasher, Sha3};
-
-///
-#[derive(Clone)]
-pub struct Generator {}
-
-impl AddressGen for Generator {
-    fn generate(&self, data: &[u8]) -> Bytes {
-        let mut hasher = Sha3::v256();
-        let mut output = [0; 32];
-        hasher.update(data);
-        hasher.finalize(&mut output);
-        Bytes::from(output.to_vec())
-    }
 }

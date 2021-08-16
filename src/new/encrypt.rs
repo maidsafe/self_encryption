@@ -8,7 +8,7 @@
 
 use super::data_map::ChunkInfo;
 use super::{
-    data_map::ChunkDetails, get_pad_key_and_iv, AddressGen, ChunkContent, EncryptionBatch, Pad,
+    address, data_map::ChunkDetails, get_pad_key_and_iv, EncryptedChunk, EncryptionBatch, Pad,
 };
 use super::{
     encryption,
@@ -25,7 +25,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 /// Encrypt the chunks
-pub fn encrypt<G: AddressGen>(batches: Vec<EncryptionBatch<G>>) -> Vec<Result<ChunkContent>> {
+pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
     let src_hashes = Arc::new(
         batches
             .iter()
@@ -55,9 +55,9 @@ pub fn encrypt<G: AddressGen>(batches: Vec<EncryptionBatch<G>>) -> Vec<Result<Ch
 
                     let pki = get_pad_key_and_iv(index, src_hashes.as_ref(), batch.data_size);
                     let encrypted_content = encrypt_chunk(data, pki)?;
-                    let dst_hash = batch.address_gen.generate(encrypted_content.as_ref());
+                    let dst_hash = address(encrypted_content.as_ref());
 
-                    Ok(ChunkContent {
+                    Ok(EncryptedChunk {
                         encrypted_content,
                         details: ChunkDetails {
                             index,
