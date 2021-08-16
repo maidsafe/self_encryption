@@ -45,12 +45,11 @@
 //     variant_size_differences
 // )]
 
-use async_trait::async_trait;
 use bytes::Bytes;
 use docopt::Docopt;
-use futures::future::join_all;
+use rayon::prelude::*;
 use self_encryption::{
-    self, test_helpers, to_chunks, DataMap, Error, Generator, MemFileReader, Result, Storage,
+    self, from_chunks, test_helpers, to_chunks, ChunkContent, DataMap, Error, Generator, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -62,8 +61,6 @@ use std::{
     string::String,
     sync::Arc,
 };
-use tiny_keccak::{Hasher, Sha3};
-use tokio::task;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -109,11 +106,8 @@ impl DiskBasedStorage {
         path.push(file_name(name));
         path
     }
-}
 
-#[async_trait]
-impl Storage for DiskBasedStorage {
-    async fn get(&self, name: Bytes) -> Result<Bytes, Error> {
+    fn get(&self, name: Bytes) -> Result<Bytes, Error> {
         let path = self.calculate_path(name);
         let mut file = File::open(&path)?;
         let mut data = Vec::new();
@@ -121,7 +115,7 @@ impl Storage for DiskBasedStorage {
         Ok(Bytes::from(data))
     }
 
-    async fn put(&self, name: Bytes, data: Bytes) -> Result<()> {
+    fn put(&self, name: Bytes, data: Bytes) -> Result<()> {
         let path = self.calculate_path(name);
         let mut file = File::create(&path)?;
         file.write_all(&data[..])
@@ -129,20 +123,6 @@ impl Storage for DiskBasedStorage {
                 println!("Chunk written to {:?}", path);
             })
             .map_err(From::from)
-    }
-
-    async fn delete(&self, name: Bytes) -> Result<()> {
-        let path = self.calculate_path(name);
-        fs::remove_file(path)?;
-        Ok(())
-    }
-
-    async fn generate_address(&self, data: Bytes) -> Result<Bytes, Error> {
-        let mut hasher = Sha3::v256();
-        let mut output = [0; 32];
-        hasher.update(&data);
-        hasher.finalize(&mut output);
-        Ok(Bytes::from(output.to_vec()))
     }
 }
 
@@ -184,24 +164,18 @@ async fn main() {
                 Ok(_) => (),
                 Err(error) => return println!("{}", error.to_string()),
             }
-            let data_reader = MemFileReader::new(Bytes::from(data));
-            let address_gen = Generator {};
 
-            let content = to_chunks(data_reader, address_gen).unwrap();
+            let content = to_chunks(Bytes::from(data), Generator {}).unwrap();
 
-            let tasks = content
-                .clone()
-                .into_iter()
+            let result = content
+                .par_iter()
                 .map(|c| (c, storage.clone()))
                 .map(|(c, store)| {
-                    task::spawn(async move {
-                        store
-                            .put(c.details.dst_hash.clone(), c.encrypted_content.clone())
-                            .await
-                    })
-                });
+                    store.put(c.details.dst_hash.clone(), c.encrypted_content.clone())
+                })
+                .collect::<Vec<_>>();
 
-            let _ = join_all(tasks).await;
+            assert!(result.iter().all(|r| r.is_ok()));
 
             let data_map = DataMap::Chunks(content.into_iter().map(|c| c.details).collect());
 
@@ -234,30 +208,39 @@ async fn main() {
         if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
             let mut data = Vec::new();
             let _ = file.read_to_end(&mut data).unwrap();
-
             match test_helpers::deserialise::<DataMap>(&data) {
-                Ok(_data_map) => {
-                    // let se = SelfEncryptor::new(storage, data_map)
-                    //     .expect("Encryptor construction shouldn't fail.");
-                    // let length = se.len().await;
-                    // if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
-                    //     let content = se
-                    //         .read(0, length)
-                    //         .await
-                    //         .expect("Reading from encryptor shouldn't fail.");
-                    //     match file.write_all(&content[..]) {
-                    //         Err(error) => println!("File write failed - {:?}", error),
-                    //         Ok(_) => println!(
-                    //             "File decrypted to {:?}",
-                    //             args.arg_destination.clone().unwrap()
-                    //         ),
-                    //     };
-                    // } else {
-                    //     println!(
-                    //         "Failed to create {}",
-                    //         (args.arg_destination.clone().unwrap())
-                    //     );
-                    // }
+                Ok(DataMap::Chunks(details)) => {
+                    let encrypted_chunks: Vec<_> = details
+                        .par_iter()
+                        .map(|details| {
+                            Ok::<ChunkContent, Error>(ChunkContent {
+                                encrypted_content: storage.get(details.dst_hash.clone())?,
+                                details: details.clone(),
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .flatten()
+                        .collect();
+
+                    if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
+                        let content = from_chunks(encrypted_chunks.as_ref()).unwrap();
+                        match file.write_all(&content[..]) {
+                            Err(error) => println!("File write failed - {:?}", error),
+                            Ok(_) => println!(
+                                "File decrypted to {:?}",
+                                args.arg_destination.clone().unwrap()
+                            ),
+                        };
+                    } else {
+                        println!(
+                            "Failed to create {}",
+                            (args.arg_destination.clone().unwrap())
+                        );
+                    }
+                }
+                Ok(_) => {
+                    println!("Unexpected data map");
                 }
                 Err(_) => {
                     println!("Failed to parse data map - possible corruption");

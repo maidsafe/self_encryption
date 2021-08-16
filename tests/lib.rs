@@ -50,7 +50,8 @@
 )]
 
 use bytes::Bytes;
-use self_encryption::{to_chunks, ChunkDetails, DataMap, Generator, MemFileReader, Result};
+use itertools::Itertools;
+use self_encryption::{to_chunks, ChunkDetails, DataMap, Generator, Result};
 
 // const DATA_SIZE: usize = (if cfg!(target_pointer_width = "32") {
 //     4
@@ -425,10 +426,15 @@ async fn cross_platform_check2() -> Result<()> {
         *c = (i % 17) as u8;
     }
 
-    let data_reader = MemFileReader::new(Bytes::from(content));
     let address_gen = Generator {};
-    let chunks = to_chunks(data_reader, address_gen)?;
-    let data_map = DataMap::Chunks(chunks.into_iter().map(|c| c.details).collect());
+    let chunks = to_chunks(Bytes::from(content), address_gen)?;
+    let data_map = DataMap::Chunks(
+        chunks
+            .into_iter()
+            .sorted_by_key(|c| c.details.index)
+            .map(|c| c.details)
+            .collect(),
+    );
 
     // update data map when algorithm changes
     let ref_datamap = vec![
