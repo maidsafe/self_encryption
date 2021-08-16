@@ -13,8 +13,9 @@ use crate::Error;
 use async_trait::async_trait;
 
 use bytes::Bytes;
-use rand::{self, Rng, SeedableRng};
+use rand::{self, rngs::OsRng, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
+use rayon::current_num_threads;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     cmp, env,
@@ -154,8 +155,34 @@ where
     }
 }
 
-pub fn random_bytes<T: Rng>(rng: &mut T, size: usize) -> Vec<u8> {
-    let mut bytes = vec![0_u8; size];
-    rng.fill(bytes.as_mut_slice());
+/// Generates random bytes using provided `size`.
+pub fn random_bytes(size: usize) -> Vec<u8> {
+    use rayon::prelude::*;
+    let threads = current_num_threads();
+
+    if threads > size {
+        let mut rng = OsRng;
+        return ::std::iter::repeat(())
+            .map(|()| rng.gen::<u8>())
+            .take(size)
+            .collect();
+    }
+
+    let per_thread = size / threads;
+    let remainder = size % threads;
+
+    let mut bytes: Vec<u8> = (0..threads)
+        .par_bridge()
+        .map(|_| vec![0u8; per_thread])
+        .map(|mut bytes| {
+            let bytes = bytes.as_mut_slice();
+            rand::thread_rng().fill(bytes);
+            bytes.to_owned()
+        })
+        .flatten()
+        .collect();
+
+    bytes.extend(vec![0u8; remainder]);
+
     bytes
 }

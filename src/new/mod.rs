@@ -24,6 +24,7 @@ pub use self::{
     storage::Storage,
 };
 use self::{
+    decrypt::decrypt,
     encryption::{IV_SIZE, KEY_SIZE},
     sequential::{Iv, Key, Pad, PAD_SIZE},
 };
@@ -47,7 +48,7 @@ pub trait DataReader: Send + Sync + 'static + Clone {
 
 ///
 #[derive(Clone)]
-pub struct ChunkBatch<R: DataReader, G: AddressGen> {
+pub struct EncryptionBatch<R: DataReader, G: AddressGen> {
     file: R,
     address_gen: G,
     file_size: usize,
@@ -80,16 +81,21 @@ pub fn to_chunks<R: DataReader, G: AddressGen>(
     Ok(chunks)
 }
 
+///
+pub fn from_chunks(encrypted_chunks: &[ChunkContent]) -> Result<Bytes> {
+    decrypt(encrypted_chunks)
+}
+
 fn get_pad_key_and_iv(
     chunk_index: usize,
-    chunk_hashes: &[ChunkInfo],
+    chunk_hashes: &[Bytes],
     file_size: usize,
 ) -> (Pad, Key, Iv) {
     let n_1 = get_previous_chunk_index(file_size, chunk_index);
     let n_2 = get_previous_chunk_index(file_size, n_1);
-    let src_hash = &chunk_hashes[chunk_index].src_hash;
-    let n_1_src_hash = &chunk_hashes[n_1].src_hash;
-    let n_2_src_hash = &chunk_hashes[n_2].src_hash;
+    let src_hash = &chunk_hashes[chunk_index];
+    let n_1_src_hash = &chunk_hashes[n_1];
+    let n_2_src_hash = &chunk_hashes[n_2];
     //assert_eq!(n_1_src_hash.len(), HASH_SIZE);
     //assert_eq!(n_2_src_hash.len(), HASH_SIZE);
 

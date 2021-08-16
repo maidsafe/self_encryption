@@ -175,8 +175,8 @@
 pub mod new;
 
 pub use crate::new::{
-    test_helpers, to_chunks, AddressGen, ChunkContent, ChunkDetails, DataMap, DataReader, Error,
-    FileReader, Generator, MemFileReader, Result, Storage,
+    from_chunks, test_helpers, to_chunks, AddressGen, ChunkContent, ChunkDetails, DataMap,
+    DataReader, Error, FileReader, Generator, MemFileReader, Result, Storage,
 };
 
 /// The maximum size of file which can be self_encrypted, defined as 1GB.

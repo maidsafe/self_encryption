@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{AddressGen, ChunkBatch, DataReader};
+use super::{AddressGen, DataReader, EncryptionBatch};
 use crate::new::{data_map::ChunkInfo, get_chunk_size, get_num_chunks, get_start_end_positions};
 use rayon::prelude::*;
 
@@ -15,7 +15,7 @@ use rayon::prelude::*;
 pub(crate) fn hashes<R: DataReader, G: AddressGen>(
     data_reader: R,
     address_gen: G,
-) -> Vec<ChunkBatch<R, G>> {
+) -> Vec<EncryptionBatch<R, G>> {
     let file_size = data_reader.size();
     let num_chunks = get_num_chunks(file_size);
 
@@ -41,7 +41,7 @@ pub(crate) fn hashes<R: DataReader, G: AddressGen>(
     let mut batches = vec![];
 
     while chunk_infos.peek().is_some() {
-        let _ = batches.push(ChunkBatch {
+        let _ = batches.push(EncryptionBatch {
             file: data_reader.clone(),
             address_gen: address_gen.clone(),
             file_size,
