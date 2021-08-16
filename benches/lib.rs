@@ -49,9 +49,9 @@
 
 use bytes::Bytes;
 use criterion::{BatchSize, Bencher, Criterion};
-use self_encryption::new::{
-    test_helpers::{new_test_rng, random_bytes},
-    to_chunks, DataReader, Generator, MemFileReader, Result,
+use self_encryption::{
+    from_chunks,
+    new::{test_helpers::random_bytes, to_chunks, DataReader, Generator, MemFileReader, Result},
 };
 use std::time::Duration;
 
@@ -64,8 +64,7 @@ fn custom_criterion() -> Criterion {
 }
 
 fn get_mem_reader(file_size: usize) -> Result<impl DataReader> {
-    let mut rng = new_test_rng()?;
-    let the_bytes = random_bytes(&mut rng, file_size);
+    let the_bytes = random_bytes(file_size);
     Ok(MemFileReader::new(Bytes::from(the_bytes)))
 }
 
@@ -82,36 +81,22 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
     );
 }
 
-// fn read(b: &mut Bencher, bytes_len: usize) {
-//     b.iter_batched(
-//         // the setup
-//         || {
-//             let mut rng = new_test_rng().unwrap();
-//             let bytes = random_bytes(&mut rng, bytes_len);
-//             let storage = SimpleStorage::new();
-//             let self_encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
-
-//             let waiters = async {
-//                 self_encryptor.write(&bytes, 0).await.unwrap();
-//                 self_encryptor.close().await.unwrap()
-//             };
-//             let (data_map, storage) = futures::executor::block_on(waiters);
-//             let storage = Some(storage);
-//             (data_map, storage, bytes)
-//         },
-//         // actual benchmark
-//         |(data_map, mut storage, bytes)| {
-//             let self_encryptor = SelfEncryptor::new(storage.take().unwrap(), data_map).unwrap();
-//             let the_waiter = async {
-//                 let read_bytes = self_encryptor.read(0, bytes_len).await.unwrap();
-//                 assert_eq!(read_bytes, bytes);
-//             };
-//             futures::executor::block_on(the_waiter);
-//             futures::executor::block_on(self_encryptor.into_storage());
-//         },
-//         BatchSize::SmallInput,
-//     );
-// }
+fn read(b: &mut Bencher, bytes_len: usize) {
+    b.iter_batched(
+        // the setup
+        || {
+            let reader = get_mem_reader(bytes_len).unwrap();
+            let address_gen = Generator {};
+            let chunks = to_chunks(reader, address_gen).unwrap();
+            chunks
+        },
+        // actual benchmark
+        |chunks| {
+            let _raw_data = from_chunks(&chunks).unwrap();
+        },
+        BatchSize::SmallInput,
+    );
+}
 
 fn main() {
     let mut criterion = custom_criterion();
@@ -129,12 +114,12 @@ fn bench_encryptor(c: &mut Criterion) {
     c.bench_function("write_10_megabytes", |b| write(b, 10 * 1024 * 1024));
     c.bench_function("write_100_megabytes", |b| write(b, 100 * 1024 * 1024));
 
-    // c.bench_function("read_200", |b| read(b, 200));
+    c.bench_function("read_200", |b| read(b, 200));
 
-    // c.bench_function("read_1_kilobyte", |b| read(b, 1024));
-    // c.bench_function("read_512_kilobytes", |b| read(b, 512 * 1024));
-    // c.bench_function("read_1_megabyte", |b| read(b, 1024 * 1024));
-    // c.bench_function("read_3_megabytes", |b| read(b, 3 * 1024 * 1024));
-    // c.bench_function("read_10_megabytes", |b| read(b, 10 * 1024 * 1024));
-    // c.bench_function("read_100_megabytes", |b| read(b, 100 * 1024 * 1024));
+    c.bench_function("read_1_kilobyte", |b| read(b, 1024));
+    c.bench_function("read_512_kilobytes", |b| read(b, 512 * 1024));
+    c.bench_function("read_1_megabyte", |b| read(b, 1024 * 1024));
+    c.bench_function("read_3_megabytes", |b| read(b, 3 * 1024 * 1024));
+    c.bench_function("read_10_megabytes", |b| read(b, 10 * 1024 * 1024));
+    c.bench_function("read_100_megabytes", |b| read(b, 100 * 1024 * 1024));
 }

@@ -7,8 +7,8 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{
-    data_map::ChunkDetails, get_pad_key_and_iv, get_start_end_positions, AddressGen, ChunkBatch,
-    ChunkContent, DataReader, Pad,
+    data_map::ChunkDetails, get_pad_key_and_iv, get_start_end_positions, AddressGen, ChunkContent,
+    DataReader, EncryptionBatch, Pad,
 };
 use super::{
     encryption,
@@ -26,29 +26,30 @@ use std::sync::Arc;
 
 /// Encrypt the chunks
 pub fn encrypt<R: DataReader, G: AddressGen>(
-    batches: Vec<ChunkBatch<R, G>>,
+    batches: Vec<EncryptionBatch<R, G>>,
 ) -> Vec<Result<ChunkContent>> {
-    let all_infos = Arc::new(
+    let src_hashes = Arc::new(
         batches
             .iter()
             .map(|b| &b.chunk_infos)
             .flatten()
             .sorted_by_key(|c| c.index)
+            .map(|d| &d.src_hash)
             .cloned()
             .collect_vec(),
     );
 
     batches
         .into_iter()
-        .map(|batch| (batch, all_infos.clone()))
+        .map(|batch| (batch, src_hashes.clone()))
         .par_bridge()
-        .map(|(batch, all_infos)| {
+        .map(|(batch, src_hashes)| {
             batch
                 .chunk_infos
                 .par_iter()
                 .map(|chunk| {
                     let (start, end) = get_start_end_positions(batch.file_size, chunk.index);
-                    let pki = get_pad_key_and_iv(chunk.index, all_infos.as_ref(), batch.file_size);
+                    let pki = get_pad_key_and_iv(chunk.index, src_hashes.as_ref(), batch.file_size);
 
                     let data = batch.file.read(start, end);
                     let encrypted_content = encrypt_chunk(data, pki)?;

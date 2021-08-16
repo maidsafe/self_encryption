@@ -172,7 +172,7 @@ where
             return Ok((DataMap::None, storage));
         }
 
-        if file_size < 3 * MIN_CHUNK_SIZE {
+        if file_size < 3 * MIN_CHUNK_SIZE { // include
             let state = self.take().await;
             let content = (*state.sequencer)[..state.file_size].to_vec();
             let storage = state.storage;
