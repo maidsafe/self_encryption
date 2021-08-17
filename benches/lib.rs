@@ -48,10 +48,7 @@
 )]
 
 use criterion::{BatchSize, Bencher, Criterion};
-use self_encryption::{
-    decrypt,
-    new::{encrypt, test_helpers::random_bytes},
-};
+use self_encryption::{decrypt, encrypt, test_helpers::random_bytes};
 use std::time::Duration;
 
 // sample size is _NOT_ the number of times the command is run...

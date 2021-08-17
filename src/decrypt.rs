@@ -24,7 +24,7 @@ pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
 
-    let (file_size, src_hashes) = extract_hashes(encrypted_chunks.as_slice());
+    let src_hashes = extract_hashes(encrypted_chunks.as_slice());
 
     let cpus = num_cpus::get();
     let batch_size = usize::max(1, (num_chunks as f64 / cpus as f64).ceil() as usize);
@@ -49,12 +49,7 @@ pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
                 .map(|c| {
                     Ok::<(usize, Bytes), Error>((
                         c.index,
-                        decrypt_chunk(
-                            c.index,
-                            c.encrypted_content.clone(),
-                            c.src_hashes.as_ref(),
-                            file_size,
-                        )?,
+                        decrypt_chunk(c.index, c.encrypted_content.clone(), c.src_hashes.as_ref())?,
                     ))
                 })
                 .collect::<Vec<_>>()
@@ -90,23 +85,16 @@ struct DecryptionJob {
     src_hashes: Arc<Vec<Bytes>>,
 }
 
-fn extract_hashes(chunks: &[EncryptedChunk]) -> (usize, Arc<Vec<Bytes>>) {
-    let mut file_size = 0;
-    let mut src_hashes = vec![];
-    for c in chunks.iter() {
-        file_size += c.key.src_size;
-        src_hashes.push(c.key.src_hash.clone());
-    }
-    (file_size, Arc::new(src_hashes))
+fn extract_hashes(chunks: &[EncryptedChunk]) -> Arc<Vec<Bytes>> {
+    Arc::new(chunks.iter().map(|c| c.key.src_hash.clone()).collect())
 }
 
 pub(crate) fn decrypt_chunk(
     chunk_number: usize,
     content: Bytes,
     chunk_hashes: &[Bytes],
-    file_size: usize,
 ) -> Result<Bytes> {
-    let (pad, key, iv) = get_pad_key_and_iv(chunk_number, chunk_hashes, file_size);
+    let (pad, key, iv) = get_pad_key_and_iv(chunk_number, chunk_hashes);
     let xor_result = xor(content, &pad);
     let decrypted = encryption::decrypt(xor_result, &key, &iv)?;
     let mut decompressed = vec![];

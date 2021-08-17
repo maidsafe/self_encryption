@@ -6,17 +6,13 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::data_map::RawChunk;
-use super::{
-    address, data_map::ChunkKey, get_pad_key_and_iv, EncryptedChunk, EncryptionBatch, Pad,
-};
-use super::{
-    encryption,
+use crate::{
+    data_map::ChunkKey,
+    data_map::RawChunk,
+    encryption::{self, Iv, Key, Pad},
     error::{Error, Result},
-    sequential::{Iv, Key},
-    xor,
+    get_pad_key_and_iv, xor, EncryptedChunk, EncryptionBatch, COMPRESSION_QUALITY,
 };
-use crate::COMPRESSION_QUALITY;
 use brotli::enc::BrotliEncoderParams;
 use bytes::Bytes;
 use itertools::Itertools;
@@ -49,9 +45,9 @@ pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
                     let RawChunk { index, data, hash } = chunk.clone();
 
                     let src_size = data.len();
-                    let pki = get_pad_key_and_iv(index, src_hashes.as_ref(), batch.data_size);
+                    let pki = get_pad_key_and_iv(index, src_hashes.as_ref());
                     let encrypted_content = encrypt_chunk(data, pki)?;
-                    let dst_hash = address(encrypted_content.as_ref());
+                    let dst_hash = crate::hash(encrypted_content.as_ref());
 
                     Ok(EncryptedChunk {
                         content: encrypted_content,
@@ -76,14 +72,12 @@ fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes> {
         quality: COMPRESSION_QUALITY,
         ..Default::default()
     };
-    let result = brotli::BrotliCompress(
+    let _size = brotli::BrotliCompress(
         &mut Cursor::new(content.as_ref()),
         &mut compressed,
         &enc_params,
-    );
-    if result.is_err() {
-        return Err(Error::Compression);
-    }
+    )
+    .map_err(|_| Error::Compression)?;
     let encrypted = encryption::encrypt(Bytes::from(compressed), &key, &iv)?;
     Ok(xor(encrypted, &pad))
 }
