@@ -19,7 +19,7 @@ pub mod test_helpers;
 mod tests;
 
 pub use self::{
-    data_map::{ChunkDetails, DataMap},
+    data_map::{ChunkKey, DataMap},
     error::{Error, Result},
     storage::Storage,
 };
@@ -29,14 +29,14 @@ use self::{
 };
 use super::{MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use bytes::Bytes;
-use data_map::ChunkInfo;
+use data_map::RawChunk;
 use tiny_keccak::{Hasher, Sha3};
 
 ///
 #[derive(Clone)]
 pub struct EncryptionBatch {
     data_size: usize,
-    chunk_infos: Vec<ChunkInfo>,
+    chunk_infos: Vec<RawChunk>,
 }
 
 /// The actual encrypted content
@@ -44,10 +44,12 @@ pub struct EncryptionBatch {
 /// insertion into a data map.
 #[derive(Clone)]
 pub struct EncryptedChunk {
-    /// Details, used to find the chunk and decrypt it.
-    pub details: ChunkDetails,
+    /// A partial key, used together with
+    /// the other keys from the original data,
+    /// to identify the encrypted chunk contents and decrypt it.
+    pub key: ChunkKey,
     /// The encrypted contents of the chunk.
-    pub encrypted_content: Bytes,
+    pub content: Bytes,
 }
 
 ///

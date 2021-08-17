@@ -20,11 +20,11 @@ pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let num_chunks = encrypted_chunks.len();
     let encrypted_chunks = encrypted_chunks
         .iter()
-        .sorted_by_key(|c| c.details.index)
+        .sorted_by_key(|c| c.key.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
 
-    let (file_size, src_hashes) = extract(encrypted_chunks.as_slice());
+    let (file_size, src_hashes) = extract_hashes(encrypted_chunks.as_slice());
 
     let cpus = num_cpus::get();
     let batch_size = usize::max(1, (num_chunks as f64 / cpus as f64).ceil() as usize);
@@ -36,8 +36,8 @@ pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
             jobs: batch
                 .iter()
                 .map(|c| DecryptionJob {
-                    index: c.details.index,
-                    encrypted_content: c.encrypted_content.clone(),
+                    index: c.key.index,
+                    encrypted_content: c.content.clone(),
                     src_hashes: src_hashes.clone(),
                 })
                 .collect_vec(),
@@ -90,12 +90,12 @@ struct DecryptionJob {
     src_hashes: Arc<Vec<Bytes>>,
 }
 
-fn extract(chunks: &[EncryptedChunk]) -> (usize, Arc<Vec<Bytes>>) {
+fn extract_hashes(chunks: &[EncryptedChunk]) -> (usize, Arc<Vec<Bytes>>) {
     let mut file_size = 0;
     let mut src_hashes = vec![];
     for c in chunks.iter() {
-        file_size += c.details.src_size;
-        src_hashes.push(c.details.src_hash.clone());
+        file_size += c.key.src_size;
+        src_hashes.push(c.key.src_hash.clone());
     }
     (file_size, Arc::new(src_hashes))
 }

@@ -6,9 +6,9 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::data_map::ChunkInfo;
+use super::data_map::RawChunk;
 use super::{
-    address, data_map::ChunkDetails, get_pad_key_and_iv, EncryptedChunk, EncryptionBatch, Pad,
+    address, data_map::ChunkKey, get_pad_key_and_iv, EncryptedChunk, EncryptionBatch, Pad,
 };
 use super::{
     encryption,
@@ -32,7 +32,7 @@ pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
             .map(|b| &b.chunk_infos)
             .flatten()
             .sorted_by_key(|c| c.index)
-            .map(|d| &d.src_hash)
+            .map(|d| &d.hash)
             .cloned()
             .collect_vec(),
     );
@@ -46,23 +46,19 @@ pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
                 .chunk_infos
                 .par_iter()
                 .map(|chunk| {
-                    let ChunkInfo {
-                        index,
-                        data,
-                        src_hash,
-                        src_size,
-                    } = chunk.clone();
+                    let RawChunk { index, data, hash } = chunk.clone();
 
+                    let src_size = data.len();
                     let pki = get_pad_key_and_iv(index, src_hashes.as_ref(), batch.data_size);
                     let encrypted_content = encrypt_chunk(data, pki)?;
                     let dst_hash = address(encrypted_content.as_ref());
 
                     Ok(EncryptedChunk {
-                        encrypted_content,
-                        details: ChunkDetails {
+                        content: encrypted_content,
+                        key: ChunkKey {
                             index,
                             dst_hash,
-                            src_hash,
+                            src_hash: hash,
                             src_size,
                         },
                     })

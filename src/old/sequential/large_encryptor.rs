@@ -10,7 +10,7 @@ use super::{
     medium_encryptor::MediumEncryptor, small_encryptor::SmallEncryptor, utils, SelfEncryptionError,
     Storage, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE,
 };
-use crate::data_map::{ChunkDetails, DataMap};
+use crate::data_map::{ChunkKey, DataMap};
 use std::{cmp, convert::From, mem, pin::Pin};
 pub const MIN: usize = 3 * MAX_CHUNK_SIZE + 1;
 const MAX_BUFFER_LEN: usize = MAX_CHUNK_SIZE + MIN_CHUNK_SIZE;
@@ -21,8 +21,8 @@ const MAX_BUFFER_LEN: usize = MAX_CHUNK_SIZE + MIN_CHUNK_SIZE;
 // affected subsequent `write()` calls.
 pub struct LargeEncryptor<S: Storage + Send + Sync> {
     storage: S,
-    chunks: Vec<ChunkDetails>,
-    original_chunks: Option<Vec<ChunkDetails>>,
+    chunks: Vec<ChunkKey>,
+    original_chunks: Option<Vec<ChunkKey>>,
     chunk_0_data: Vec<u8>,
     chunk_1_data: Vec<u8>,
     buffer: Vec<u8>,
@@ -38,7 +38,7 @@ where
     #[allow(clippy::new_ret_no_self)]
     pub async fn new(
         mut storage: S,
-        chunks: Vec<ChunkDetails>,
+        chunks: Vec<ChunkKey>,
     ) -> Result<LargeEncryptor<S>, SelfEncryptionError> {
         debug_assert!(chunks.len() > 3);
         debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
@@ -261,7 +261,7 @@ where
             data = &data[amount..];
             // If the buffer's full, update `chunks` with the pre-encryption hash and size.
             if buffer_ref.len() == MAX_CHUNK_SIZE {
-                self.chunks.push(ChunkDetails {
+                self.chunks.push(ChunkKey {
                     chunk_num: index,
                     hash: vec![],
                     pre_hash: self.storage.generate_address(buffer_ref).await?,
@@ -281,7 +281,7 @@ where
         SelfEncryptionError,
     > {
         if index > 1 {
-            self.chunks.push(ChunkDetails {
+            self.chunks.push(ChunkKey {
                 chunk_num: index,
                 hash: vec![],
                 pre_hash: self.storage.generate_address(data).await?,

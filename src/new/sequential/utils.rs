@@ -11,7 +11,7 @@ use super::super::{
     xor,
 };
 use super::{Iv, Key, Pad, PAD_SIZE};
-use crate::{ChunkDetails, Error, COMPRESSION_QUALITY};
+use crate::{ChunkKey, Error, COMPRESSION_QUALITY};
 use brotli::{self, enc::BrotliEncoderParams};
 use bytes::Bytes;
 #[cfg(test)]
@@ -21,7 +21,7 @@ use std::cmp;
 use std::io::Cursor;
 
 #[allow(unused)]
-pub(crate) fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
+pub(crate) fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkKey]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
         0 => (chunks.len() - 1, chunks.len() - 2),
         1 => (0, chunks.len() - 1),

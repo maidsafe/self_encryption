@@ -7,7 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::{address, EncryptionBatch};
-use crate::new::{data_map::ChunkInfo, get_chunk_size, get_num_chunks, get_start_end_positions};
+use crate::new::{data_map::RawChunk, get_num_chunks, get_start_end_positions};
 use bytes::Bytes;
 use rayon::prelude::*;
 
@@ -24,14 +24,8 @@ pub(crate) fn hashes(bytes: Bytes) -> Vec<EncryptionBatch> {
         .map(|(index, bytes)| {
             let (start, end) = get_start_end_positions(data_size, index);
             let data = bytes.slice(start..end);
-            let src_hash = address(data.as_ref());
-            let src_size = get_chunk_size(data_size, index);
-            ChunkInfo {
-                index,
-                data,
-                src_hash,
-                src_size,
-            }
+            let hash = address(data.as_ref());
+            RawChunk { index, data, hash }
         })
         .collect();
 

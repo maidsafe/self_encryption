@@ -51,7 +51,7 @@
 
 use bytes::Bytes;
 use itertools::Itertools;
-use self_encryption::{encrypt, ChunkDetails, DataMap, Result};
+use self_encryption::{encrypt, ChunkKey, DataMap, Result};
 
 // const DATA_SIZE: usize = (if cfg!(target_pointer_width = "32") {
 //     4
@@ -430,14 +430,14 @@ async fn cross_platform_check2() -> Result<()> {
     let data_map = DataMap::Chunks(
         chunks
             .into_iter()
-            .sorted_by_key(|c| c.details.index)
-            .map(|c| c.details)
+            .sorted_by_key(|c| c.key.index)
+            .map(|c| c.key)
             .collect(),
     );
 
     // update data map when algorithm changes
     let ref_datamap = vec![
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     219, 177, 84, 234, 189, 172, 82, 64, 169, 100, 5, 56, 3, 43, 142, 126, 51, 235,
@@ -455,7 +455,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     65, 81, 63, 82, 119, 126, 216, 9, 44, 18, 160, 174, 225, 8, 202, 32, 245, 140,
@@ -473,7 +473,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     80, 237, 26, 5, 69, 59, 53, 210, 44, 236, 191, 69, 92, 39, 113, 124, 206, 169,
@@ -491,7 +491,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     168, 223, 46, 4, 138, 115, 226, 112, 179, 67, 36, 186, 170, 199, 21, 195, 41,
@@ -509,7 +509,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     41, 137, 66, 160, 103, 223, 72, 133, 180, 83, 8, 139, 180, 108, 20, 196, 106,
@@ -527,7 +527,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     48, 226, 1, 203, 69, 49, 140, 152, 90, 232, 209, 42, 178, 241, 60, 11, 24, 2,
@@ -545,7 +545,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     92, 201, 208, 153, 241, 202, 111, 28, 118, 47, 47, 32, 121, 48, 203, 48, 230,
@@ -563,7 +563,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     50, 8, 67, 204, 158, 4, 255, 227, 50, 18, 176, 150, 249, 233, 188, 72, 86, 217,
@@ -581,7 +581,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     132, 6, 224, 90, 168, 59, 66, 114, 199, 67, 140, 171, 226, 213, 141, 21, 32,
@@ -599,7 +599,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     238, 37, 229, 233, 96, 228, 150, 41, 89, 130, 145, 198, 50, 165, 207, 108, 15,
@@ -617,7 +617,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     70, 131, 32, 243, 131, 152, 215, 108, 51, 231, 184, 113, 117, 8, 164, 174, 151,
@@ -635,7 +635,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     50, 175, 184, 213, 76, 189, 138, 227, 190, 200, 141, 26, 235, 78, 173, 171,
@@ -653,7 +653,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     160, 175, 104, 136, 24, 18, 192, 185, 147, 31, 227, 81, 212, 143, 214, 63, 52,
@@ -671,7 +671,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     158, 201, 252, 234, 200, 107, 72, 126, 69, 234, 165, 203, 122, 90, 36, 46, 82,
@@ -689,7 +689,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     208, 35, 197, 158, 225, 12, 21, 130, 132, 59, 227, 65, 238, 178, 232, 169, 186,
@@ -707,7 +707,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     191, 47, 52, 224, 196, 196, 113, 118, 243, 7, 35, 213, 174, 114, 228, 229, 165,
@@ -725,7 +725,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     116, 242, 114, 183, 140, 120, 52, 135, 104, 100, 112, 208, 10, 8, 99, 108, 78,
@@ -743,7 +743,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     219, 177, 84, 234, 189, 172, 82, 64, 169, 100, 5, 56, 3, 43, 142, 126, 51, 235,
@@ -761,7 +761,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     65, 81, 63, 82, 119, 126, 216, 9, 44, 18, 160, 174, 225, 8, 202, 32, 245, 140,
@@ -779,7 +779,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     116, 92, 235, 203, 212, 105, 193, 148, 115, 246, 87, 227, 218, 75, 65, 238,
@@ -797,7 +797,7 @@ async fn cross_platform_check2() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkDetails {
+        ChunkKey {
             src_hash: Bytes::from(
                 [
                     214, 134, 86, 55, 215, 215, 208, 242, 178, 120, 200, 12, 212, 89, 92, 11, 93,
@@ -817,7 +817,7 @@ async fn cross_platform_check2() -> Result<()> {
         },
     ];
     match data_map {
-        DataMap::Content(_) | DataMap::None => panic!("Should be chunks!"),
+        DataMap::Content(_) => panic!("Should be chunks!"),
         DataMap::Chunks(chunks) => {
             for (i, c) in chunks.into_iter().enumerate() {
                 assert_eq!(c.src_hash, ref_datamap[i].src_hash);
