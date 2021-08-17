@@ -61,6 +61,7 @@ use std::{
     string::String,
     sync::Arc,
 };
+use xor_name::XorName;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -87,9 +88,9 @@ fn to_hex(ch: u8) -> String {
     fmt::format(format_args!("{:02x}", ch))
 }
 
-fn file_name(name: Bytes) -> String {
+fn file_name(name: XorName) -> String {
     let mut string = String::new();
-    for ch in name {
+    for ch in name.0 {
         string.push_str(&to_hex(ch));
     }
     string
@@ -101,13 +102,13 @@ struct DiskBasedStorage {
 }
 
 impl DiskBasedStorage {
-    fn calculate_path(&self, name: Bytes) -> PathBuf {
+    fn calculate_path(&self, name: XorName) -> PathBuf {
         let mut path = PathBuf::from(self.storage_path.clone());
         path.push(file_name(name));
         path
     }
 
-    fn get(&self, name: Bytes) -> Result<Bytes, Error> {
+    fn get(&self, name: XorName) -> Result<Bytes, Error> {
         let path = self.calculate_path(name);
         let mut file = File::open(&path)?;
         let mut data = Vec::new();
@@ -115,7 +116,7 @@ impl DiskBasedStorage {
         Ok(Bytes::from(data))
     }
 
-    fn put(&self, name: Bytes, data: Bytes) -> Result<()> {
+    fn put(&self, name: XorName, data: Bytes) -> Result<()> {
         let path = self.calculate_path(name);
         let mut file = File::create(&path)?;
         file.write_all(&data[..])
@@ -170,7 +171,7 @@ async fn main() {
             let result = encrypted_chunks
                 .par_iter()
                 .map(|c| (c, storage.clone()))
-                .map(|(c, store)| store.put(c.key.dst_hash.clone(), c.content.clone()))
+                .map(|(c, store)| store.put(c.key.dst_hash, c.content.clone()))
                 .collect::<Vec<_>>();
 
             assert!(result.iter().all(|r| r.is_ok()));
@@ -213,7 +214,7 @@ async fn main() {
                         .map(|key| {
                             Ok::<EncryptedChunk, Error>(EncryptedChunk {
                                 key: key.clone(),
-                                content: storage.get(key.dst_hash.clone())?,
+                                content: storage.get(key.dst_hash)?,
                             })
                         })
                         .collect::<Vec<_>>()
