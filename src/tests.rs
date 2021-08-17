@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::new::{
+use crate::{
     decrypt::decrypt, encrypt::encrypt, get_num_chunks, hash::hashes, test_helpers::random_bytes,
     Error,
 };

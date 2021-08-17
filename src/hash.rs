@@ -6,8 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{address, EncryptionBatch};
-use crate::new::{data_map::RawChunk, get_num_chunks, get_start_end_positions};
+use crate::{data_map::RawChunk, get_num_chunks, get_start_end_positions, hash, EncryptionBatch};
 use bytes::Bytes;
 use rayon::prelude::*;
 
@@ -24,7 +23,7 @@ pub(crate) fn hashes(bytes: Bytes) -> Vec<EncryptionBatch> {
         .map(|(index, bytes)| {
             let (start, end) = get_start_end_positions(data_size, index);
             let data = bytes.slice(start..end);
-            let hash = address(data.as_ref());
+            let hash = hash(data.as_ref());
             RawChunk { index, data, hash }
         })
         .collect();
