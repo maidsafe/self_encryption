@@ -192,6 +192,7 @@ use bytes::Bytes;
 use data_map::RawChunk;
 use encryption::HASH_SIZE;
 use tiny_keccak::{Hasher, Sha3};
+use xor_name::XorName;
 
 /// The maximum size of file which can be self_encrypted, defined as 1GB.
 pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
@@ -250,15 +251,15 @@ pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
     Bytes::from(vec)
 }
 
-fn hash(data: &[u8]) -> Bytes {
+fn hash(data: &[u8]) -> XorName {
     let mut hasher = Sha3::v256();
     let mut output = [0; HASH_SIZE];
     hasher.update(data);
     hasher.finalize(&mut output);
-    Bytes::from(output.to_vec())
+    XorName(output)
 }
 
-fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[Bytes]) -> (Pad, Key, Iv) {
+fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[XorName]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
         0 => (chunk_hashes.len() - 1, chunk_hashes.len() - 2),
         1 => (0, chunk_hashes.len() - 1),
@@ -267,8 +268,6 @@ fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[Bytes]) -> (Pad, Key, 
     let src_hash = &chunk_hashes[chunk_index];
     let n_1_src_hash = &chunk_hashes[n_1];
     let n_2_src_hash = &chunk_hashes[n_2];
-    //assert_eq!(n_1_src_hash.len(), HASH_SIZE);
-    //assert_eq!(n_2_src_hash.len(), HASH_SIZE);
 
     let mut pad = [0u8; PAD_SIZE];
     let mut key = [0u8; KEY_SIZE];

@@ -6,15 +6,13 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::EncryptedChunk;
-
-use super::get_pad_key_and_iv;
-use super::{encryption, xor, Error, Result};
+use crate::{encryption, get_pad_key_and_iv, xor, EncryptedChunk, Error, Result};
 use bytes::Bytes;
 use itertools::Itertools;
 use rayon::prelude::*;
 use std::io::Cursor;
 use std::sync::Arc;
+use xor_name::XorName;
 
 pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let num_chunks = encrypted_chunks.len();
@@ -82,17 +80,17 @@ struct DecryptionBatch {
 struct DecryptionJob {
     index: usize,
     encrypted_content: Bytes,
-    src_hashes: Arc<Vec<Bytes>>,
+    src_hashes: Arc<Vec<XorName>>,
 }
 
-fn extract_hashes(chunks: &[EncryptedChunk]) -> Arc<Vec<Bytes>> {
-    Arc::new(chunks.iter().map(|c| c.key.src_hash.clone()).collect())
+fn extract_hashes(chunks: &[EncryptedChunk]) -> Arc<Vec<XorName>> {
+    Arc::new(chunks.iter().map(|c| c.key.src_hash).collect())
 }
 
 pub(crate) fn decrypt_chunk(
     chunk_number: usize,
     content: Bytes,
-    chunk_hashes: &[Bytes],
+    chunk_hashes: &[XorName],
 ) -> Result<Bytes> {
     let (pad, key, iv) = get_pad_key_and_iv(chunk_number, chunk_hashes);
     let xor_result = xor(content, &pad);

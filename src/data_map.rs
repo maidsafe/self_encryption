@@ -10,6 +10,7 @@ use super::{Error, Result};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter, Write};
+use xor_name::XorName;
 
 /// Holds the information that is required to recover the content of the encrypted file.  Depending
 /// on the file size, this is held as a vector of `ChunkKey`, or as raw data.
@@ -103,7 +104,7 @@ pub struct RawChunk {
     /// The raw data.
     pub data: Bytes,
     /// The hash of the raw data in this chunk.
-    pub hash: Bytes,
+    pub hash: XorName,
 }
 
 /// This is - in effect - a partial decryption key for an encrypted chunk of data.
@@ -118,9 +119,9 @@ pub struct ChunkKey {
     /// Index number (zero-based)
     pub index: usize,
     /// Post-encryption hash of chunk
-    pub dst_hash: Bytes,
+    pub dst_hash: XorName,
     /// Pre-encryption hash of chunk
-    pub src_hash: Bytes,
+    pub src_hash: XorName,
     /// Size before encryption and compression (any possible padding depending
     /// on cipher used alters this)
     pub src_size: usize,
