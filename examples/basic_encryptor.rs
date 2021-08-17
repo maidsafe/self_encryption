@@ -165,19 +165,17 @@ async fn main() {
                 Err(error) => return println!("{}", error.to_string()),
             }
 
-            let content = encrypt(Bytes::from(data)).unwrap();
+            let encrypted_chunks = encrypt(Bytes::from(data)).unwrap();
 
-            let result = content
+            let result = encrypted_chunks
                 .par_iter()
                 .map(|c| (c, storage.clone()))
-                .map(|(c, store)| {
-                    store.put(c.details.dst_hash.clone(), c.encrypted_content.clone())
-                })
+                .map(|(c, store)| store.put(c.key.dst_hash.clone(), c.content.clone()))
                 .collect::<Vec<_>>();
 
             assert!(result.iter().all(|r| r.is_ok()));
 
-            let data_map = DataMap::Chunks(content.into_iter().map(|c| c.details).collect());
+            let data_map = DataMap::Chunks(encrypted_chunks.into_iter().map(|c| c.key).collect());
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
@@ -209,13 +207,13 @@ async fn main() {
             let mut data = Vec::new();
             let _ = file.read_to_end(&mut data).unwrap();
             match test_helpers::deserialise::<DataMap>(&data) {
-                Ok(DataMap::Chunks(details)) => {
-                    let encrypted_chunks: Vec<_> = details
+                Ok(DataMap::Chunks(keys)) => {
+                    let encrypted_chunks: Vec<_> = keys
                         .par_iter()
-                        .map(|details| {
+                        .map(|key| {
                             Ok::<EncryptedChunk, Error>(EncryptedChunk {
-                                encrypted_content: storage.get(details.dst_hash.clone())?,
-                                details: details.clone(),
+                                key: key.clone(),
+                                content: storage.get(key.dst_hash.clone())?,
                             })
                         })
                         .collect::<Vec<_>>()

@@ -12,7 +12,7 @@ use super::{
     small_encryptor::SmallEncryptor, utils, SelfEncryptionError, Storage, MAX_CHUNK_SIZE,
     MIN_CHUNK_SIZE,
 };
-use crate::data_map::{ChunkDetails, DataMap};
+use crate::data_map::{ChunkKey, DataMap};
 use std::convert::From;
 pub const MIN: usize = 3 * MIN_CHUNK_SIZE;
 pub const MAX: usize = 3 * MAX_CHUNK_SIZE;
@@ -23,7 +23,7 @@ pub const MAX: usize = 3 * MAX_CHUNK_SIZE;
 pub struct MediumEncryptor<S: Storage + Send + Sync + Clone> {
     pub storage: S,
     pub buffer: Vec<u8>,
-    original_chunks: Option<Vec<ChunkDetails>>,
+    original_chunks: Option<Vec<ChunkKey>>,
 }
 
 impl<S> MediumEncryptor<S>
@@ -35,7 +35,7 @@ where
     #[allow(clippy::new_ret_no_self)]
     pub async fn new(
         storage: S,
-        chunks: Vec<ChunkDetails>,
+        chunks: Vec<ChunkKey>,
     ) -> Result<MediumEncryptor<S>, SelfEncryptionError> {
         debug_assert_eq!(chunks.len(), 3);
         debug_assert!(MIN <= chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size));
@@ -100,7 +100,7 @@ where
             // Note the pre-encryption hashes and sizes.
             chunk_details = vec![];
             for (index, contents) in chunk_contents.iter().enumerate() {
-                chunk_details.push(ChunkDetails {
+                chunk_details.push(ChunkKey {
                     chunk_num: index,
                     hash: vec![],
                     pre_hash: self.storage.generate_address(contents).await?,

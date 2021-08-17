@@ -6,22 +6,21 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
+use super::{Error, Result};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Error, Formatter, Write};
+use std::fmt::{Debug, Formatter, Write};
 
 /// Holds the information that is required to recover the content of the encrypted file.  Depending
-/// on the file size, this is held as a vector of `ChunkDetails`, or as raw data.
+/// on the file size, this is held as a vector of `ChunkKey`, or as raw data.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
     /// holds the list of the file's chunks and corresponding hashes.
-    Chunks(Vec<ChunkDetails>),
+    Chunks(Vec<ChunkKey>),
     /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
     /// are put in here in their entirety.
     Content(Bytes),
-    /// empty datamap
-    None,
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -29,54 +28,50 @@ impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
     pub fn len(&self) -> usize {
         match *self {
-            DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks),
+            DataMap::Chunks(ref chunks) => DataMap::total_size(chunks),
             DataMap::Content(ref content) => content.len(),
-            DataMap::None => 0,
         }
     }
 
     /// Returns the list of chunks pre and post encryption hashes if present.
-    pub fn get_chunks(&self) -> Vec<ChunkDetails> {
+    pub fn keys(&self) -> Result<Vec<ChunkKey>> {
         match *self {
-            DataMap::Chunks(ref chunks) => chunks.to_vec(),
-            _ => panic!("no chunks"),
+            DataMap::Chunks(ref keys) => Ok(keys.to_vec()),
+            _ => Err(Error::Generic("no keys".to_string())),
         }
     }
 
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
+    pub fn sorted_keys(&self) -> Vec<ChunkKey> {
         match *self {
-            DataMap::Chunks(ref chunks) => {
-                let mut result = chunks.to_vec();
-                DataMap::chunks_sort(&mut result);
-                result
+            DataMap::Chunks(ref keys) => {
+                let mut to_return = keys.to_vec();
+                DataMap::sort_keys(&mut to_return);
+                to_return
             }
             _ => panic!("no chunks"),
         }
     }
 
     /// Whether the content is stored as chunks or as raw data.
-    pub fn has_chunks(&self) -> bool {
-        match *self {
-            DataMap::Chunks(ref chunks) => DataMap::chunks_size(chunks) > 0,
-            _ => false,
-        }
+    pub fn is_chunked(&self) -> bool {
+        matches!(self, DataMap::Chunks(_))
     }
 
-    /// Sorts list of chunks using quicksort
-    pub fn chunks_sort(chunks: &mut [ChunkDetails]) {
-        chunks.sort_by(|a, b| a.index.cmp(&b.index));
+    /// Sorts list of chunk keys using quicksort
+    pub fn sort_keys(keys: &mut [ChunkKey]) {
+        keys.sort_by(|a, b| a.index.cmp(&b.index));
     }
 
-    /// Iterates through the chunks to figure out the total size, i.e. the file size
-    fn chunks_size(chunks: &[ChunkDetails]) -> usize {
-        chunks.iter().fold(0, |acc, chunk| acc + chunk.src_size)
+    /// Iterates through the keys to figure out the total size of the data, i.e. the file size.
+    fn total_size(keys: &[ChunkKey]) -> usize {
+        keys.iter().fold(0, |acc, chunk| acc + chunk.src_size)
     }
 }
 
 impl Debug for DataMap {
-    fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
         match *self {
             DataMap::Chunks(ref chunks) => {
                 writeln!(formatter, "DataMap::Chunks:")?;
@@ -93,29 +88,34 @@ impl Debug for DataMap {
             DataMap::Content(ref content) => {
                 write!(formatter, "DataMap::Content({})", debug_bytes(content))
             }
-            DataMap::None => write!(formatter, "DataMap::None"),
         }
     }
 }
 
-///
+/// The clear text bytes of a chunk
+/// from a larger piece of data,
+/// and its index in the set of chunks.
 #[derive(Clone)]
-pub struct ChunkInfo {
-    ///
+pub struct RawChunk {
+    /// The index of this chunk, in the set of chunks
+    /// obtained from a larger piece of data.
     pub index: usize,
-    ///
+    /// The raw data.
     pub data: Bytes,
-    ///
-    pub src_hash: Bytes,
-    ///
-    pub src_size: usize,
+    /// The hash of the raw data in this chunk.
+    pub hash: Bytes,
 }
 
-/// Holds pre- and post-encryption hashes as well as the original
+/// This is - in effect - a partial decryption key for an encrypted chunk of data.
+///
+/// It holds pre- and post-encryption hashes as well as the original
 /// (pre-compression) size for a given chunk.
+/// This information is required for successful recovery of a chunk, as well as for the
+/// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
+/// corresponding DataMap.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
-pub struct ChunkDetails {
-    /// Index number (starts at 0)
+pub struct ChunkKey {
+    /// Index number (zero-based)
     pub index: usize,
     /// Post-encryption hash of chunk
     pub dst_hash: Bytes,
@@ -149,25 +149,11 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     )
 }
 
-impl ChunkDetails {
-    /// Holds information required for successful recovery of a chunk, as well as for the
-    /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
-    /// corresponding DataMap.
-    pub fn new() -> ChunkDetails {
-        ChunkDetails {
-            index: 0,
-            dst_hash: Bytes::new(),
-            src_hash: Bytes::new(),
-            src_size: 0,
-        }
-    }
-}
-
-impl Debug for ChunkDetails {
-    fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
+impl Debug for ChunkKey {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             formatter,
-            "ChunkDetails {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",
+            "ChunkKey {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",
             self.index,
             debug_bytes(&self.dst_hash),
             debug_bytes(&self.src_hash),

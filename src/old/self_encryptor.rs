@@ -8,7 +8,7 @@
 
 use super::{SelfEncryptionError, Storage, COMPRESSION_QUALITY, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE};
 use crate::{
-    data_map::{ChunkDetails, DataMap},
+    data_map::{ChunkKey, DataMap},
     encryption::{self, IV_SIZE, KEY_SIZE},
     sequencer::Sequencer,
     sequential::{Iv, Key},
@@ -223,7 +223,7 @@ where
 
 struct State<S: Storage + Send + Sync + Clone> {
     storage: S,
-    sorted_map: Vec<ChunkDetails>, // the original data_map, sorted
+    sorted_map: Vec<ChunkKey>, // the original data_map, sorted
     chunks: Vec<Chunk>,            // this is sorted as well
     sequencer: Sequencer,
     file_size: usize,
@@ -244,7 +244,7 @@ where
     #[allow(clippy::needless_range_loop)]
     async fn create_data_map(&mut self) -> Result<DataMap, SelfEncryptionError> {
         let num_chunks = get_num_chunks(self.file_size);
-        let mut new_map = vec![ChunkDetails::new(); num_chunks];
+        let mut new_map = vec![ChunkKey::new(); num_chunks];
 
         for i in 0..num_chunks {
             if self.chunks[i].status != ChunkStatus::ToBeHashed {
@@ -439,7 +439,7 @@ where
                 status: ChunkStatus::ToBeHashed,
                 in_sequencer: true,
             });
-            state.sorted_map.push(ChunkDetails {
+            state.sorted_map.push(ChunkKey {
                 chunk_num: i,
                 hash: vec![],
                 pre_hash: vec![],
@@ -616,7 +616,7 @@ fn encrypt_chunk(content: &[u8], pki: (Pad, Key, Iv)) -> Result<Vec<u8>, SelfEnc
 
 fn get_pad_key_and_iv(
     chunk_number: usize,
-    sorted_map: &[ChunkDetails],
+    sorted_map: &[ChunkKey],
     map_size: usize,
 ) -> (Pad, Key, Iv) {
     let n_1 = get_previous_chunk_number(map_size, chunk_number);

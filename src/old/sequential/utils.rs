@@ -8,7 +8,7 @@
 
 use super::{Pad, SelfEncryptionError, COMPRESSION_QUALITY, PAD_SIZE};
 use crate::{
-    data_map::ChunkDetails,
+    data_map::ChunkKey,
     encryption::{self, IV_SIZE, KEY_SIZE},
     sequential::{Iv, Key},
 };
@@ -19,7 +19,7 @@ use rand::Rng;
 use std::cmp;
 use std::io::Cursor;
 
-pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkDetails]) -> (Pad, Key, Iv) {
+pub fn get_pad_key_and_iv(chunk_index: usize, chunks: &[ChunkKey]) -> (Pad, Key, Iv) {
     let (n_1, n_2) = match chunk_index {
         0 => (chunks.len() - 1, chunks.len() - 2),
         1 => (0, chunks.len() - 1),

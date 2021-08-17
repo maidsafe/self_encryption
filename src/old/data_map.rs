@@ -12,7 +12,7 @@ use std::fmt::{Debug, Error, Formatter, Write};
 /// Holds pre- and post-encryption hashes as well as the original (pre-compression) size for a given
 /// chunk.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
-pub struct ChunkDetails {
+pub struct ChunkKey {
     /// Index number (starts at 0)
     pub chunk_num: usize,
     /// Post-encryption hash of chunk
@@ -47,12 +47,12 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     )
 }
 
-impl ChunkDetails {
+impl ChunkKey {
     /// Holds information required for successful recovery of a chunk, as well as for the
     /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
     /// corresponding DataMap.
-    pub fn new() -> ChunkDetails {
-        ChunkDetails {
+    pub fn new() -> ChunkKey {
+        ChunkKey {
             chunk_num: 0,
             hash: vec![],
             pre_hash: vec![],
@@ -61,11 +61,11 @@ impl ChunkDetails {
     }
 }
 
-impl Debug for ChunkDetails {
+impl Debug for ChunkKey {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
         write!(
             formatter,
-            "ChunkDetails {{ chunk_num: {}, hash: {}, pre_hash: {}, source_size: {} }}",
+            "ChunkKey {{ chunk_num: {}, hash: {}, pre_hash: {}, source_size: {} }}",
             self.chunk_num,
             debug_bytes(&self.hash),
             debug_bytes(&self.pre_hash),
@@ -75,12 +75,12 @@ impl Debug for ChunkDetails {
 }
 
 /// Holds the information that is required to recover the content of the encrypted file.  Depending
-/// on the file size, this is held as a vector of `ChunkDetails`, or as raw data.
+/// on the file size, this is held as a vector of `ChunkKey`, or as raw data.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DataMap {
     /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
     /// holds the list of the file's chunks and corresponding hashes.
-    Chunks(Vec<ChunkDetails>),
+    Chunks(Vec<ChunkKey>),
     /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
     /// are put in here in their entirety.
     Content(Vec<u8>),
@@ -100,7 +100,7 @@ impl DataMap {
     }
 
     /// Returns the list of chunks pre and post encryption hashes if present.
-    pub fn get_chunks(&self) -> Vec<ChunkDetails> {
+    pub fn get_chunks(&self) -> Vec<ChunkKey> {
         match *self {
             DataMap::Chunks(ref chunks) => chunks.to_vec(),
             _ => panic!("no chunks"),
@@ -109,7 +109,7 @@ impl DataMap {
 
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn get_sorted_chunks(&self) -> Vec<ChunkDetails> {
+    pub fn get_sorted_chunks(&self) -> Vec<ChunkKey> {
         match *self {
             DataMap::Chunks(ref chunks) => {
                 let mut result = chunks.to_vec();
@@ -129,12 +129,12 @@ impl DataMap {
     }
 
     /// Sorts list of chunks using quicksort
-    pub fn chunks_sort(chunks: &mut [ChunkDetails]) {
+    pub fn chunks_sort(chunks: &mut [ChunkKey]) {
         chunks.sort_by(|a, b| a.chunk_num.cmp(&b.chunk_num));
     }
 
     /// Iterates through the chunks to figure out the total size, i.e. the file size
-    fn chunks_size(chunks: &[ChunkDetails]) -> usize {
+    fn chunks_size(chunks: &[ChunkKey]) -> usize {
         chunks.iter().fold(0, |acc, chunk| acc + chunk.source_size)
     }
 }
