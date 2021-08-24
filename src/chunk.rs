@@ -12,7 +12,7 @@ use rayon::prelude::*;
 
 /// Hash all the chunks.
 /// Creates [num cores] batches.
-pub(crate) fn hashes(bytes: Bytes) -> Vec<EncryptionBatch> {
+pub(crate) fn batch_chunks(bytes: Bytes) -> Vec<EncryptionBatch> {
     let data_size = bytes.len();
     let num_chunks = get_num_chunks(data_size);
 

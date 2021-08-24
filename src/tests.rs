@@ -7,63 +7,82 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::{
-    decrypt::decrypt, encrypt::encrypt, get_num_chunks, hash::hashes, test_helpers::random_bytes,
-    Error,
+    chunk::batch_chunks, decrypt_full_set, decrypt_range, encrypt::encrypt, get_chunk_size,
+    get_num_chunks, overlapped_chunks, test_helpers::random_bytes, EncryptedChunk, Error,
 };
+use bytes::Bytes;
 use itertools::Itertools;
-use std::time::Instant;
 
 #[test]
 fn read_write() -> Result<(), Error> {
-    let mb_100 = 100_000_000;
+    let file_size = 100_000_000;
+    let bytes = random_bytes(file_size);
 
-    run_test(mb_100)
+    let raw_data = decrypt_full_set(&encrypt_chunks(bytes.clone()))?;
+
+    compare(bytes, raw_data)
 }
 
-fn run_test(data_size: usize) -> Result<(), Error> {
-    let bytes = random_bytes(data_size);
+#[test]
+fn seek() -> Result<(), Error> {
+    // Having first chunk being at index 1 starts at position: 4_194_304
+    let start_size = 4_194_300;
+    for i in 0..27 {
+        let file_size = start_size + i;
+        let bytes = random_bytes(file_size);
 
-    println!("Encrypting chunks..");
+        let pos = file_size / 4;
+        let len = file_size / 2;
+        // this is what we expect to get back from the chunks
+        let expected_data = bytes.slice(pos..len);
+        // the chunks covering the bytes we want to read
+        let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
 
-    let total_timer = Instant::now();
+        // first encrypt the whole file
+        let encrypted_chunks = encrypt_chunks(bytes.clone());
 
-    let batch_timer = Instant::now();
-    let batches = hashes(bytes.clone());
-    let batch_time = batch_timer.elapsed();
+        // get all keys
+        let all_keys: Vec<_> = encrypted_chunks
+            .iter()
+            .sorted_by_key(|c| c.key.index)
+            .map(|c| c.key.clone())
+            .collect();
 
-    let encrypt_timer = Instant::now();
+        // select a subset of chunks; the ones covering the bytes we want to read
+        let subset: Vec<_> = encrypted_chunks
+            .into_iter()
+            .filter(|c| c.key.index >= start_index && c.key.index <= end_index)
+            .sorted_by_key(|c| c.key.index)
+            .collect();
+
+        // the start position within the first chunk (thus `relative`..)
+        let relative_pos = pos % get_chunk_size(file_size, start_index);
+        let read_data = decrypt_range(&all_keys, &subset, relative_pos, len)?;
+
+        compare(expected_data, read_data)?;
+    }
+
+    Ok(())
+}
+
+fn compare(original: Bytes, result: Bytes) -> Result<(), Error> {
+    for (counter, (a, b)) in original.into_iter().zip(result).enumerate() {
+        if a != b {
+            return Err(Error::Generic(format!("Not equal! Counter: {}", counter)));
+        }
+    }
+    Ok(())
+}
+
+fn encrypt_chunks(bytes: Bytes) -> Vec<EncryptedChunk> {
+    let batches = batch_chunks(bytes.clone());
     let encrypted_chunks = encrypt(batches);
-    let encrypt_time = encrypt_timer.elapsed();
 
-    let total_time = total_timer.elapsed();
-
-    println!(
-        "Batch time: {}, encrypt time: {}, total: {}",
-        batch_time.as_millis(),
-        encrypt_time.as_millis(),
-        total_time.as_millis()
-    );
-
-    let num_chunks = get_num_chunks(data_size);
+    let num_chunks = get_num_chunks(bytes.len());
     assert_eq!(num_chunks, encrypted_chunks.len());
 
     let encrypted_chunks = encrypted_chunks.into_iter().flatten().collect_vec();
     assert_eq!(num_chunks, encrypted_chunks.len());
 
-    println!("Decrypting chunks..");
-
-    let decrypt_timer = Instant::now();
-    let raw_data = decrypt(&encrypted_chunks)?;
-    let decrypt_time = decrypt_timer.elapsed();
-
-    println!("Chunks decrypted in {} ms.", decrypt_time.as_millis());
-    println!("Comparing results..");
-
-    for (counter, (a, b)) in bytes.into_iter().zip(raw_data).enumerate() {
-        if a != b {
-            panic!("Not equal! Counter: {}", counter)
-        }
-    }
-
-    Ok(())
+    encrypted_chunks
 }
