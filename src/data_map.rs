@@ -27,7 +27,7 @@ pub enum DataMap {
 #[allow(clippy::len_without_is_empty)]
 impl DataMap {
     /// Original (pre-encryption) size of file in DataMap.
-    pub fn len(&self) -> usize {
+    pub fn file_size(&self) -> usize {
         match *self {
             DataMap::Chunks(ref chunks) => DataMap::total_size(chunks),
             DataMap::Content(ref content) => content.len(),
@@ -44,14 +44,14 @@ impl DataMap {
 
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn sorted_keys(&self) -> Vec<ChunkKey> {
+    pub fn sorted_keys(&self) -> Result<Vec<ChunkKey>> {
         match *self {
             DataMap::Chunks(ref keys) => {
                 let mut to_return = keys.to_vec();
                 DataMap::sort_keys(&mut to_return);
-                to_return
+                Ok(to_return)
             }
-            _ => panic!("no chunks"),
+            _ => Err(Error::Generic("no keys".to_string())),
         }
     }
 

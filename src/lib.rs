@@ -15,108 +15,20 @@
 //!
 //! [Project GitHub page](https://github.com/maidsafe/self_encryption).
 //!
-//! # Use
-//!
-//! To use this library you must implement a storage trait (a key/value store) and associated
-//! storage error trait.  These provide a place for encrypted chunks to be put to and got from by
-//! the `SelfEncryptor`.
-//!
-//! The storage trait should be flexible enough to allow implementation as an in-memory map, a
-//! disk-based database, or a network-based DHT for example.
-//!
 //! # Examples
 //!
-//! This is a simple setup for a memory-based chunk store.  A working implementation can be found
+//! A working implementation can be found
 //! in the "examples" folder of this project.
 //!
 //! ```
-//! # extern crate futures;
-//! # extern crate self_encryption;
-//! use self_encryption::Storage;
-//! use tiny_keccak::{Hasher, Sha3};
-//! use async_trait::async_trait;
-//! use self_encryption::SelfEncryptionError;
-
-//! struct Entry {
-//!     name: Vec<u8>,
-//!     data: Vec<u8>
-//! }
-//!
-//! struct SimpleStorage {
-//!     entries: Vec<Entry>
-//! }
-//!
-//! impl SimpleStorage {
-//!     # #[allow(dead_code)]
-//!     fn new() -> SimpleStorage {
-//!         SimpleStorage { entries: vec![] }
-//!     }
-//! }
-//! #[async_trait]
-//! impl Storage for SimpleStorage {
-//
-//!    async fn get(&mut self, name: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
-//!        match self.entries.iter().find(|ref entry| entry.name == name) {
-//!            Some(entry) => Ok(entry.data.clone()),
-//!            None => Err(SelfEncryptionError::Storage("Chunk not found".into())),
-//!        }
-//!
-//!    }
-//!
-//!     async fn delete(&mut self, name: &[u8]) -> Result<(), SelfEncryptionError> {
-//!        self.entries.retain(|entry| entry.name != name );
-//!
-//!         Ok(())
-//!    }
-//!
-//!    async fn put(&mut self, name: Vec<u8>, data: Vec<u8>) -> Result<(),
-//!    SelfEncryptionError> {
-//!        self.entries.push(Entry {
-//!            name: name,
-//!            data: data,
-//!        });
-//!      Ok(())
-//!    }
-//!
-//!    async fn generate_address(&self, data: &[u8]) -> Result<Vec<u8>, SelfEncryptionError> {
-//!         let mut hasher = Sha3::v256();
-//!         let mut output = [0; 32];
-//!         hasher.update(&data);
-//!         hasher.finalize(&mut output);
-//!         Ok(output.to_vec())
-//!    }
-//! }
-
-//! ```
-//!
-//! Using this `SimpleStorage`, a self_encryptor can be created and written to/read from:
-//!
-//! ```
-//! # extern crate futures;
-//! # extern crate self_encryption;
-//! use self_encryption::{DataMap, SelfEncryptor};
-//! # use self_encryption::test_helpers::SimpleStorage;
+//! use self_encryption::DataMap;
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     let storage = SimpleStorage::new();
-//!     let encryptor = SelfEncryptor::new(storage, DataMap::None).unwrap();
-//!     let data = vec![0, 1, 2, 3, 4, 5];
-//!     let mut offset = 0;
-//!
-//!     encryptor.write(&data, offset).await.unwrap();
-//!
-//!     offset = 2;
-//!     let length = 3;
-//!     assert_eq!(encryptor.read(offset, length).await.unwrap(), vec![2, 3, 4]);
-//!
-//!     let data_map = encryptor.close().await.unwrap().0;
-//!     assert_eq!(data_map.len(), 6);
 //! }
 //! ```
 //!
-//! The `close()` function returns a `DataMap` which can be used when creating a new encryptor to
-//! access the content previously written.  Storage of the `DataMap` is outwith the scope of this
+//! Storage of the `EncryptedChunk`:s or `DataMap` is outwith the scope of this
 //! library and must be implemented by the user.
 
 #![doc(
@@ -171,12 +83,12 @@
 // https://github.com/rust-lang-nursery/rust-clippy/issues/2267
 #![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
+mod chunk;
 mod data_map;
 mod decrypt;
 mod encrypt;
 mod encryption;
 mod error;
-mod hash;
 mod storage;
 pub mod test_helpers;
 #[cfg(test)]
@@ -191,6 +103,8 @@ pub use self::{
 use bytes::Bytes;
 use data_map::RawChunk;
 use encryption::HASH_SIZE;
+use itertools::Itertools;
+use std::ops::Range;
 use tiny_keccak::{Hasher, Sha3};
 use xor_name::XorName;
 
@@ -226,7 +140,7 @@ pub struct EncryptedChunk {
 
 ///
 pub fn encrypt(bytes: Bytes) -> Result<Vec<EncryptedChunk>> {
-    let batches = hash::hashes(bytes);
+    let batches = chunk::batch_chunks(bytes);
     let chunks = encrypt::encrypt(batches);
     let count = chunks.len();
     let chunks: Vec<_> = chunks.into_iter().flatten().collect();
@@ -237,8 +151,32 @@ pub fn encrypt(bytes: Bytes) -> Result<Vec<EncryptedChunk>> {
 }
 
 ///
-pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
-    decrypt::decrypt(encrypted_chunks)
+pub fn decrypt_full_set(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
+    let src_hashes = extract_hashes_from_chunks(encrypted_chunks);
+    let encrypted_chunks = encrypted_chunks
+        .iter()
+        .sorted_by_key(|c| c.key.index)
+        .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
+        .collect_vec();
+    decrypt::decrypt(src_hashes, encrypted_chunks)
+}
+
+/// Decrypt a range, used when seeking.
+///
+/// `relative_pos` is the position within the first read chunk, that we start reading from.
+pub fn decrypt_range(
+    all_keys: &[ChunkKey],
+    encrypted_chunks: &[EncryptedChunk],
+    relative_pos: usize,
+    len: usize,
+) -> Result<Bytes> {
+    let src_hashes = extract_hashes_from_keys(all_keys);
+    let encrypted_chunks = encrypted_chunks
+        .iter()
+        .sorted_by_key(|c| c.key.index)
+        .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
+        .collect_vec();
+    decrypt::decrypt(src_hashes, encrypted_chunks).map(|b| b.slice(relative_pos..len))
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
@@ -249,6 +187,61 @@ pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
         .map(|(&a, &b)| a ^ b)
         .collect();
     Bytes::from(vec)
+}
+
+/// Helper function for getting info needed
+/// to seek original file bytes from chunks.
+///
+/// It is used to first fetch chunks using the `index_range`.
+/// Then the chunks are passed into `self_encryption::decrypt_range` together
+/// with `start_pos` from the `SeekInfo` instance, and the `len` to be read.
+pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
+    let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
+    SeekInfo {
+        index_range: start_index..end_index,
+        start_pos: pos % get_chunk_size(file_size, start_index),
+    }
+}
+
+/// Helper struct for seeking
+/// original file bytes from chunks.
+pub struct SeekInfo {
+    /// Start and end index for the chunks
+    /// covered by a pos and len.
+    pub index_range: Range<usize>,
+    /// The start pos of first chunk.
+    pub start_pos: usize,
+}
+
+/// Returns the chunk index range [start, end) that is overlapped by the byte range defined by `pos`
+/// and `len`. Returns empty range if `file_size` is so small that there are no chunks.
+fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize) {
+    if file_size < (3 * MIN_CHUNK_SIZE) || pos >= file_size || len == 0 {
+        return (0, 0);
+    }
+    let start = get_chunk_number(file_size, pos);
+    let end_pos = pos + len; // inclusive
+    let end = if end_pos < file_size {
+        get_chunk_number(file_size, end_pos)
+    } else {
+        get_num_chunks(file_size)
+    };
+    (start, end)
+}
+
+fn extract_hashes_from_keys(keys: &[ChunkKey]) -> Vec<XorName> {
+    keys.iter()
+        .sorted_by_key(|c| c.index)
+        .map(|c| c.src_hash)
+        .collect()
+}
+
+fn extract_hashes_from_chunks(chunks: &[EncryptedChunk]) -> Vec<XorName> {
+    chunks
+        .iter()
+        .sorted_by_key(|c| c.key.index)
+        .map(|c| c.key.src_hash)
+        .collect()
 }
 
 fn hash(data: &[u8]) -> XorName {
@@ -314,11 +307,12 @@ fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
             return file_size - (2 * (file_size / 3));
         }
     }
-    if chunk_index < get_num_chunks(file_size) - 2 {
+    let total_chunks = get_num_chunks(file_size);
+    if chunk_index < total_chunks - 2 {
         return MAX_CHUNK_SIZE;
     }
     let remainder = file_size % MAX_CHUNK_SIZE;
-    let penultimate = (get_num_chunks(file_size) - 2) == chunk_index;
+    let penultimate = (total_chunks - 2) == chunk_index;
     if remainder == 0 {
         return MAX_CHUNK_SIZE;
     }
@@ -340,15 +334,43 @@ fn get_start_end_positions(file_size: usize, chunk_index: usize) -> (usize, usiz
     if get_num_chunks(file_size) == 0 {
         return (0, 0);
     }
-    let start;
-    let last = (get_num_chunks(file_size) - 1) == chunk_index;
-    if last {
-        start = get_chunk_size(file_size, 0) * (chunk_index - 1)
-            + get_chunk_size(file_size, chunk_index - 1);
-    } else {
-        start = get_chunk_size(file_size, 0) * chunk_index;
-    }
+    let start = get_start_position(file_size, chunk_index);
     (start, start + get_chunk_size(file_size, chunk_index))
+}
+
+fn get_start_position(file_size: usize, chunk_index: usize) -> usize {
+    let total_chunks = get_num_chunks(file_size);
+    if total_chunks == 0 {
+        return 0;
+    }
+    let start;
+    let last = (total_chunks - 1) == chunk_index;
+    let first_chunk_size = get_chunk_size(file_size, 0);
+    if last {
+        start = first_chunk_size * (chunk_index - 1) + get_chunk_size(file_size, chunk_index - 1);
+    } else {
+        start = first_chunk_size * chunk_index;
+    }
+    start
+}
+
+fn get_chunk_number(file_size: usize, position: usize) -> usize {
+    let num_chunks = get_num_chunks(file_size);
+    if num_chunks == 0 {
+        return 0;
+    }
+
+    let chunk_size = get_chunk_size(file_size, 0);
+    let remainder = file_size % chunk_size;
+
+    if remainder == 0
+        || remainder >= MIN_CHUNK_SIZE
+        || position < file_size - remainder - MIN_CHUNK_SIZE
+    {
+        position / chunk_size
+    } else {
+        num_chunks - 1
+    }
 }
 
 // fn get_previous_chunk_index(file_size: usize, chunk_index: usize) -> usize {

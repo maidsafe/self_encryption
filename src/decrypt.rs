@@ -14,16 +14,9 @@ use std::io::Cursor;
 use std::sync::Arc;
 use xor_name::XorName;
 
-pub fn decrypt(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
+pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: Vec<EncryptedChunk>) -> Result<Bytes> {
+    let src_hashes = Arc::new(src_hashes);
     let num_chunks = encrypted_chunks.len();
-    let encrypted_chunks = encrypted_chunks
-        .iter()
-        .sorted_by_key(|c| c.key.index)
-        .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
-        .collect_vec();
-
-    let src_hashes = extract_hashes(encrypted_chunks.as_slice());
-
     let cpus = num_cpus::get();
     let batch_size = usize::max(1, (num_chunks as f64 / cpus as f64).ceil() as usize);
 
@@ -81,10 +74,6 @@ struct DecryptionJob {
     index: usize,
     encrypted_content: Bytes,
     src_hashes: Arc<Vec<XorName>>,
-}
-
-fn extract_hashes(chunks: &[EncryptedChunk]) -> Arc<Vec<XorName>> {
-    Arc::new(chunks.iter().map(|c| c.key.src_hash).collect())
 }
 
 pub(crate) fn decrypt_chunk(

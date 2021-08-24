@@ -49,7 +49,7 @@ use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, decrypt, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
+    self, decrypt_full_set, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -223,7 +223,7 @@ async fn main() {
                         .collect();
 
                     if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
-                        let content = decrypt(encrypted_chunks.as_ref()).unwrap();
+                        let content = decrypt_full_set(encrypted_chunks.as_ref()).unwrap();
                         match file.write_all(&content[..]) {
                             Err(error) => println!("File write failed - {:?}", error),
                             Ok(_) => {
