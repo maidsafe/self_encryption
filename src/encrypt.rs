@@ -7,11 +7,12 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::{
-    data_map::ChunkKey,
-    data_map::RawChunk,
+    chunk::{EncryptionBatch, RawChunk},
     encryption::{self, Iv, Key, Pad},
     error::{Error, Result},
-    get_pad_key_and_iv, xor, EncryptedChunk, EncryptionBatch, COMPRESSION_QUALITY,
+    get_pad_key_and_iv,
+    secret_key::ChunkKey,
+    xor, EncryptedChunk, SecretKey, COMPRESSION_QUALITY,
 };
 use brotli::enc::BrotliEncoderParams;
 use bytes::Bytes;
@@ -19,13 +20,14 @@ use itertools::Itertools;
 use rayon::prelude::*;
 use std::io::Cursor;
 use std::sync::Arc;
+use xor_name::XorName;
 
 /// Encrypt the chunks
-pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
+pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (SecretKey, Vec<EncryptedChunk>) {
     let src_hashes = Arc::new(
         batches
             .iter()
-            .map(|b| &b.chunk_infos)
+            .map(|b| &b.raw_chunks)
             .flatten()
             .sorted_by_key(|c| c.index)
             .map(|d| &d.hash)
@@ -33,13 +35,13 @@ pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
             .collect_vec(),
     );
 
-    batches
+    let (keys, chunks) = batches
         .into_iter()
         .map(|batch| (batch, src_hashes.clone()))
         .par_bridge()
         .map(|(batch, src_hashes)| {
             batch
-                .chunk_infos
+                .raw_chunks
                 .par_iter()
                 .map(|chunk| {
                     let RawChunk { index, data, hash } = chunk.clone();
@@ -47,22 +49,44 @@ pub fn encrypt(batches: Vec<EncryptionBatch>) -> Vec<Result<EncryptedChunk>> {
                     let src_size = data.len();
                     let pki = get_pad_key_and_iv(index, src_hashes.as_ref());
                     let encrypted_content = encrypt_chunk(data, pki)?;
-                    let dst_hash = crate::hash(encrypted_content.as_ref());
+                    let dst_hash = XorName::from_content(encrypted_content.as_ref());
 
-                    Ok(EncryptedChunk {
-                        content: encrypted_content,
-                        key: ChunkKey {
+                    Ok((
+                        ChunkKey {
                             index,
                             dst_hash,
                             src_hash: hash,
                             src_size,
                         },
-                    })
+                        EncryptedChunk {
+                            index,
+                            content: encrypted_content,
+                        },
+                    ))
                 })
                 .collect::<Vec<_>>()
         })
         .flatten()
-        .collect()
+        .fold(
+            || (vec![], vec![]),
+            |(mut keys, mut chunks), result: Result<_, Error>| {
+                if let Ok((key, chunk)) = result {
+                    keys.push(key);
+                    chunks.push(chunk);
+                }
+                (keys, chunks)
+            },
+        )
+        .reduce(
+            || (vec![], vec![]),
+            |(mut keys, mut chunks), (key_subset, chunk_subset)| {
+                keys.extend(key_subset);
+                chunks.extend(chunk_subset);
+                (keys, chunks)
+            },
+        );
+
+    (SecretKey::new(keys), chunks)
 }
 
 fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes> {

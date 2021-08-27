@@ -38,18 +38,11 @@
     clippy::unicode_not_nfc
 )]
 
-// #![allow(
-//     box_pointers,
-//     missing_copy_implementations,
-//     missing_debug_implementations,
-//     variant_size_differences
-// )]
-
 use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, decrypt_full_set, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
+    self, decrypt_full_set, encrypt, test_helpers, EncryptedChunk, Error, Result, SecretKey,
 };
 use serde::Deserialize;
 use std::{
@@ -143,58 +136,44 @@ async fn main() {
     let storage_path = chunk_store_dir.to_str().unwrap().to_owned();
     let storage = Arc::new(DiskBasedStorage { storage_path });
 
-    let mut data_map_file = chunk_store_dir;
-    data_map_file.push("data_map");
+    let mut secret_key_file = chunk_store_dir;
+    secret_key_file.push("data_map");
 
     if args.flag_encrypt && args.arg_target.is_some() {
         if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
-            match file.metadata() {
-                Ok(metadata) => {
-                    if metadata.len() > self_encryption::MAX_FILE_SIZE as u64 {
-                        return println!(
-                            "File size too large {} is greater than 1GB",
-                            metadata.len()
-                        );
-                    }
-                }
-                Err(error) => return println!("{}", error.to_string()),
-            }
-
             let mut data = Vec::new();
             match file.read_to_end(&mut data) {
                 Ok(_) => (),
                 Err(error) => return println!("{}", error.to_string()),
             }
 
-            let encrypted_chunks = encrypt(Bytes::from(data)).unwrap();
+            let (secret_key, encrypted_chunks) = encrypt(Bytes::from(data)).unwrap();
 
             let result = encrypted_chunks
                 .par_iter()
                 .map(|c| (c, storage.clone()))
-                .map(|(c, store)| store.put(c.key.dst_hash, c.content.clone()))
+                .map(|(c, store)| store.put(XorName::from_content(&c.content), c.content.clone()))
                 .collect::<Vec<_>>();
 
             assert!(result.iter().all(|r| r.is_ok()));
 
-            let data_map = DataMap::Chunks(encrypted_chunks.into_iter().map(|c| c.key).collect());
-
-            match File::create(data_map_file.clone()) {
+            match File::create(secret_key_file.clone()) {
                 Ok(mut file) => {
-                    let encoded = test_helpers::serialise(&data_map).unwrap();
+                    let encoded = test_helpers::serialise(&secret_key).unwrap();
                     match file.write_all(&encoded[..]) {
-                        Ok(_) => println!("Data map written to {:?}", data_map_file),
+                        Ok(_) => println!("Secret key written to {:?}", secret_key_file),
                         Err(error) => {
                             println!(
-                                "Failed to write data map to {:?} - {:?}",
-                                data_map_file, error
+                                "Failed to write secret key to {:?} - {:?}",
+                                secret_key_file, error
                             );
                         }
                     }
                 }
                 Err(error) => {
                     println!(
-                        "Failed to create data map at {:?} - {:?}",
-                        data_map_file, error
+                        "Failed to create secret key at {:?} - {:?}",
+                        secret_key_file, error
                     );
                 }
             }
@@ -207,23 +186,33 @@ async fn main() {
         if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
             let mut data = Vec::new();
             let _ = file.read_to_end(&mut data).unwrap();
-            match test_helpers::deserialise::<DataMap>(&data) {
-                Ok(DataMap::Chunks(keys)) => {
-                    let encrypted_chunks: Vec<_> = keys
+            match test_helpers::deserialise::<SecretKey>(&data) {
+                Ok(secret_key) => {
+                    let (keys, encrypted_chunks) = secret_key
+                        .keys()
                         .par_iter()
                         .map(|key| {
-                            Ok::<EncryptedChunk, Error>(EncryptedChunk {
-                                key: key.clone(),
-                                content: storage.get(key.dst_hash)?,
-                            })
+                            Ok::<(_, _), Error>((
+                                key.clone(),
+                                EncryptedChunk {
+                                    index: key.index,
+                                    content: storage.get(key.dst_hash)?,
+                                },
+                            ))
                         })
                         .collect::<Vec<_>>()
                         .into_iter()
                         .flatten()
-                        .collect();
+                        .fold((vec![], vec![]), |(mut keys, mut chunks), (key, chunk)| {
+                            keys.push(key);
+                            chunks.push(chunk);
+                            (keys, chunks)
+                        });
 
                     if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
-                        let content = decrypt_full_set(encrypted_chunks.as_ref()).unwrap();
+                        let content =
+                            decrypt_full_set(&SecretKey::new(keys), encrypted_chunks.as_ref())
+                                .unwrap();
                         match file.write_all(&content[..]) {
                             Err(error) => println!("File write failed - {:?}", error),
                             Ok(_) => {
@@ -234,15 +223,12 @@ async fn main() {
                         println!("Failed to create {}", (args.arg_destination.unwrap()));
                     }
                 }
-                Ok(_) => {
-                    println!("Unexpected data map");
-                }
                 Err(_) => {
                     println!("Failed to parse data map - possible corruption");
                 }
             }
         } else {
-            println!("Failed to open data map at {:?}", data_map_file);
+            println!("Failed to open data map at {:?}", secret_key_file);
         }
     }
 }
