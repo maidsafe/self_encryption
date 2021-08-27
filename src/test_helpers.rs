@@ -8,9 +8,7 @@
 
 #![doc(hidden)]
 
-use super::Storage;
 use crate::Error;
-use async_trait::async_trait;
 
 use bytes::Bytes;
 use rand::{self, rngs::OsRng, Rng, SeedableRng};
@@ -72,13 +70,8 @@ impl SimpleStorage {
     pub async fn num_entries(&self) -> Result<usize, Error> {
         Ok(self.entries.read().map_err(|_| Error::Poison)?.len())
     }
-}
 
-#[async_trait]
-impl Storage for SimpleStorage {
-    // type Error = Error;
-
-    async fn get(&self, name: Bytes) -> Result<Bytes, Error> {
+    pub async fn get(&self, name: Bytes) -> Result<Bytes, Error> {
         match self
             .entries
             .read()
@@ -91,7 +84,7 @@ impl Storage for SimpleStorage {
         }
     }
 
-    async fn put(&self, name: Bytes, data: Bytes) -> Result<(), Error> {
+    pub async fn put(&self, name: Bytes, data: Bytes) -> Result<(), Error> {
         self.entries
             .write()
             .map_err(|_| Error::Poison)?
@@ -100,7 +93,7 @@ impl Storage for SimpleStorage {
         Ok(())
     }
 
-    async fn delete(&self, name: Bytes) -> Result<(), Error> {
+    pub async fn delete(&self, name: Bytes) -> Result<(), Error> {
         self.entries
             .write()
             .map_err(|_| Error::Poison)?
@@ -109,7 +102,7 @@ impl Storage for SimpleStorage {
         Ok(())
     }
 
-    async fn generate_address(&self, data: Bytes) -> Result<Bytes, Error> {
+    pub async fn generate_address(&self, data: Bytes) -> Result<Bytes, Error> {
         let mut hasher = Sha3::v256();
         let mut output = [0; 32];
         hasher.update(data.as_ref());

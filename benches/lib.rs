@@ -1,4 +1,4 @@
-// Copyright 2018 MaidSafe.net limited.
+// Copyright 2021 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under The General Public License (GPL), version 3.
 // Unless required by applicable law or agreed to in writing, the SAFE Network Software distributed
@@ -53,10 +53,12 @@ use std::time::Duration;
 
 // sample size is _NOT_ the number of times the command is run...
 // https://bheisler.github.io/criterion.rs/book/analysis.html#measurement
-const SAMPLE_SIZE: usize = 10;
+const SAMPLE_SIZE: usize = 20;
 
 fn custom_criterion() -> Criterion {
-    Criterion::default().sample_size(SAMPLE_SIZE)
+    Criterion::default()
+        .measurement_time(Duration::from_secs(40))
+        .sample_size(SAMPLE_SIZE)
 }
 
 fn write(b: &mut Bencher<'_>, bytes_len: usize) {
@@ -65,7 +67,7 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
         || random_bytes(bytes_len),
         // actual benchmark
         |bytes| {
-            let _chunks = encrypt(bytes).unwrap();
+            let (_secret_key, _encrypted_chunks) = encrypt(bytes).unwrap();
         },
         BatchSize::SmallInput,
     );
@@ -76,8 +78,8 @@ fn read(b: &mut Bencher, bytes_len: usize) {
         // the setup
         || encrypt(random_bytes(bytes_len)).unwrap(),
         // actual benchmark
-        |chunks| {
-            let _raw_data = decrypt_full_set(&chunks).unwrap();
+        |(secret_key, encrypted_chunks)| {
+            let _raw_data = decrypt_full_set(&secret_key, &encrypted_chunks).unwrap();
         },
         BatchSize::SmallInput,
     );
@@ -85,8 +87,6 @@ fn read(b: &mut Bencher, bytes_len: usize) {
 
 fn main() {
     let mut criterion = custom_criterion();
-    criterion = criterion.measurement_time(Duration::from_millis(20_000));
-
     bench_encryptor(&mut criterion);
 }
 

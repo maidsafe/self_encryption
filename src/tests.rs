@@ -7,18 +7,19 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::{
-    chunk::batch_chunks, decrypt_full_set, decrypt_range, encrypt::encrypt, get_chunk_size,
-    get_num_chunks, overlapped_chunks, test_helpers::random_bytes, EncryptedChunk, Error,
+    decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
+    test_helpers::random_bytes, EncryptedChunk, Error, SecretKey,
 };
 use bytes::Bytes;
 use itertools::Itertools;
 
 #[test]
-fn read_write() -> Result<(), Error> {
-    let file_size = 100_000_000;
+fn write_and_read() -> Result<(), Error> {
+    let file_size = 10_000_000;
     let bytes = random_bytes(file_size);
 
-    let raw_data = decrypt_full_set(&encrypt_chunks(bytes.clone()))?;
+    let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+    let raw_data = decrypt_full_set(&secret_key, &encrypted_chunks)?;
 
     compare(bytes, raw_data)
 }
@@ -39,25 +40,18 @@ fn seek() -> Result<(), Error> {
         let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
 
         // first encrypt the whole file
-        let encrypted_chunks = encrypt_chunks(bytes.clone());
-
-        // get all keys
-        let all_keys: Vec<_> = encrypted_chunks
-            .iter()
-            .sorted_by_key(|c| c.key.index)
-            .map(|c| c.key.clone())
-            .collect();
+        let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
 
         // select a subset of chunks; the ones covering the bytes we want to read
         let subset: Vec<_> = encrypted_chunks
             .into_iter()
-            .filter(|c| c.key.index >= start_index && c.key.index <= end_index)
-            .sorted_by_key(|c| c.key.index)
+            .filter(|c| c.index >= start_index && c.index <= end_index)
+            .sorted_by_key(|c| c.index)
             .collect();
 
         // the start position within the first chunk (thus `relative`..)
         let relative_pos = pos % get_chunk_size(file_size, start_index);
-        let read_data = decrypt_range(&all_keys, &subset, relative_pos, len)?;
+        let read_data = decrypt_range(&secret_key, &subset, relative_pos, len)?;
 
         compare(expected_data, read_data)?;
     }
@@ -74,15 +68,11 @@ fn compare(original: Bytes, result: Bytes) -> Result<(), Error> {
     Ok(())
 }
 
-fn encrypt_chunks(bytes: Bytes) -> Vec<EncryptedChunk> {
-    let batches = batch_chunks(bytes.clone());
-    let encrypted_chunks = encrypt(batches);
-
+fn encrypt_chunks(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>), Error> {
     let num_chunks = get_num_chunks(bytes.len());
+    let (secret_key, encrypted_chunks) = encrypt(bytes)?;
+
     assert_eq!(num_chunks, encrypted_chunks.len());
 
-    let encrypted_chunks = encrypted_chunks.into_iter().flatten().collect_vec();
-    assert_eq!(num_chunks, encrypted_chunks.len());
-
-    encrypted_chunks
+    Ok((secret_key, encrypted_chunks))
 }

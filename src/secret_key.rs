@@ -6,58 +6,43 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{Error, Result};
-use bytes::Bytes;
+use super::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter, Write};
 use xor_name::XorName;
 
-/// Holds the information that is required to recover the content of the encrypted file.  Depending
-/// on the file size, this is held as a vector of `ChunkKey`, or as raw data.
+/// A secret key to decrypt a self-encrypted file.
+///
+/// Holds the information that is required to recover the content of the encrypted file.
+/// This is held as a vector of `ChunkKey`, i.e. a list of the file's chunk hashes.
+/// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
+/// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub enum DataMap {
-    /// If the file is large enough (larger than 3072 bytes, 3 * MIN_CHUNK_SIZE), this algorithm
-    /// holds the list of the file's chunks and corresponding hashes.
-    Chunks(Vec<ChunkKey>),
-    /// Very small files (less than 3072 bytes, 3 * MIN_CHUNK_SIZE) are not split into chunks and
-    /// are put in here in their entirety.
-    Content(Bytes),
-}
+pub struct SecretKey(Vec<ChunkKey>);
 
 #[allow(clippy::len_without_is_empty)]
-impl DataMap {
-    /// Original (pre-encryption) size of file in DataMap.
+impl SecretKey {
+    /// A new instance from a vec of partial keys.
+    pub fn new(keys: Vec<ChunkKey>) -> Self {
+        Self(keys)
+    }
+
+    /// Original (pre-encryption) size of the file.
     pub fn file_size(&self) -> usize {
-        match *self {
-            DataMap::Chunks(ref chunks) => DataMap::total_size(chunks),
-            DataMap::Content(ref content) => content.len(),
-        }
+        SecretKey::total_size(&self.0)
     }
 
     /// Returns the list of chunks pre and post encryption hashes if present.
-    pub fn keys(&self) -> Result<Vec<ChunkKey>> {
-        match *self {
-            DataMap::Chunks(ref keys) => Ok(keys.to_vec()),
-            _ => Err(Error::Generic("no keys".to_string())),
-        }
+    pub fn keys(&self) -> Vec<ChunkKey> {
+        self.0.to_vec()
     }
 
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn sorted_keys(&self) -> Result<Vec<ChunkKey>> {
-        match *self {
-            DataMap::Chunks(ref keys) => {
-                let mut to_return = keys.to_vec();
-                DataMap::sort_keys(&mut to_return);
-                Ok(to_return)
-            }
-            _ => Err(Error::Generic("no keys".to_string())),
-        }
-    }
-
-    /// Whether the content is stored as chunks or as raw data.
-    pub fn is_chunked(&self) -> bool {
-        matches!(self, DataMap::Chunks(_))
+    pub fn sorted_keys(&self) -> Vec<ChunkKey> {
+        let mut to_return = self.keys();
+        SecretKey::sort_keys(&mut to_return);
+        to_return
     }
 
     /// Sorts list of chunk keys using quicksort
@@ -71,40 +56,19 @@ impl DataMap {
     }
 }
 
-impl Debug for DataMap {
+impl Debug for SecretKey {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
-        match *self {
-            DataMap::Chunks(ref chunks) => {
-                writeln!(formatter, "DataMap::Chunks:")?;
-                let len = chunks.len();
-                for (index, chunk) in chunks.iter().enumerate() {
-                    if index + 1 == len {
-                        write!(formatter, "        {:?}", chunk)?
-                    } else {
-                        writeln!(formatter, "        {:?}", chunk)?
-                    }
-                }
-                Ok(())
-            }
-            DataMap::Content(ref content) => {
-                write!(formatter, "DataMap::Content({})", debug_bytes(content))
+        writeln!(formatter, "SecretKey:")?;
+        let len = self.0.len();
+        for (index, chunk) in self.0.iter().enumerate() {
+            if index + 1 == len {
+                write!(formatter, "        {:?}", chunk)?
+            } else {
+                writeln!(formatter, "        {:?}", chunk)?
             }
         }
+        Ok(())
     }
-}
-
-/// The clear text bytes of a chunk
-/// from a larger piece of data,
-/// and its index in the set of chunks.
-#[derive(Clone)]
-pub struct RawChunk {
-    /// The index of this chunk, in the set of chunks
-    /// obtained from a larger piece of data.
-    pub index: usize,
-    /// The raw data.
-    pub data: Bytes,
-    /// The hash of the raw data in this chunk.
-    pub hash: XorName,
 }
 
 /// This is - in effect - a partial decryption key for an encrypted chunk of data.

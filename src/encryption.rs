@@ -8,15 +8,16 @@
 
 use crate::Error;
 use aes::Aes128;
-use block_modes::block_padding::Pkcs7;
-use block_modes::{BlockMode, Cbc};
+use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
 use bytes::Bytes;
+use xor_name::XOR_NAME_LEN;
+
 type Aes128Cbc = Cbc<Aes128, Pkcs7>;
 
 pub(crate) const KEY_SIZE: usize = 16;
 pub(crate) const IV_SIZE: usize = 16;
 
-pub(crate) const HASH_SIZE: usize = 32;
+pub(crate) const HASH_SIZE: usize = XOR_NAME_LEN;
 pub(crate) const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
 pub(crate) struct Pad(pub [u8; PAD_SIZE]);

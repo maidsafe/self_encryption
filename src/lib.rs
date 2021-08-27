@@ -8,8 +8,8 @@
 
 //! A file **content** self_encryptor.
 //!
-//! This library provides convergent encryption on file-based data and produce a `DataMap` type and
-//! several chunks of data. Each chunk is up to 1MB in size and has a name.  This name is the
+//! This library provides convergent encryption on file-based data and produces a `SecretKey` type and
+//! several chunks of encrypted data. Each chunk is up to 1MB in size and has an index and a name. This name is the
 //! SHA3-256 hash of the content, which allows the chunks to be self-validating.  If size and hash
 //! checks are utilised, a high degree of certainty in the validity of the data can be expected.
 //!
@@ -21,14 +21,21 @@
 //! in the "examples" folder of this project.
 //!
 //! ```
-//! use self_encryption::DataMap;
+//! use self_encryption::{encrypt, test_helpers::random_bytes};
 //!
 //! #[tokio::main]
 //! async fn main() {
+//!     let file_size = 10_000_000;
+//!     let bytes = random_bytes(file_size);
+//!     
+//!     if let Ok((_secret_key, _encrypted_chunks)) = encrypt(bytes) {
+//!         // .. then persist the `encrypted_chunks`.
+//!         // Remember to keep `secret_key` somewhere safe..!
+//!     }
 //! }
 //! ```
 //!
-//! Storage of the `EncryptedChunk`:s or `DataMap` is outwith the scope of this
+//! Storage of the `Vec<EncryptedChunk>` or `SecretKey` is outwith the scope of this
 //! library and must be implemented by the user.
 
 #![doc(
@@ -84,32 +91,25 @@
 #![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
 mod chunk;
-mod data_map;
 mod decrypt;
 mod encrypt;
 mod encryption;
 mod error;
-mod storage;
+mod secret_key;
 pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 
 use self::encryption::{Iv, Key, Pad, IV_SIZE, KEY_SIZE, PAD_SIZE};
 pub use self::{
-    data_map::{ChunkKey, DataMap},
     error::{Error, Result},
-    storage::Storage,
+    secret_key::{ChunkKey, SecretKey},
 };
 use bytes::Bytes;
-use data_map::RawChunk;
-use encryption::HASH_SIZE;
 use itertools::Itertools;
 use std::ops::Range;
-use tiny_keccak::{Hasher, Sha3};
 use xor_name::XorName;
 
-/// The maximum size of file which can be self_encrypted, defined as 1GB.
-pub const MAX_FILE_SIZE: usize = 1024 * 1024 * 1024;
 /// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
 pub const MAX_CHUNK_SIZE: usize = 1024 * 1024;
 /// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.
@@ -118,62 +118,52 @@ pub const MIN_CHUNK_SIZE: usize = 1024;
 /// slower the compression.  Range is 0 to 11.
 pub const COMPRESSION_QUALITY: i32 = 6;
 
-///
-#[derive(Clone)]
-pub struct EncryptionBatch {
-    data_size: usize,
-    chunk_infos: Vec<RawChunk>,
-}
-
 /// The actual encrypted content
 /// of the chunk, and its details for
 /// insertion into a data map.
 #[derive(Clone)]
 pub struct EncryptedChunk {
-    /// A partial key, used together with
-    /// the other keys from the original data,
-    /// to identify the encrypted chunk contents and decrypt it.
-    pub key: ChunkKey,
+    /// Index number (zero-based)
+    pub index: usize,
     /// The encrypted contents of the chunk.
     pub content: Bytes,
 }
 
-///
-pub fn encrypt(bytes: Bytes) -> Result<Vec<EncryptedChunk>> {
-    let batches = chunk::batch_chunks(bytes);
-    let chunks = encrypt::encrypt(batches);
-    let count = chunks.len();
-    let chunks: Vec<_> = chunks.into_iter().flatten().collect();
-    if count > chunks.len() {
+/// Encrypts a set of bytes and returns the encrypted data together with
+/// the secret key that is derived from the input data.
+pub fn encrypt(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>)> {
+    let (num_chunks, batches) = chunk::batch_chunks(bytes);
+    let (secret_key, encrypted_chunks) = encrypt::encrypt(batches);
+    if num_chunks > encrypted_chunks.len() {
         return Err(Error::Encryption);
     }
-    Ok(chunks)
+    Ok((secret_key, encrypted_chunks))
 }
 
-///
-pub fn decrypt_full_set(encrypted_chunks: &[EncryptedChunk]) -> Result<Bytes> {
-    let src_hashes = extract_hashes_from_chunks(encrypted_chunks);
-    let encrypted_chunks = encrypted_chunks
+/// Decrypts what is expected to be the full set of chunks covered by the secret key.
+pub fn decrypt_full_set(secret_key: &SecretKey, chunks: &[EncryptedChunk]) -> Result<Bytes> {
+    let src_hashes = extract_hashes(secret_key);
+    let sorted_chunks = chunks
         .iter()
-        .sorted_by_key(|c| c.key.index)
+        .sorted_by_key(|c| c.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
-    decrypt::decrypt(src_hashes, encrypted_chunks)
+    decrypt::decrypt(src_hashes, sorted_chunks)
 }
 
-/// Decrypt a range, used when seeking.
+/// Decrypts a range, used when seeking.
 ///
 /// `relative_pos` is the position within the first read chunk, that we start reading from.
 pub fn decrypt_range(
-    all_keys: &[ChunkKey],
-    encrypted_chunks: &[EncryptedChunk],
+    secret_key: &SecretKey,
+    chunks: &[EncryptedChunk],
     relative_pos: usize,
     len: usize,
 ) -> Result<Bytes> {
-    let src_hashes = extract_hashes_from_keys(all_keys);
-    let encrypted_chunks = encrypted_chunks
+    let src_hashes = extract_hashes(secret_key);
+    let encrypted_chunks = chunks
         .iter()
-        .sorted_by_key(|c| c.key.index)
+        .sorted_by_key(|c| c.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
     decrypt::decrypt(src_hashes, encrypted_chunks).map(|b| b.slice(relative_pos..len))
@@ -187,6 +177,16 @@ pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
         .map(|(&a, &b)| a ^ b)
         .collect();
     Bytes::from(vec)
+}
+
+/// Helper struct for seeking
+/// original file bytes from chunks.
+pub struct SeekInfo {
+    /// Start and end index for the chunks
+    /// covered by a pos and len.
+    pub index_range: Range<usize>,
+    /// The start pos of first chunk.
+    pub start_pos: usize,
 }
 
 /// Helper function for getting info needed
@@ -203,15 +203,9 @@ pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
     }
 }
 
-/// Helper struct for seeking
-/// original file bytes from chunks.
-pub struct SeekInfo {
-    /// Start and end index for the chunks
-    /// covered by a pos and len.
-    pub index_range: Range<usize>,
-    /// The start pos of first chunk.
-    pub start_pos: usize,
-}
+// ------------------------------------------------------------------------------
+//   ---------------------- Private methods -----------------------------------
+// ------------------------------------------------------------------------------
 
 /// Returns the chunk index range [start, end) that is overlapped by the byte range defined by `pos`
 /// and `len`. Returns empty range if `file_size` is so small that there are no chunks.
@@ -229,27 +223,12 @@ fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize)
     (start, end)
 }
 
-fn extract_hashes_from_keys(keys: &[ChunkKey]) -> Vec<XorName> {
-    keys.iter()
-        .sorted_by_key(|c| c.index)
+fn extract_hashes(secret_key: &SecretKey) -> Vec<XorName> {
+    secret_key
+        .sorted_keys()
+        .iter()
         .map(|c| c.src_hash)
         .collect()
-}
-
-fn extract_hashes_from_chunks(chunks: &[EncryptedChunk]) -> Vec<XorName> {
-    chunks
-        .iter()
-        .sorted_by_key(|c| c.key.index)
-        .map(|c| c.key.src_hash)
-        .collect()
-}
-
-fn hash(data: &[u8]) -> XorName {
-    let mut hasher = Sha3::v256();
-    let mut output = [0; HASH_SIZE];
-    hasher.update(data);
-    hasher.finalize(&mut output);
-    XorName(output)
 }
 
 fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[XorName]) -> (Pad, Key, Iv) {

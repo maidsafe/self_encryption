@@ -27,7 +27,7 @@ pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: Vec<EncryptedChunk>) 
             jobs: batch
                 .iter()
                 .map(|c| DecryptionJob {
-                    index: c.key.index,
+                    index: c.index,
                     encrypted_content: c.content.clone(),
                     src_hashes: src_hashes.clone(),
                 })
