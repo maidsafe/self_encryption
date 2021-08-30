@@ -91,17 +91,14 @@ fn main() {
 }
 
 fn bench_encryptor(c: &mut Criterion) {
-    c.bench_function("write_200", |b| write(b, 200));
-    c.bench_function("write_1_kilobyte", |b| write(b, 1024));
+    c.bench_function("write_3_kilobytes", |b| write(b, 3 * 1024));
     c.bench_function("write_512_kilobytes", |b| write(b, 512 * 1024));
     c.bench_function("write_1_megabyte", |b| write(b, 1024 * 1024));
     c.bench_function("write_3_megabytes", |b| write(b, 3 * 1024 * 1024));
     c.bench_function("write_10_megabytes", |b| write(b, 10 * 1024 * 1024));
     c.bench_function("write_100_megabytes", |b| write(b, 100 * 1024 * 1024));
 
-    c.bench_function("read_200", |b| read(b, 200));
-
-    c.bench_function("read_1_kilobyte", |b| read(b, 1024));
+    c.bench_function("read_3_kilobytes", |b| read(b, 3 * 1024));
     c.bench_function("read_512_kilobytes", |b| read(b, 512 * 1024));
     c.bench_function("read_1_megabyte", |b| read(b, 1024 * 1024));
     c.bench_function("read_3_megabytes", |b| read(b, 3 * 1024 * 1024));
