@@ -121,8 +121,7 @@ pub const MIN_CHUNK_SIZE: usize = 1024;
 pub const COMPRESSION_QUALITY: i32 = 6;
 
 /// The actual encrypted content
-/// of the chunk, and its details for
-/// insertion into a data map.
+/// of the chunk, and its key index.
 #[derive(Clone)]
 pub struct EncryptedChunk {
     /// Index number (zero-based)

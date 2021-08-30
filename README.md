@@ -43,7 +43,7 @@ You should now have the example binary in `../self_encryption/target/debug/examp
 
 ##### Decrypt a file:
 
-    cargo run --example basic_encryptor -- -d <full_path_to_data_map> <full_destination_path_including_filename>
+    cargo run --example basic_encryptor -- -d <full_path_to_secret_key> <full_destination_path_including_filename>
 
 This will restore the original file to the given destination path.
 
