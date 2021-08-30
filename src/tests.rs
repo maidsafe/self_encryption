@@ -8,7 +8,7 @@
 
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
-    seek_info, test_helpers::random_bytes, EncryptedChunk, Error, SecretKey,
+    seek_info, test_helpers::random_bytes, EncryptedChunk, Error, SecretKey, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -24,6 +24,7 @@ fn write_and_read() -> Result<(), Error> {
     compare(bytes, raw_data)
 }
 
+/// this test is now superseded by `seek_and_join`
 #[test]
 fn seek_indices() -> Result<(), Error> {
     let file_size = 3072;
@@ -48,27 +49,37 @@ fn seek_indices() -> Result<(), Error> {
 
 #[test]
 fn seek_and_join() -> Result<(), Error> {
-    let file_size = 10_000_000;
-    let bytes = random_bytes(file_size);
-    let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+    for i in 1..15 {
+        let file_size = i * MIN_ENCRYPTABLE_BYTES;
 
-    let read_data_1 = {
-        let pos = 0;
-        let len = file_size / 2;
-        seek(bytes.clone(), &secret_key, &encrypted_chunks, pos, len)?
-    };
-    let read_data_2 = {
-        let pos = file_size / 2;
-        let len = file_size / 2;
-        seek(bytes.clone(), &secret_key, &encrypted_chunks, pos, len)?
-    };
+        for divisor in 2..15 {
+            let len = file_size / divisor;
+            let data = random_bytes(file_size);
+            let (secret_key, encrypted_chunks) = encrypt_chunks(data.clone())?;
 
-    let read_data: Bytes = [read_data_1, read_data_2]
-        .iter()
-        .flat_map(|bytes| bytes.clone())
-        .collect();
+            // Read first part
+            let read_data_1 = {
+                let pos = 0;
+                seek(data.clone(), &secret_key, &encrypted_chunks, pos, len)?
+            };
 
-    compare(bytes, read_data)
+            // Read second part
+            let read_data_2 = {
+                let pos = len;
+                seek(data.clone(), &secret_key, &encrypted_chunks, pos, len)?
+            };
+
+            // Join parts
+            let read_data: Bytes = [read_data_1, read_data_2]
+                .iter()
+                .flat_map(|bytes| bytes.clone())
+                .collect();
+
+            compare(data.slice(0..(2 * len)), read_data)?
+        }
+    }
+
+    Ok(())
 }
 
 fn seek(
@@ -79,7 +90,6 @@ fn seek(
     len: usize,
 ) -> Result<Bytes, Error> {
     let expected_data = bytes.slice(pos..(pos + len));
-
     let info = seek_info(secret_key.file_size(), pos, len);
 
     // select a subset of chunks; the ones covering the bytes we want to read
