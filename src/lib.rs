@@ -358,10 +358,3 @@ fn get_chunk_number(file_size: usize, position: usize) -> usize {
         num_chunks - 1
     }
 }
-
-// fn get_previous_chunk_index(file_size: usize, chunk_index: usize) -> usize {
-//     if get_num_chunks(file_size) == 0 {
-//         return 0;
-//     }
-//     (get_num_chunks(file_size) + chunk_index - 1) % get_num_chunks(file_size)
-// }
