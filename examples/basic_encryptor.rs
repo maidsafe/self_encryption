@@ -137,7 +137,7 @@ async fn main() {
     let storage = Arc::new(DiskBasedStorage { storage_path });
 
     let mut secret_key_file = chunk_store_dir;
-    secret_key_file.push("data_map");
+    secret_key_file.push("secret_key");
 
     if args.flag_encrypt && args.arg_target.is_some() {
         if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
@@ -224,7 +224,7 @@ async fn main() {
                     }
                 }
                 Err(_) => {
-                    println!("Failed to parse data map - possible corruption");
+                    println!("Failed to parse secret key - possible corruption");
                 }
             }
         } else {

@@ -74,7 +74,7 @@ impl Debug for SecretKey {
 /// (pre-compression) size for a given chunk.
 /// This information is required for successful recovery of a chunk, as well as for the
 /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
-/// corresponding DataMap.
+/// corresponding SecretKey.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
 pub struct ChunkKey {
     /// Index number (zero-based)
