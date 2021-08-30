@@ -176,7 +176,8 @@ pub fn decrypt_range(
         .sorted_by_key(|c| c.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
-    decrypt::decrypt(src_hashes, encrypted_chunks).map(|b| b.slice(relative_pos..len))
+    decrypt::decrypt(src_hashes, encrypted_chunks)
+        .map(|b| b.slice(relative_pos..(relative_pos + len)))
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
@@ -196,7 +197,9 @@ pub struct SeekInfo {
     /// covered by a pos and len.
     pub index_range: Range<usize>,
     /// The start pos of first chunk.
-    pub start_pos: usize,
+    /// The position is relative to the
+    /// byte content of that chunk, not the whole file.
+    pub relative_pos: usize,
 }
 
 /// Helper function for getting info needed
@@ -204,12 +207,12 @@ pub struct SeekInfo {
 ///
 /// It is used to first fetch chunks using the `index_range`.
 /// Then the chunks are passed into `self_encryption::decrypt_range` together
-/// with `start_pos` from the `SeekInfo` instance, and the `len` to be read.
+/// with `relative_pos` from the `SeekInfo` instance, and the `len` to be read.
 pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
     let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
     SeekInfo {
         index_range: start_index..end_index,
-        start_pos: pos % get_chunk_size(file_size, start_index),
+        relative_pos: pos % get_chunk_size(file_size, start_index),
     }
 }
 
@@ -220,16 +223,14 @@ pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
 /// Returns the chunk index range [start, end) that is overlapped by the byte range defined by `pos`
 /// and `len`. Returns empty range if `file_size` is so small that there are no chunks.
 fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize) {
+    // FIX THIS SHOULD NOT BE ALLOWED
     if file_size < (3 * MIN_CHUNK_SIZE) || pos >= file_size || len == 0 {
         return (0, 0);
     }
-    let start = get_chunk_number(file_size, pos);
-    let end_pos = pos + len; // inclusive
-    let end = if end_pos < file_size {
-        get_chunk_number(file_size, end_pos)
-    } else {
-        get_num_chunks(file_size)
-    };
+
+    let start = get_chunk_index(file_size, pos);
+    let end = get_chunk_index(file_size, pos + len);
+
     (start, end)
 }
 
@@ -339,10 +340,10 @@ fn get_start_position(file_size: usize, chunk_index: usize) -> usize {
     start
 }
 
-fn get_chunk_number(file_size: usize, position: usize) -> usize {
+fn get_chunk_index(file_size: usize, position: usize) -> usize {
     let num_chunks = get_num_chunks(file_size);
     if num_chunks == 0 {
-        return 0;
+        return 0; // FIX THIS SHOULD NOT BE ALLOWED
     }
 
     let chunk_size = get_chunk_size(file_size, 0);
@@ -352,7 +353,7 @@ fn get_chunk_number(file_size: usize, position: usize) -> usize {
         || remainder >= MIN_CHUNK_SIZE
         || position < file_size - remainder - MIN_CHUNK_SIZE
     {
-        position / chunk_size
+        usize::min(position / chunk_size, num_chunks - 1)
     } else {
         num_chunks - 1
     }
