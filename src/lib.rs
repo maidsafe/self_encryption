@@ -110,6 +110,8 @@ use itertools::Itertools;
 use std::ops::Range;
 use xor_name::XorName;
 
+/// The minimum size (before compression) of data to be self-encrypted, defined as 3kB.
+pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
 /// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
 pub const MAX_CHUNK_SIZE: usize = 1024 * 1024;
 /// The minimum size (before compression) of an individual chunk of the file, defined as 1kB.
@@ -131,7 +133,16 @@ pub struct EncryptedChunk {
 
 /// Encrypts a set of bytes and returns the encrypted data together with
 /// the secret key that is derived from the input data.
+/// Returns an error if the size is too small for self-encryption.
+/// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
+/// Smaller files will have to be batched together for self-encryption to work.
 pub fn encrypt(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>)> {
+    if (MIN_ENCRYPTABLE_BYTES) > bytes.len() {
+        return Err(Error::Generic(format!(
+            "Too small for self-encryption! Required size at least {}",
+            MIN_ENCRYPTABLE_BYTES
+        )));
+    }
     let (num_chunks, batches) = chunk::batch_chunks(bytes);
     let (secret_key, encrypted_chunks) = encrypt::encrypt(batches);
     if num_chunks > encrypted_chunks.len() {
@@ -224,11 +235,7 @@ fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize)
 }
 
 fn extract_hashes(secret_key: &SecretKey) -> Vec<XorName> {
-    secret_key
-        .sorted_keys()
-        .iter()
-        .map(|c| c.src_hash)
-        .collect()
+    secret_key.keys().iter().map(|c| c.src_hash).collect()
 }
 
 fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[XorName]) -> (Pad, Key, Iv) {

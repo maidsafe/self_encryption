@@ -23,7 +23,12 @@ pub struct SecretKey(Vec<ChunkKey>);
 #[allow(clippy::len_without_is_empty)]
 impl SecretKey {
     /// A new instance from a vec of partial keys.
-    pub fn new(keys: Vec<ChunkKey>) -> Self {
+    ///
+    /// Sorts on instantiation.
+    /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
+    /// correct pre-encryption hashes for decryption/encryption.
+    pub fn new(mut keys: Vec<ChunkKey>) -> Self {
+        SecretKey::sort_keys(&mut keys);
         Self(keys)
     }
 
@@ -35,14 +40,6 @@ impl SecretKey {
     /// Returns the list of chunks pre and post encryption hashes if present.
     pub fn keys(&self) -> Vec<ChunkKey> {
         self.0.to_vec()
-    }
-
-    /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
-    /// correct pre-encryption hashes for decryption/encryption.
-    pub fn sorted_keys(&self) -> Vec<ChunkKey> {
-        let mut to_return = self.keys();
-        SecretKey::sort_keys(&mut to_return);
-        to_return
     }
 
     /// Sorts list of chunk keys using quicksort
