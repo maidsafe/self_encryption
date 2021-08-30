@@ -8,7 +8,7 @@
 
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
-    test_helpers::random_bytes, EncryptedChunk, Error, SecretKey,
+    seek_info, test_helpers::random_bytes, EncryptedChunk, Error, SecretKey,
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -25,7 +25,80 @@ fn write_and_read() -> Result<(), Error> {
 }
 
 #[test]
-fn seek() -> Result<(), Error> {
+fn seek_indices() -> Result<(), Error> {
+    let file_size = 3072;
+    let pos = 0;
+    let len = file_size / 2;
+
+    let info = seek_info(file_size, pos, len);
+
+    assert_eq!(0, info.relative_pos);
+    assert_eq!(0, info.index_range.start);
+    assert_eq!(1, info.index_range.end);
+
+    let pos = len;
+    let info = seek_info(file_size, pos, len);
+
+    assert_eq!(512, info.relative_pos);
+    assert_eq!(1, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    Ok(())
+}
+
+#[test]
+fn seek_and_join() -> Result<(), Error> {
+    let file_size = 10_000_000;
+    let bytes = random_bytes(file_size);
+    let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+
+    let read_data_1 = {
+        let pos = 0;
+        let len = file_size / 2;
+        seek(bytes.clone(), &secret_key, &encrypted_chunks, pos, len)?
+    };
+    let read_data_2 = {
+        let pos = file_size / 2;
+        let len = file_size / 2;
+        seek(bytes.clone(), &secret_key, &encrypted_chunks, pos, len)?
+    };
+
+    let read_data: Bytes = [read_data_1, read_data_2]
+        .iter()
+        .flat_map(|bytes| bytes.clone())
+        .collect();
+
+    compare(bytes, read_data)
+}
+
+fn seek(
+    bytes: Bytes,
+    secret_key: &SecretKey,
+    encrypted_chunks: &[EncryptedChunk],
+    pos: usize,
+    len: usize,
+) -> Result<Bytes, Error> {
+    let expected_data = bytes.slice(pos..(pos + len));
+
+    let info = seek_info(secret_key.file_size(), pos, len);
+
+    // select a subset of chunks; the ones covering the bytes we want to read
+    let subset: Vec<_> = encrypted_chunks
+        .iter()
+        .filter(|c| c.index >= info.index_range.start && c.index <= info.index_range.end)
+        .sorted_by_key(|c| c.index)
+        .cloned()
+        .collect();
+
+    let read_data = decrypt_range(secret_key, &subset, info.relative_pos, len)?;
+
+    compare(expected_data, read_data.clone())?;
+
+    Ok(read_data)
+}
+
+#[test]
+fn seek_over_chunk_limit() -> Result<(), Error> {
     // Having first chunk being at index 1 starts at position: 4_194_304
     let start_size = 4_194_300;
     for i in 0..27 {
@@ -34,8 +107,10 @@ fn seek() -> Result<(), Error> {
 
         let pos = file_size / 4;
         let len = file_size / 2;
+
         // this is what we expect to get back from the chunks
-        let expected_data = bytes.slice(pos..len);
+        let expected_data = bytes.slice(pos..(pos + len));
+
         // the chunks covering the bytes we want to read
         let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
 
@@ -60,6 +135,8 @@ fn seek() -> Result<(), Error> {
 }
 
 fn compare(original: Bytes, result: Bytes) -> Result<(), Error> {
+    assert_eq!(original.len(), result.len());
+
     for (counter, (a, b)) in original.into_iter().zip(result).enumerate() {
         if a != b {
             return Err(Error::Generic(format!("Not equal! Counter: {}", counter)));
