@@ -319,7 +319,7 @@ async fn cross_platform_check() -> Result<()> {
         },
     ];
 
-    for (i, c) in secret_key.sorted_keys().into_iter().enumerate() {
+    for (i, c) in secret_key.keys().into_iter().enumerate() {
         assert_eq!(c.src_hash, ref_secret_key[i].src_hash);
         assert_eq!(c.dst_hash, ref_secret_key[i].dst_hash);
     }
