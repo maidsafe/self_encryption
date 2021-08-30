@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.26.0](https://github.com/maidsafe/self_encryption/compare/v0.25.0...v0.26.0) (2021-08-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **docs:** Complete change of API.
+
+### Features
+
+* **reading:** implement faster reading ([26799d9](https://github.com/maidsafe/self_encryption/commit/26799d93658cbd3b11478aea1ad482ecdb8f25bf))
+
+
+### Bug Fixes
+
+* **benches:** update for min size change ([940f6fe](https://github.com/maidsafe/self_encryption/commit/940f6fefb461fa98bd76b125eedb921bc80f749f))
+* enforce min size, sort keys in new ([e7f4ec0](https://github.com/maidsafe/self_encryption/commit/e7f4ec0eef1343c234e7b69143048250523504d2))
+
+
+* **docs:** add explainer for IV and Pad. ([2d56d1a](https://github.com/maidsafe/self_encryption/commit/2d56d1a9a7999b562e59934a1e825a4a05e0dfa4))
+
 ## [0.25.0](https://github.com/maidsafe/self_encryption/compare/v0.24.3...v0.25.0) (2021-07-06)
 
 

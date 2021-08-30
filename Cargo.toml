@@ -8,14 +8,13 @@ license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.25.0"
+version = "0.26.0"
 
 [dependencies]
 aes = "~0.7.4"
 block-modes = "~0.8.1"
 bincode = "1.2.1"
 brotli = "3.3.0"
-bytes = { version = "1.0.1", features = ["serde"] }
 rand = "~0.7.3"
 rand_chacha = "~0.2.2"
 rayon = "1.5.1"
@@ -24,17 +23,21 @@ num_cpus = "1.13.0"
 itertools = "~0.10.0"
 xor_name = "3.1.0"
 
-[dependencies.serde]
-version = "1.0.97"
-features = [ "derive" ]
+  [dependencies.bytes]
+  version = "1.0.1"
+  features = [ "serde" ]
 
-[dependencies.tiny-keccak]
-version = "2.0.2"
-features = [ "sha3" ]
+  [dependencies.serde]
+  version = "1.0.97"
+  features = [ "derive" ]
 
-[dependencies.tokio]
-version = "1.6.0"
-features = [ "macros", "sync", "io-util", "rt", "rt-multi-thread" ]
+  [dependencies.tiny-keccak]
+  version = "2.0.2"
+  features = [ "sha3" ]
+
+  [dependencies.tokio]
+  version = "1.6.0"
+  features = [ "macros", "sync", "io-util", "rt", "rt-multi-thread" ]
 
 [dev-dependencies]
 criterion = "~0.3"
