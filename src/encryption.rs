@@ -20,8 +20,18 @@ pub(crate) const IV_SIZE: usize = 16;
 pub(crate) const HASH_SIZE: usize = XOR_NAME_LEN;
 pub(crate) const PAD_SIZE: usize = (HASH_SIZE * 3) - KEY_SIZE - IV_SIZE;
 
+/// Padding.
+///
+/// In cryptography, padding is any of a number of distinct practices which
+/// all include adding data to the beginning, middle, or end of a message prior to encryption.
+/// https://en.wikipedia.org/wiki/Padding_(cryptography)
 pub(crate) struct Pad(pub [u8; PAD_SIZE]);
 pub(crate) struct Key(pub [u8; KEY_SIZE]);
+/// Initialization vector.
+///
+/// In cryptography, an initialization vector (IV) or starting variable (SV)[1]
+/// is an input to a cryptographic primitive being used to provide the initial state.
+/// https://en.wikipedia.org/wiki/Initialization_vector
 pub(crate) struct Iv(pub [u8; IV_SIZE]);
 
 pub(crate) fn encrypt(data: Bytes, key: &Key, iv: &Iv) -> Result<Bytes, Error> {
