@@ -228,7 +228,7 @@ async fn main() {
                 }
             }
         } else {
-            println!("Failed to open data map at {:?}", secret_key_file);
+            println!("Failed to open secret key at {:?}", secret_key_file);
         }
     }
 }
