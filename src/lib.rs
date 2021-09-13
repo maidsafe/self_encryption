@@ -176,8 +176,16 @@ pub fn decrypt_range(
         .sorted_by_key(|c| c.index)
         .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
         .collect_vec();
-    decrypt::decrypt(src_hashes, encrypted_chunks)
-        .map(|b| b.slice(relative_pos..(relative_pos + len)))
+    let bytes = decrypt::decrypt(src_hashes, encrypted_chunks)?;
+    if relative_pos + len > bytes.len() {
+        Err(Error::Generic(format!(
+            "Too few bytes were decrypted: {} (expected {})",
+            bytes.len(),
+            relative_pos + len
+        )))
+    } else {
+        Ok(bytes.slice(relative_pos..(relative_pos + len)))
+    }
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
