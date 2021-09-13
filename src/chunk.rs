@@ -14,7 +14,6 @@ use xor_name::XorName;
 ///
 #[derive(Clone)]
 pub(crate) struct EncryptionBatch {
-    pub(crate) data_size: usize,
     pub(crate) raw_chunks: Vec<RawChunk>,
 }
 
@@ -58,7 +57,6 @@ pub(crate) fn batch_chunks(bytes: Bytes) -> (usize, Vec<EncryptionBatch>) {
 
     while raw_chunks.peek().is_some() {
         let _ = batches.push(EncryptionBatch {
-            data_size: bytes.len(),
             raw_chunks: raw_chunks.by_ref().take(chunks_per_batch).collect(),
         });
     }
