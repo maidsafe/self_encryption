@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.26.3](https://github.com/maidsafe/self_encryption/compare/v0.26.2...v0.26.3) (2021-09-13)
+
+
+### Features
+
+* **errors:** add specific for too few bytes ([4b572e9](https://github.com/maidsafe/self_encryption/commit/4b572e9857529d76707d6e304d62d9a048850d42))
+
+
+### Bug Fixes
+
+* **seek:** avoid range out of bounds panic ([fcd56b9](https://github.com/maidsafe/self_encryption/commit/fcd56b9e33df2efa1632ef74030301b1a30bdc2f))
+
 ### [0.26.2](https://github.com/maidsafe/self_encryption/compare/v0.26.1...v0.26.2) (2021-09-03)
 
 ### [0.26.1](https://github.com/maidsafe/self_encryption/compare/v0.26.0...v0.26.1) (2021-08-31)
