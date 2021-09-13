@@ -178,11 +178,7 @@ pub fn decrypt_range(
         .collect_vec();
     let bytes = decrypt::decrypt(src_hashes, encrypted_chunks)?;
     if relative_pos + len > bytes.len() {
-        Err(Error::Generic(format!(
-            "Too few bytes were decrypted: {} (expected {})",
-            bytes.len(),
-            relative_pos + len
-        )))
+        Err(Error::TooFewBytesDecrypted(bytes.len(), relative_pos + len))
     } else {
         Ok(bytes.slice(relative_pos..(relative_pos + len)))
     }
