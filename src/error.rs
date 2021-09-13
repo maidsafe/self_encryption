@@ -28,8 +28,8 @@ pub enum Error {
     Decryption(#[source] BlockModeError),
     #[error(display = "A generic I/O error")]
     Io(#[source] IoError),
-    #[error(display = "StorageError({:?})", _0)]
-    Storage(String),
+    #[error(display = "Too few bytes were decrypted ({}), expected {}", _0, _1)]
+    TooFewBytesDecrypted(usize, usize),
     #[error(display = "Generic error({})", _0)]
     Generic(String),
     #[error(display = "Serialisation error")]

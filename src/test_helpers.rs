@@ -15,101 +15,9 @@ use rand::{self, rngs::OsRng, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 use rayon::current_num_threads;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{
-    cmp, env,
-    fmt::{self, Debug, Formatter},
-    sync::{Arc, RwLock},
-};
-use tiny_keccak::{Hasher, Sha3};
+use std::env;
 
 pub type TestRng = ChaChaRng;
-
-#[derive(PartialEq, Eq)]
-pub struct Blob<'a>(pub &'a [u8]);
-
-impl<'a> Debug for Blob<'a> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for byte in self.0[..cmp::min(self.0.len(), 4)].iter() {
-            write!(f, "{:02x}", byte)?;
-        }
-        write!(f, "..")?;
-        for byte in self.0[cmp::max(4, self.0.len()) - 4..].iter() {
-            write!(f, "{:02x}", byte)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone)]
-struct Entry {
-    name: Bytes,
-    data: Bytes,
-}
-
-#[derive(Default, Clone)]
-pub struct SimpleStorage {
-    entries: Arc<RwLock<Vec<Entry>>>,
-}
-
-impl SimpleStorage {
-    pub fn new() -> SimpleStorage {
-        SimpleStorage {
-            entries: Arc::new(RwLock::new(vec![])),
-        }
-    }
-
-    pub async fn has_chunk(&self, name: &[u8]) -> Result<bool, Error> {
-        Ok(self
-            .entries
-            .read()
-            .map_err(|_| Error::Poison)?
-            .iter()
-            .any(|entry| entry.name == name))
-    }
-
-    pub async fn num_entries(&self) -> Result<usize, Error> {
-        Ok(self.entries.read().map_err(|_| Error::Poison)?.len())
-    }
-
-    pub async fn get(&self, name: Bytes) -> Result<Bytes, Error> {
-        match self
-            .entries
-            .read()
-            .map_err(|_| Error::Poison)?
-            .iter()
-            .find(|entry| entry.name == name)
-        {
-            Some(entry) => Ok(entry.data.clone()),
-            None => Err(Error::Storage("Chunk missing in storage".into())),
-        }
-    }
-
-    pub async fn put(&self, name: Bytes, data: Bytes) -> Result<(), Error> {
-        self.entries
-            .write()
-            .map_err(|_| Error::Poison)?
-            .push(Entry { name, data });
-
-        Ok(())
-    }
-
-    pub async fn delete(&self, name: Bytes) -> Result<(), Error> {
-        self.entries
-            .write()
-            .map_err(|_| Error::Poison)?
-            .retain(|entry| entry.name != name);
-
-        Ok(())
-    }
-
-    pub async fn generate_address(&self, data: Bytes) -> Result<Bytes, Error> {
-        let mut hasher = Sha3::v256();
-        let mut output = [0; 32];
-        hasher.update(data.as_ref());
-        hasher.finalize(&mut output);
-        Ok(Bytes::from(output.to_vec()))
-    }
-}
 
 // Create new random number generator suitable for tests. To provide repeatable results, the seed
 // can be overridden using the "SEED" env variable. If this variable is not provided, a random one
@@ -120,12 +28,6 @@ pub fn new_test_rng() -> Result<TestRng, Error> {
     } else {
         rand::thread_rng().gen()
     };
-
-    // println!(
-    //     "RNG seed for thread {:?}: {}",
-    //     thread::current().name().unwrap(),
-    //     seed
-    // );
 
     Ok(TestRng::seed_from_u64(seed))
 }
