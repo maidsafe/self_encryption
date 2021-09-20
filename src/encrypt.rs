@@ -8,11 +8,10 @@
 
 use crate::{
     chunk::{EncryptionBatch, RawChunk},
+    data_map::ChunkInfo,
     encryption::{self, Iv, Key, Pad},
     error::{Error, Result},
-    get_pad_key_and_iv,
-    secret_key::ChunkKey,
-    xor, EncryptedChunk, SecretKey, COMPRESSION_QUALITY,
+    get_pad_key_and_iv, xor, DataMap, EncryptedChunk, COMPRESSION_QUALITY,
 };
 use brotli::enc::BrotliEncoderParams;
 use bytes::Bytes;
@@ -23,7 +22,7 @@ use std::sync::Arc;
 use xor_name::XorName;
 
 /// Encrypt the chunks
-pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (SecretKey, Vec<EncryptedChunk>) {
+pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedChunk>) {
     let src_hashes = Arc::new(
         batches
             .iter()
@@ -52,7 +51,7 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (SecretKey, Vec<Encrypte
                     let dst_hash = XorName::from_content(encrypted_content.as_ref());
 
                     Ok((
-                        ChunkKey {
+                        ChunkInfo {
                             index,
                             dst_hash,
                             src_hash: hash,
@@ -86,7 +85,7 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (SecretKey, Vec<Encrypte
             },
         );
 
-    (SecretKey::new(keys), chunks)
+    (DataMap::new(keys), chunks)
 }
 
 fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes> {

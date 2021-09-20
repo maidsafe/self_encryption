@@ -8,7 +8,7 @@
 
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
-    seek_info, test_helpers::random_bytes, EncryptedChunk, Error, SecretKey, MIN_ENCRYPTABLE_BYTES,
+    seek_info, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -18,8 +18,8 @@ fn write_and_read() -> Result<(), Error> {
     let file_size = 10_000_000;
     let bytes = random_bytes(file_size);
 
-    let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
-    let raw_data = decrypt_full_set(&secret_key, &encrypted_chunks)?;
+    let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+    let raw_data = decrypt_full_set(&data_map, &encrypted_chunks)?;
 
     compare(bytes, raw_data)
 }
@@ -55,18 +55,18 @@ fn seek_and_join() -> Result<(), Error> {
         for divisor in 2..15 {
             let len = file_size / divisor;
             let data = random_bytes(file_size);
-            let (secret_key, encrypted_chunks) = encrypt_chunks(data.clone())?;
+            let (data_map, encrypted_chunks) = encrypt_chunks(data.clone())?;
 
             // Read first part
             let read_data_1 = {
                 let pos = 0;
-                seek(data.clone(), &secret_key, &encrypted_chunks, pos, len)?
+                seek(data.clone(), &data_map, &encrypted_chunks, pos, len)?
             };
 
             // Read second part
             let read_data_2 = {
                 let pos = len;
-                seek(data.clone(), &secret_key, &encrypted_chunks, pos, len)?
+                seek(data.clone(), &data_map, &encrypted_chunks, pos, len)?
             };
 
             // Join parts
@@ -84,13 +84,13 @@ fn seek_and_join() -> Result<(), Error> {
 
 fn seek(
     bytes: Bytes,
-    secret_key: &SecretKey,
+    data_map: &DataMap,
     encrypted_chunks: &[EncryptedChunk],
     pos: usize,
     len: usize,
 ) -> Result<Bytes, Error> {
     let expected_data = bytes.slice(pos..(pos + len));
-    let info = seek_info(secret_key.file_size(), pos, len);
+    let info = seek_info(data_map.file_size(), pos, len);
 
     // select a subset of chunks; the ones covering the bytes we want to read
     let subset: Vec<_> = encrypted_chunks
@@ -100,7 +100,7 @@ fn seek(
         .cloned()
         .collect();
 
-    let read_data = decrypt_range(secret_key, &subset, info.relative_pos, len)?;
+    let read_data = decrypt_range(data_map, &subset, info.relative_pos, len)?;
 
     compare(expected_data, read_data.clone())?;
 
@@ -125,7 +125,7 @@ fn seek_over_chunk_limit() -> Result<(), Error> {
         let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
 
         // first encrypt the whole file
-        let (secret_key, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+        let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
 
         // select a subset of chunks; the ones covering the bytes we want to read
         let subset: Vec<_> = encrypted_chunks
@@ -136,7 +136,7 @@ fn seek_over_chunk_limit() -> Result<(), Error> {
 
         // the start position within the first chunk (thus `relative`..)
         let relative_pos = pos % get_chunk_size(file_size, start_index);
-        let read_data = decrypt_range(&secret_key, &subset, relative_pos, len)?;
+        let read_data = decrypt_range(&data_map, &subset, relative_pos, len)?;
 
         compare(expected_data, read_data)?;
     }
@@ -155,11 +155,11 @@ fn compare(original: Bytes, result: Bytes) -> Result<(), Error> {
     Ok(())
 }
 
-fn encrypt_chunks(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>), Error> {
+fn encrypt_chunks(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>), Error> {
     let num_chunks = get_num_chunks(bytes.len());
-    let (secret_key, encrypted_chunks) = encrypt(bytes)?;
+    let (data_map, encrypted_chunks) = encrypt(bytes)?;
 
     assert_eq!(num_chunks, encrypted_chunks.len());
 
-    Ok((secret_key, encrypted_chunks))
+    Ok((data_map, encrypted_chunks))
 }

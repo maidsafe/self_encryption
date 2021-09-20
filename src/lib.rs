@@ -8,7 +8,7 @@
 
 //! A file **content** self_encryptor.
 //!
-//! This library provides convergent encryption on file-based data and produces a `SecretKey` type and
+//! This library provides convergent encryption on file-based data and produces a `DataMap` type and
 //! several chunks of encrypted data. Each chunk is up to 1MB in size and has an index and a name. This name is the
 //! SHA3-256 hash of the content, which allows the chunks to be self-validating.  If size and hash
 //! checks are utilised, a high degree of certainty in the validity of the data can be expected.
@@ -28,14 +28,14 @@
 //!     let file_size = 10_000_000;
 //!     let bytes = random_bytes(file_size);
 //!     
-//!     if let Ok((_secret_key, _encrypted_chunks)) = encrypt(bytes) {
+//!     if let Ok((_data_map, _encrypted_chunks)) = encrypt(bytes) {
 //!         // .. then persist the `encrypted_chunks`.
-//!         // Remember to keep `secret_key` somewhere safe..!
+//!         // Remember to keep `data_map` somewhere safe..!
 //!     }
 //! }
 //! ```
 //!
-//! Storage of the `Vec<EncryptedChunk>` or `SecretKey` is outwith the scope of this
+//! Storage of the `Vec<EncryptedChunk>` or `DataMap` is outwith the scope of this
 //! library and must be implemented by the user.
 
 #![doc(
@@ -91,19 +91,19 @@
 #![allow(clippy::cast_lossless, clippy::decimal_literal_representation)]
 
 mod chunk;
+mod data_map;
 mod decrypt;
 mod encrypt;
 mod encryption;
 mod error;
-mod secret_key;
 pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 
 use self::encryption::{Iv, Key, Pad, IV_SIZE, KEY_SIZE, PAD_SIZE};
 pub use self::{
+    data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    secret_key::{ChunkKey, SecretKey},
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -131,11 +131,11 @@ pub struct EncryptedChunk {
 }
 
 /// Encrypts a set of bytes and returns the encrypted data together with
-/// the secret key that is derived from the input data.
+/// the data map that is derived from the input data, and is used to later decrypt the encrypted data.
 /// Returns an error if the size is too small for self-encryption.
 /// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
 /// Smaller files will have to be batched together for self-encryption to work.
-pub fn encrypt(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>)> {
+pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
     if (MIN_ENCRYPTABLE_BYTES) > bytes.len() {
         return Err(Error::Generic(format!(
             "Too small for self-encryption! Required size at least {}",
@@ -143,16 +143,16 @@ pub fn encrypt(bytes: Bytes) -> Result<(SecretKey, Vec<EncryptedChunk>)> {
         )));
     }
     let (num_chunks, batches) = chunk::batch_chunks(bytes);
-    let (secret_key, encrypted_chunks) = encrypt::encrypt(batches);
+    let (data_map, encrypted_chunks) = encrypt::encrypt(batches);
     if num_chunks > encrypted_chunks.len() {
         return Err(Error::Encryption);
     }
-    Ok((secret_key, encrypted_chunks))
+    Ok((data_map, encrypted_chunks))
 }
 
-/// Decrypts what is expected to be the full set of chunks covered by the secret key.
-pub fn decrypt_full_set(secret_key: &SecretKey, chunks: &[EncryptedChunk]) -> Result<Bytes> {
-    let src_hashes = extract_hashes(secret_key);
+/// Decrypts what is expected to be the full set of chunks covered by the data map.
+pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
+    let src_hashes = extract_hashes(data_map);
     let sorted_chunks = chunks
         .iter()
         .sorted_by_key(|c| c.index)
@@ -165,12 +165,12 @@ pub fn decrypt_full_set(secret_key: &SecretKey, chunks: &[EncryptedChunk]) -> Re
 ///
 /// `relative_pos` is the position within the first read chunk, that we start reading from.
 pub fn decrypt_range(
-    secret_key: &SecretKey,
+    data_map: &DataMap,
     chunks: &[EncryptedChunk],
     relative_pos: usize,
     len: usize,
 ) -> Result<Bytes> {
-    let src_hashes = extract_hashes(secret_key);
+    let src_hashes = extract_hashes(data_map);
     let encrypted_chunks = chunks
         .iter()
         .sorted_by_key(|c| c.index)
@@ -238,8 +238,8 @@ fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize)
     (start, end)
 }
 
-fn extract_hashes(secret_key: &SecretKey) -> Vec<XorName> {
-    secret_key.keys().iter().map(|c| c.src_hash).collect()
+fn extract_hashes(data_map: &DataMap) -> Vec<XorName> {
+    data_map.infos().iter().map(|c| c.src_hash).collect()
 }
 
 fn get_pad_key_and_iv(chunk_index: usize, chunk_hashes: &[XorName]) -> (Pad, Key, Iv) {

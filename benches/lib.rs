@@ -67,7 +67,7 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
         || random_bytes(bytes_len),
         // actual benchmark
         |bytes| {
-            let (_secret_key, _encrypted_chunks) = encrypt(bytes).unwrap();
+            let (_data_map, _encrypted_chunks) = encrypt(bytes).unwrap();
         },
         BatchSize::SmallInput,
     );
@@ -78,8 +78,8 @@ fn read(b: &mut Bencher, bytes_len: usize) {
         // the setup
         || encrypt(random_bytes(bytes_len)).unwrap(),
         // actual benchmark
-        |(secret_key, encrypted_chunks)| {
-            let _raw_data = decrypt_full_set(&secret_key, &encrypted_chunks).unwrap();
+        |(data_map, encrypted_chunks)| {
+            let _raw_data = decrypt_full_set(&data_map, &encrypted_chunks).unwrap();
         },
         BatchSize::SmallInput,
     );
