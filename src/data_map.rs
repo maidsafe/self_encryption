@@ -11,51 +11,44 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter, Write};
 use xor_name::XorName;
 
-/// A secret key to decrypt a self-encrypted file.
-///
 /// Holds the information that is required to recover the content of the encrypted file.
-/// This is held as a vector of `ChunkKey`, i.e. a list of the file's chunk hashes.
+/// This is held as a vector of `ChunkInfo`, i.e. a list of the file's chunk hashes.
 /// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
 /// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct SecretKey(Vec<ChunkKey>);
+pub struct DataMap(Vec<ChunkInfo>);
 
 #[allow(clippy::len_without_is_empty)]
-impl SecretKey {
+impl DataMap {
     /// A new instance from a vec of partial keys.
     ///
     /// Sorts on instantiation.
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn new(mut keys: Vec<ChunkKey>) -> Self {
-        SecretKey::sort_keys(&mut keys);
+    pub fn new(mut keys: Vec<ChunkInfo>) -> Self {
+        keys.sort_by(|a, b| a.index.cmp(&b.index));
         Self(keys)
     }
 
     /// Original (pre-encryption) size of the file.
     pub fn file_size(&self) -> usize {
-        SecretKey::total_size(&self.0)
+        DataMap::total_size(&self.0)
     }
 
     /// Returns the list of chunks pre and post encryption hashes if present.
-    pub fn keys(&self) -> Vec<ChunkKey> {
+    pub fn infos(&self) -> Vec<ChunkInfo> {
         self.0.to_vec()
     }
 
-    /// Sorts list of chunk keys using quicksort
-    pub fn sort_keys(keys: &mut [ChunkKey]) {
-        keys.sort_by(|a, b| a.index.cmp(&b.index));
-    }
-
     /// Iterates through the keys to figure out the total size of the data, i.e. the file size.
-    fn total_size(keys: &[ChunkKey]) -> usize {
+    fn total_size(keys: &[ChunkInfo]) -> usize {
         keys.iter().fold(0, |acc, chunk| acc + chunk.src_size)
     }
 }
 
-impl Debug for SecretKey {
+impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
-        writeln!(formatter, "SecretKey:")?;
+        writeln!(formatter, "DataMap:")?;
         let len = self.0.len();
         for (index, chunk) in self.0.iter().enumerate() {
             if index + 1 == len {
@@ -74,9 +67,9 @@ impl Debug for SecretKey {
 /// (pre-compression) size for a given chunk.
 /// This information is required for successful recovery of a chunk, as well as for the
 /// encryption/decryption of it's two immediate successors, modulo the number of chunks in the
-/// corresponding SecretKey.
+/// corresponding DataMap.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Default)]
-pub struct ChunkKey {
+pub struct ChunkInfo {
     /// Index number (zero-based)
     pub index: usize,
     /// Post-encryption hash of chunk
@@ -111,11 +104,11 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     )
 }
 
-impl Debug for ChunkKey {
+impl Debug for ChunkInfo {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             formatter,
-            "ChunkKey {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",
+            "ChunkInfo {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",
             self.index,
             debug_bytes(&self.dst_hash),
             debug_bytes(&self.src_hash),

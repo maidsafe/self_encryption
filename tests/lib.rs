@@ -50,7 +50,7 @@
 )]
 
 use bytes::Bytes;
-use self_encryption::{encrypt, ChunkKey, Result};
+use self_encryption::{encrypt, ChunkInfo, Result};
 use xor_name::XorName;
 
 #[tokio::test]
@@ -61,11 +61,11 @@ async fn cross_platform_check() -> Result<()> {
         *c = (i % 17) as u8;
     }
 
-    let (secret_key, _) = encrypt(Bytes::from(content))?;
+    let (data_map, _) = encrypt(Bytes::from(content))?;
 
     // (NB: this hard-coded ref needs update if algorithm changes)
-    let ref_secret_key = vec![
-        ChunkKey {
+    let ref_data_map = vec![
+        ChunkInfo {
             src_hash: XorName([
                 219, 177, 84, 234, 189, 172, 82, 64, 169, 100, 5, 56, 3, 43, 142, 126, 51, 235,
                 194, 243, 30, 130, 132, 197, 137, 36, 170, 62, 46, 44, 176, 201,
@@ -77,7 +77,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 65, 81, 63, 82, 119, 126, 216, 9, 44, 18, 160, 174, 225, 8, 202, 32, 245, 140, 14,
                 169, 252, 209, 97, 96, 134, 165, 102, 106, 250, 196, 27, 70,
@@ -89,7 +89,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 80, 237, 26, 5, 69, 59, 53, 210, 44, 236, 191, 69, 92, 39, 113, 124, 206, 169, 5,
                 126, 189, 2, 146, 80, 68, 186, 142, 219, 37, 170, 135, 61,
@@ -101,7 +101,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 168, 223, 46, 4, 138, 115, 226, 112, 179, 67, 36, 186, 170, 199, 21, 195, 41, 17,
                 99, 227, 30, 226, 46, 42, 78, 210, 189, 107, 185, 167, 32, 74,
@@ -113,7 +113,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 41, 137, 66, 160, 103, 223, 72, 133, 180, 83, 8, 139, 180, 108, 20, 196, 106, 59,
                 73, 6, 160, 187, 8, 16, 93, 157, 142, 155, 85, 118, 239, 192,
@@ -125,7 +125,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 48, 226, 1, 203, 69, 49, 140, 152, 90, 232, 209, 42, 178, 241, 60, 11, 24, 2, 196,
                 26, 14, 229, 127, 68, 119, 116, 135, 195, 248, 217, 227, 78,
@@ -137,7 +137,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 92, 201, 208, 153, 241, 202, 111, 28, 118, 47, 47, 32, 121, 48, 203, 48, 230, 107,
                 102, 195, 184, 106, 245, 173, 157, 171, 139, 50, 28, 56, 80, 225,
@@ -149,7 +149,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 50, 8, 67, 204, 158, 4, 255, 227, 50, 18, 176, 150, 249, 233, 188, 72, 86, 217, 61,
                 100, 161, 131, 124, 26, 245, 166, 44, 16, 125, 230, 153, 190,
@@ -161,7 +161,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 132, 6, 224, 90, 168, 59, 66, 114, 199, 67, 140, 171, 226, 213, 141, 21, 32, 143,
                 4, 192, 143, 64, 253, 216, 200, 76, 162, 121, 130, 169, 89, 229,
@@ -173,7 +173,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 238, 37, 229, 233, 96, 228, 150, 41, 89, 130, 145, 198, 50, 165, 207, 108, 15, 167,
                 122, 116, 209, 223, 68, 203, 24, 169, 74, 93, 44, 170, 24, 233,
@@ -185,7 +185,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 70, 131, 32, 243, 131, 152, 215, 108, 51, 231, 184, 113, 117, 8, 164, 174, 151,
                 152, 232, 29, 11, 58, 104, 46, 55, 81, 249, 207, 213, 77, 151, 237,
@@ -197,7 +197,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 50, 175, 184, 213, 76, 189, 138, 227, 190, 200, 141, 26, 235, 78, 173, 171, 137,
                 95, 43, 119, 8, 145, 253, 102, 189, 117, 247, 89, 246, 214, 129, 182,
@@ -209,7 +209,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 160, 175, 104, 136, 24, 18, 192, 185, 147, 31, 227, 81, 212, 143, 214, 63, 52, 62,
                 218, 48, 35, 220, 0, 184, 62, 137, 152, 35, 144, 149, 229, 86,
@@ -221,7 +221,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 158, 201, 252, 234, 200, 107, 72, 126, 69, 234, 165, 203, 122, 90, 36, 46, 82, 183,
                 61, 84, 128, 62, 118, 112, 222, 74, 164, 198, 20, 217, 96, 143,
@@ -233,7 +233,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 208, 35, 197, 158, 225, 12, 21, 130, 132, 59, 227, 65, 238, 178, 232, 169, 186, 48,
                 27, 106, 153, 46, 168, 196, 199, 70, 105, 236, 161, 167, 109, 43,
@@ -245,7 +245,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 191, 47, 52, 224, 196, 196, 113, 118, 243, 7, 35, 213, 174, 114, 228, 229, 165,
                 182, 217, 102, 55, 16, 174, 159, 197, 166, 75, 192, 182, 186, 173, 1,
@@ -257,7 +257,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 116, 242, 114, 183, 140, 120, 52, 135, 104, 100, 112, 208, 10, 8, 99, 108, 78, 75,
                 84, 111, 100, 57, 241, 143, 117, 172, 80, 19, 43, 142, 225, 227,
@@ -269,7 +269,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 219, 177, 84, 234, 189, 172, 82, 64, 169, 100, 5, 56, 3, 43, 142, 126, 51, 235,
                 194, 243, 30, 130, 132, 197, 137, 36, 170, 62, 46, 44, 176, 201,
@@ -281,7 +281,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 65, 81, 63, 82, 119, 126, 216, 9, 44, 18, 160, 174, 225, 8, 202, 32, 245, 140, 14,
                 169, 252, 209, 97, 96, 134, 165, 102, 106, 250, 196, 27, 70,
@@ -293,7 +293,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 116, 92, 235, 203, 212, 105, 193, 148, 115, 246, 87, 227, 218, 75, 65, 238, 163,
                 237, 235, 125, 249, 153, 21, 52, 162, 96, 47, 150, 30, 182, 208, 112,
@@ -305,7 +305,7 @@ async fn cross_platform_check() -> Result<()> {
             index: 0,
             src_size: 0,
         },
-        ChunkKey {
+        ChunkInfo {
             src_hash: XorName([
                 214, 134, 86, 55, 215, 215, 208, 242, 178, 120, 200, 12, 212, 89, 92, 11, 93, 199,
                 19, 166, 63, 134, 155, 51, 34, 171, 194, 220, 249, 78, 72, 22,
@@ -319,9 +319,9 @@ async fn cross_platform_check() -> Result<()> {
         },
     ];
 
-    for (i, c) in secret_key.keys().into_iter().enumerate() {
-        assert_eq!(c.src_hash, ref_secret_key[i].src_hash);
-        assert_eq!(c.dst_hash, ref_secret_key[i].dst_hash);
+    for (i, c) in data_map.infos().into_iter().enumerate() {
+        assert_eq!(c.src_hash, ref_data_map[i].src_hash);
+        assert_eq!(c.dst_hash, ref_data_map[i].dst_hash);
     }
 
     Ok(())
