@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.27.0](https://github.com/maidsafe/self_encryption/compare/v0.26.3...v0.27.0) (2021-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* Public API changes as SecretKey is renamed to DataMap.
+
+* rename secretkey to datamap ([75f4131](https://github.com/maidsafe/self_encryption/commit/75f41311c2b3c562826f3646792774d4fbc9a728))
+
 ### [0.26.3](https://github.com/maidsafe/self_encryption/compare/v0.26.2...v0.26.3) (2021-09-13)
 
 
