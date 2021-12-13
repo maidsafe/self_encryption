@@ -27,7 +27,7 @@
 //! async fn main() {
 //!     let file_size = 10_000_000;
 //!     let bytes = random_bytes(file_size);
-//!     
+//!
 //!     if let Ok((_data_map, _encrypted_chunks)) = encrypt(bytes) {
 //!         // .. then persist the `encrypted_chunks`.
 //!         // Remember to keep `data_map` somewhere safe..!
@@ -174,14 +174,19 @@ pub fn decrypt_range(
     let encrypted_chunks = chunks
         .iter()
         .sorted_by_key(|c| c.index)
-        .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
+        .cloned()
         .collect_vec();
-    let bytes = decrypt::decrypt(src_hashes, encrypted_chunks)?;
-    if relative_pos + len > bytes.len() {
-        Err(Error::TooFewBytesDecrypted(bytes.len(), relative_pos + len))
-    } else {
-        Ok(bytes.slice(relative_pos..(relative_pos + len)))
+    let mut bytes = decrypt::decrypt(src_hashes, encrypted_chunks)?;
+
+    if relative_pos >= bytes.len() {
+        return Ok(Bytes::new());
     }
+
+    // truncate taking care of overflows
+    let _ = bytes.split_to(relative_pos);
+    bytes.truncate(len);
+
+    Ok(bytes)
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
@@ -232,10 +237,16 @@ fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize)
         return (0, 0);
     }
 
-    let start = get_chunk_index(file_size, pos);
-    let end = get_chunk_index(file_size, pos + len);
+    // calculate end position taking care of overflows
+    let end = match pos.checked_add(len) {
+        Some(end) => end,
+        None => file_size,
+    };
 
-    (start, end)
+    let start_index = get_chunk_index(file_size, pos);
+    let end_index = get_chunk_index(file_size, end);
+
+    (start_index, end_index)
 }
 
 fn extract_hashes(data_map: &DataMap) -> Vec<XorName> {
