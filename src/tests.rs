@@ -24,7 +24,6 @@ fn write_and_read() -> Result<(), Error> {
     compare(bytes, raw_data)
 }
 
-/// this test is now superseded by `seek_and_join`
 #[test]
 fn seek_indices() -> Result<(), Error> {
     let file_size = 3072;
@@ -39,6 +38,12 @@ fn seek_indices() -> Result<(), Error> {
 
     let pos = len;
     let info = seek_info(file_size, pos, len);
+
+    assert_eq!(512, info.relative_pos);
+    assert_eq!(1, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    let info = seek_info(file_size, pos, len + 1);
 
     assert_eq!(512, info.relative_pos);
     assert_eq!(1, info.index_range.start);
@@ -140,6 +145,39 @@ fn seek_over_chunk_limit() -> Result<(), Error> {
 
         compare(expected_data, read_data)?;
     }
+
+    Ok(())
+}
+
+#[test]
+fn seek_with_length_over_data_size() -> Result<(), Error> {
+    let file_size = 10_000_000;
+    let mut bytes = random_bytes(file_size);
+    let start_pos = 512;
+    // we'll call length to be just one more byte than data's length
+    let len = bytes.len() - start_pos + 1;
+
+    // the chunks covering the bytes we want to read
+    let (start_index, end_index) = overlapped_chunks(file_size, start_pos, len);
+
+    // first encrypt the whole file
+    let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+
+    // select a subset of chunks; the ones covering the bytes we want to read
+    let subset: Vec<_> = encrypted_chunks
+        .into_iter()
+        .filter(|c| c.index >= start_index && c.index <= end_index)
+        .sorted_by_key(|c| c.index)
+        .collect();
+
+    // this is what we expect to get back from the chunks
+    let expected_data = bytes.split_off(start_pos);
+
+    let read_data = decrypt_range(&data_map, &subset, start_pos, len)?;
+    compare(expected_data, read_data)?;
+
+    let read_data = decrypt_range(&data_map, &subset, usize::MAX, 1)?;
+    assert!(read_data.is_empty());
 
     Ok(())
 }
