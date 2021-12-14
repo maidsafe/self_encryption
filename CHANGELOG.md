@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.27.1](https://github.com/maidsafe/self_encryption/compare/v0.27.0...v0.27.1) (2021-12-14)
+
+
+### Bug Fixes
+
+* **range:** allow to pass ranges with length overflowing data length ([919ed53](https://github.com/maidsafe/self_encryption/commit/919ed53a4146da30b58ad9483cd98df85d3a4343))
+
 ## [0.27.0](https://github.com/maidsafe/self_encryption/compare/v0.26.3...v0.27.0) (2021-09-22)
 
 
