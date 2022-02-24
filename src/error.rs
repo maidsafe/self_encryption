@@ -7,7 +7,6 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use bincode::ErrorKind;
-use block_modes::BlockModeError;
 use err_derive::Error;
 use std::io::Error as IoError;
 
@@ -24,8 +23,8 @@ pub enum Error {
     Cipher(String),
     #[error(display = "An error within the symmetric encryption process.")]
     Encryption,
-    #[error(display = "An error within the symmetric decryption process.")]
-    Decryption(#[source] BlockModeError),
+    #[error(display = "An error within the symmetric decryption process({})", _0)]
+    Decryption(String),
     #[error(display = "A generic I/O error")]
     Io(#[source] IoError),
     #[error(display = "Generic error({})", _0)]

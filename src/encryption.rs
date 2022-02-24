@@ -7,12 +7,15 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::Error;
-use aes::Aes128;
-use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
+use aes::{
+    cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit},
+    Aes128,
+};
 use bytes::Bytes;
 use xor_name::XOR_NAME_LEN;
 
-type Aes128Cbc = Cbc<Aes128, Pkcs7>;
+type Aes128CbcEnc = cbc::Encryptor<Aes128>;
+type Aes128CbcDec = cbc::Decryptor<Aes128>;
 
 pub(crate) const KEY_SIZE: usize = 16;
 pub(crate) const IV_SIZE: usize = 16;
@@ -35,11 +38,17 @@ pub(crate) struct Key(pub [u8; KEY_SIZE]);
 pub(crate) struct Iv(pub [u8; IV_SIZE]);
 
 pub(crate) fn encrypt(data: Bytes, key: &Key, iv: &Iv) -> Result<Bytes, Error> {
-    let cipher = Aes128Cbc::new_fix(key.0.as_ref().into(), iv.0.as_ref().into());
-    Ok(Bytes::from(cipher.encrypt_vec(data.as_ref())))
+    let cipher = Aes128CbcEnc::new(key.0.as_ref().into(), iv.0.as_ref().into());
+    Ok(Bytes::from(cipher.encrypt_padded_vec_mut::<Pkcs7>(&data)))
 }
 
 pub(crate) fn decrypt(encrypted_data: Bytes, key: &Key, iv: &Iv) -> Result<Bytes, Error> {
-    let cipher = Aes128Cbc::new_fix(key.0.as_ref().into(), iv.0.as_ref().into());
-    Ok(Bytes::from(cipher.decrypt_vec(encrypted_data.as_ref())?))
+    let cipher = Aes128CbcDec::new(key.0.as_ref().into(), iv.0.as_ref().into());
+    match cipher.decrypt_padded_vec_mut::<Pkcs7>(encrypted_data.as_ref()) {
+        Ok(vec) => Ok(Bytes::from(vec)),
+        Err(err) => Err(Error::Decryption(format!(
+            "Decrypt failed with UnpadError({:?})",
+            err
+        ))),
+    }
 }
