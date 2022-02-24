@@ -144,7 +144,7 @@ async fn main() {
             let mut data = Vec::new();
             match file.read_to_end(&mut data) {
                 Ok(_) => (),
-                Err(error) => return println!("{}", error.to_string()),
+                Err(error) => return println!("{}", error),
             }
 
             let (data_map, encrypted_chunks) = encrypt(Bytes::from(data)).unwrap();
