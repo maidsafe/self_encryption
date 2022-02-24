@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.27.2](https://github.com/maidsafe/self_encryption/compare/v0.27.1...v0.27.2) (2022-02-24)
+
+
+### Bug Fixes
+
+* minor clippy fix ([479adba](https://github.com/maidsafe/self_encryption/commit/479adbaf350d6a473c0c2558c54fe4afdf4d2989))
+
 ### [0.27.1](https://github.com/maidsafe/self_encryption/compare/v0.27.0...v0.27.1) (2021-12-14)
 
 
