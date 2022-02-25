@@ -344,15 +344,13 @@ fn get_start_position(file_size: usize, chunk_index: usize) -> usize {
     if total_chunks == 0 {
         return 0;
     }
-    let start;
     let last = (total_chunks - 1) == chunk_index;
     let first_chunk_size = get_chunk_size(file_size, 0);
     if last {
-        start = first_chunk_size * (chunk_index - 1) + get_chunk_size(file_size, chunk_index - 1);
+        first_chunk_size * (chunk_index - 1) + get_chunk_size(file_size, chunk_index - 1)
     } else {
-        start = first_chunk_size * chunk_index;
+        first_chunk_size * chunk_index
     }
-    start
 }
 
 fn get_chunk_index(file_size: usize, position: usize) -> usize {
