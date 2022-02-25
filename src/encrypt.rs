@@ -26,8 +26,7 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedC
     let src_hashes = Arc::new(
         batches
             .iter()
-            .map(|b| &b.raw_chunks)
-            .flatten()
+            .flat_map(|b| &b.raw_chunks)
             .sorted_by_key(|c| c.index)
             .map(|d| &d.hash)
             .cloned()
