@@ -110,6 +110,10 @@ use itertools::Itertools;
 use std::ops::Range;
 use xor_name::XorName;
 
+// export these because they are used in our public API.
+pub use bytes;
+pub use xor_name;
+
 /// The minimum size (before compression) of data to be self-encrypted, defined as 3kB.
 pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
 /// The maximum size (before compression) of an individual chunk of the file, defined as 1MB.
