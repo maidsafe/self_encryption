@@ -56,7 +56,7 @@ pub(crate) fn batch_chunks(bytes: Bytes) -> (usize, Vec<EncryptionBatch>) {
     let mut batches = vec![];
 
     while raw_chunks.peek().is_some() {
-        let _ = batches.push(EncryptionBatch {
+        batches.push(EncryptionBatch {
             raw_chunks: raw_chunks.by_ref().take(chunks_per_batch).collect(),
         });
     }
