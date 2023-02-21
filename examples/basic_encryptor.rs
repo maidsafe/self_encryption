@@ -103,7 +103,7 @@ impl DiskBasedStorage {
 
     fn get(&self, name: XorName) -> Result<Bytes, Error> {
         let path = self.calculate_path(name);
-        let mut file = File::open(&path)?;
+        let mut file = File::open(path)?;
         let mut data = Vec::new();
         let _ = file.read_to_end(&mut data);
         Ok(Bytes::from(data))

@@ -110,8 +110,8 @@ impl Debug for ChunkInfo {
             formatter,
             "ChunkInfo {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",
             self.index,
-            debug_bytes(&self.dst_hash),
-            debug_bytes(&self.src_hash),
+            debug_bytes(self.dst_hash),
+            debug_bytes(self.src_hash),
             self.src_size
         )
     }
