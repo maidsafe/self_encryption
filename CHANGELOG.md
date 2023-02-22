@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.28.0](https://github.com/maidsafe/self_encryption/compare/v0.27.5...v0.28.0) (2023-02-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* reducing the max chunk size from 1MB to 500kB
+
+### Features
+
+* reducing the max chunk size from 1MB to 500kB ([7577322](https://github.com/maidsafe/self_encryption/commit/7577322d9288ce516a9e56dec3aa0977be45e1ac))
+
 ### [0.27.5](https://github.com/maidsafe/self_encryption/compare/v0.27.4...v0.27.5) (2022-08-09)
 
 ### [0.27.4](https://github.com/maidsafe/self_encryption/compare/v0.27.3...v0.27.4) (2022-03-18)
