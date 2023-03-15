@@ -38,7 +38,6 @@ pub(crate) fn batch_chunks(bytes: Bytes) -> (usize, Vec<EncryptionBatch>) {
     let num_chunks = get_num_chunks(data_size);
 
     let raw_chunks: Vec<_> = (0..num_chunks)
-        .into_iter()
         .map(|index| (index, bytes.clone()))
         .par_bridge()
         .map(|(index, bytes)| {
