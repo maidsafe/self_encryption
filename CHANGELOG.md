@@ -19,6 +19,23 @@ All notable changes to this project will be documented in this file. See [standa
 
 * correct max chunk size to 500kiB ([15f41a0](https://github.com/maidsafe/self_encryption/commit/15f41a06c1845c9a5afc29d04c3b153b6dfdc889))
 
+## [0.28.0](https://github.com/maidsafe/self_encryption/compare/v0.27.5...v0.28.0) (2023-03-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* correct max chunk size to 500kiB
+* reducing the max chunk size from 1MB to 500kB
+
+### Features
+
+* reducing the max chunk size from 1MB to 500kB ([7577322](https://github.com/maidsafe/self_encryption/commit/7577322d9288ce516a9e56dec3aa0977be45e1ac))
+
+
+### Bug Fixes
+
+* correct max chunk size to 500kiB ([15f41a0](https://github.com/maidsafe/self_encryption/commit/15f41a06c1845c9a5afc29d04c3b153b6dfdc889))
+
 ## [0.28.0](https://github.com/maidsafe/self_encryption/compare/v0.27.5...v0.28.0) (2023-02-22)
 
 
