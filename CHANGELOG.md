@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.28.1](https://github.com/maidsafe/self_encryption/compare/v0.28.0...v0.28.1) (2023-09-04)
+
+
+### Features
+
+* encrypt from file ([b7f0a38](https://github.com/maidsafe/self_encryption/commit/b7f0a384eff22382da8418b239adcb2bf2d0f086))
+
 ## [0.28.0](https://github.com/maidsafe/self_encryption/compare/v0.27.5...v0.28.0) (2023-03-15)
 
 
