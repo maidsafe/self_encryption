@@ -107,7 +107,7 @@ pub use self::{
 };
 use bytes::Bytes;
 use itertools::Itertools;
-use std::ops::Range;
+use std::{fs::File, io::Read, ops::Range, path::Path};
 use xor_name::XorName;
 
 // export these because they are used in our public API.
@@ -132,6 +132,16 @@ pub struct EncryptedChunk {
     pub index: usize,
     /// The encrypted contents of the chunk.
     pub content: Bytes,
+}
+
+/// Read a file from the disk to encrypt.
+pub fn encrypt_from_file(file_path: &Path) -> Result<(DataMap, Vec<EncryptedChunk>)> {
+    let mut file = File::open(file_path)?;
+    let mut bytes = Vec::new();
+    let _ = file.read_to_end(&mut bytes)?;
+    let bytes = Bytes::from(bytes);
+
+    encrypt(bytes)
 }
 
 /// Encrypts a set of bytes and returns the encrypted data together with
