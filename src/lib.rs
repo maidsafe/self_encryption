@@ -107,7 +107,12 @@ pub use self::{
 };
 use bytes::Bytes;
 use itertools::Itertools;
-use std::{fs::File, io::Read, ops::Range, path::Path};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    ops::Range,
+    path::Path,
+};
 use xor_name::XorName;
 
 // export these because they are used in our public API.
@@ -134,14 +139,53 @@ pub struct EncryptedChunk {
     pub content: Bytes,
 }
 
-/// Read a file from the disk to encrypt.
-pub fn encrypt_from_file(file_path: &Path) -> Result<(DataMap, Vec<EncryptedChunk>)> {
+/// Read a file from the disk to encrypt, and output the chunks to a given output directory if presents.
+pub fn encrypt_from_file(file_path: &Path, output_dir: &Path) -> Result<(DataMap, Vec<XorName>)> {
     let mut file = File::open(file_path)?;
     let mut bytes = Vec::new();
     let _ = file.read_to_end(&mut bytes)?;
     let bytes = Bytes::from(bytes);
 
-    encrypt(bytes)
+    let (data_map, encrypted_chunks) = encrypt(bytes)?;
+
+    let mut chunk_names = Vec::new();
+    for chunk in encrypted_chunks {
+        let chunk_name = XorName::from_content(&chunk.content);
+        chunk_names.push(chunk_name);
+
+        let file_path = output_dir.join(&hex::encode(chunk_name));
+        let mut output_file = File::create(file_path)?;
+        output_file.write_all(&chunk.content)?;
+    }
+
+    Ok((data_map, chunk_names))
+}
+
+/// Decrypts from an expected full set of chunks which presents in the disk.
+/// Output the resulted file to the specific directory.
+pub fn decrypt_from_chunk_files(
+    chunk_dir: &Path,
+    data_map: &DataMap,
+    output_filepath: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut encrypted_chunks = Vec::new();
+    for chunk_info in data_map.infos() {
+        let chunk_name = chunk_info.dst_hash;
+        let file_path = chunk_dir.join(&hex::encode(chunk_name));
+        let mut chunk_file = File::open(file_path)?;
+        let mut chunk_data = Vec::new();
+        let _ = chunk_file.read_to_end(&mut chunk_data)?;
+        encrypted_chunks.push(EncryptedChunk {
+            index: chunk_info.index,
+            content: Bytes::from(chunk_data),
+        });
+    }
+
+    let decrypted_content = decrypt_full_set(data_map, &encrypted_chunks)?;
+    let mut output_file = File::create(output_filepath)?;
+    output_file.write_all(&decrypted_content)?;
+
+    Ok(())
 }
 
 /// Encrypts a set of bytes and returns the encrypted data together with
