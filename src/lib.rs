@@ -157,11 +157,17 @@ pub struct StreamSelfEncryptor {
     data_map: Vec<ChunkInfo>,
     // Progressing collection of source chunks' names
     src_hashes: BTreeMap<usize, XorName>,
+    // File path to flush encrypted_chunks into.
+    chunk_dir: Option<Box<PathBuf>>,
 }
 
 impl StreamSelfEncryptor {
-    /// For encryption, return with an intialized streaming encryptor
-    pub fn encrypt_from_file(file_path: Box<PathBuf>) -> Result<Self> {
+    /// For encryption, return with an intialized streaming encryptor.
+    /// If a `chunk_dir` is provided, the encrypted_chunks will be written into the specified dir as well.
+    pub fn encrypt_from_file(
+        file_path: Box<PathBuf>,
+        chunk_dir: Option<Box<PathBuf>>,
+    ) -> Result<Self> {
         let file = File::open(&*file_path)?;
         let metadata = file.metadata()?;
         let file_size = metadata.len();
@@ -174,6 +180,7 @@ impl StreamSelfEncryptor {
             chunk_index: 0,
             data_map: Vec::new(),
             src_hashes: BTreeMap::new(),
+            chunk_dir,
         })
     }
 
@@ -201,13 +208,19 @@ impl StreamSelfEncryptor {
             src_size: end_pos - start_pos,
         });
 
-        Ok((
-            Some(EncryptedChunk {
-                index,
-                content: encrypted_content,
-            }),
-            None,
-        ))
+        let encrypted_chunk = EncryptedChunk {
+            index,
+            content: encrypted_content,
+        };
+
+        if let Some(chunk_dir) = self.chunk_dir.clone() {
+            let file_path = chunk_dir.join(hex::encode(dst_hash));
+            let result = File::create(file_path);
+            let mut output_file = result?;
+            output_file.write_all(&encrypted_chunk.content)?;
+        }
+
+        Ok((Some(encrypted_chunk), None))
     }
 
     fn read_chunk(&mut self, chunk_index: usize) -> Result<(XorName, Bytes)> {
