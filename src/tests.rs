@@ -15,7 +15,7 @@ use bytes::Bytes;
 use itertools::Itertools;
 use rand::prelude::SliceRandom;
 use std::{
-    fs::File,
+    fs::{create_dir_all, File},
     io::{Read, Write},
 };
 use tempfile::tempdir;
@@ -30,8 +30,14 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     let data = random_bytes(file_size);
     file.write_all(&data)?;
 
+    let chunk_path = dir.path().join("chunk_path");
+    create_dir_all(chunk_path.clone())?;
+
     // Encrypt the file using StreamSelfEncryptor
-    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(Box::new(file_path))?;
+    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
+        Box::new(file_path),
+        Some(Box::new(chunk_path.clone())),
+    )?;
     let mut encrypted_chunks = Vec::new();
     let mut data_map = None;
     while let Ok((chunk, map)) = encryptor.next_encryption() {
@@ -44,6 +50,7 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
             break;
         }
     }
+    let data_map = data_map.unwrap();
 
     // Shuffle the encrypted chunks
     let mut rng = rand::thread_rng();
@@ -51,10 +58,8 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
 
     // Decrypt the shuffled chunks using StreamSelfDecryptor
     let decrypted_file_path = dir.path().join("decrypted");
-    let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
-        Box::new(decrypted_file_path.clone()),
-        &data_map.unwrap(),
-    )?;
+    let mut decryptor =
+        StreamSelfDecryptor::decrypt_to_file(Box::new(decrypted_file_path.clone()), &data_map)?;
     for chunk in encrypted_chunks {
         let _ = decryptor.next_encrypted(chunk)?;
     }
@@ -64,6 +69,21 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     let mut decrypted_data = Vec::new();
     let _ = decrypted_file.read_to_end(&mut decrypted_data)?;
     assert_eq!(data, decrypted_data);
+
+    // Use the flushed encrypted chunks to recover the file and verify with the original data
+    let mut flushed_encrypted_chunks = Vec::new();
+    for chunk_info in data_map.infos() {
+        let file_path = chunk_path.join(&hex::encode(chunk_info.dst_hash));
+        let mut chunk_file = File::open(file_path)?;
+        let mut chunk_data = Vec::new();
+        let _ = chunk_file.read_to_end(&mut chunk_data)?;
+        flushed_encrypted_chunks.push(EncryptedChunk {
+            index: chunk_info.index,
+            content: chunk_data.into(),
+        });
+    }
+    let decrypted_flushed_data = decrypt_full_set(&data_map, &flushed_encrypted_chunks)?;
+    assert_eq!(data, decrypted_flushed_data);
 
     Ok(())
 }
