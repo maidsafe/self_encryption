@@ -8,10 +8,65 @@
 
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
-    seek_info, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, MIN_ENCRYPTABLE_BYTES,
+    seek_info, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, StreamSelfDecryptor,
+    StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
 use itertools::Itertools;
+use rand::prelude::SliceRandom;
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
+use tempfile::tempdir;
+
+#[test]
+fn test_stream_self_encryptor() -> Result<(), Error> {
+    // Create a 10MB temporary file
+    let dir = tempdir()?;
+    let file_path = dir.path().join("tempfile");
+    let mut file = File::create(&file_path)?;
+    let file_size = 10 * 1024 * 1024; // 10MB
+    let data = random_bytes(file_size);
+    file.write_all(&data)?;
+
+    // Encrypt the file using StreamSelfEncryptor
+    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(Box::new(file_path))?;
+    let mut encrypted_chunks = Vec::new();
+    let mut data_map = None;
+    while let Ok((chunk, map)) = encryptor.next_encryption() {
+        if let Some(c) = chunk {
+            encrypted_chunks.push(c);
+        }
+        if let Some(m) = map {
+            // Returning a data_map means file encryption is completed.
+            data_map = Some(m);
+            break;
+        }
+    }
+
+    // Shuffle the encrypted chunks
+    let mut rng = rand::thread_rng();
+    encrypted_chunks.shuffle(&mut rng);
+
+    // Decrypt the shuffled chunks using StreamSelfDecryptor
+    let decrypted_file_path = dir.path().join("decrypted");
+    let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
+        Box::new(decrypted_file_path.clone()),
+        &data_map.unwrap(),
+    )?;
+    for chunk in encrypted_chunks {
+        let _ = decryptor.next_encrypted(chunk)?;
+    }
+
+    // Read the decrypted file and verify that its content matches the original data
+    let mut decrypted_file = File::open(decrypted_file_path)?;
+    let mut decrypted_data = Vec::new();
+    let _ = decrypted_file.read_to_end(&mut decrypted_data)?;
+    assert_eq!(data, decrypted_data);
+
+    Ok(())
+}
 
 #[test]
 fn write_and_read() -> Result<(), Error> {

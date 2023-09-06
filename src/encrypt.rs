@@ -87,7 +87,8 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedC
     (DataMap::new(keys), chunks)
 }
 
-fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes> {
+/// Encrypt the chunk
+pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes> {
     let (pad, key, iv) = pki;
     let mut compressed = vec![];
     let enc_params = BrotliEncoderParams {
