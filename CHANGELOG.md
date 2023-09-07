@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.28.4](https://github.com/maidsafe/self_encryption/compare/v0.28.3...v0.28.4) (2023-09-07)
+
+
+### Features
+
+* stream encryptor write encrypted chunks to disk ([5f3f906](https://github.com/maidsafe/self_encryption/commit/5f3f906804cd2e6871f0f2e982977244afa5e3ec))
+
 ### [0.28.3](https://github.com/maidsafe/self_encryption/compare/v0.28.2...v0.28.3) (2023-09-06)
 
 
