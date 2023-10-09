@@ -112,7 +112,7 @@ use encrypt::encrypt_chunk;
 use itertools::Itertools;
 use std::{
     collections::BTreeMap,
-    fs::{File, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
     ops::Range,
     path::{Path, PathBuf},
@@ -277,6 +277,11 @@ impl StreamSelfDecryptor {
     pub fn decrypt_to_file(file_path: Box<PathBuf>, data_map: &DataMap) -> Result<Self> {
         let temp_dir = tempdir()?;
         let src_hashes = extract_hashes(data_map);
+
+        // The targeted file shall not be pre-exist.
+        // Hence we carry out a forced removal before carry out any further action.
+        let _ = fs::remove_file(&*file_path);
+
         Ok(StreamSelfDecryptor {
             file_path,
             chunk_index: 0,

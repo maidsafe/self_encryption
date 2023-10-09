@@ -58,6 +58,15 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
 
     // Decrypt the shuffled chunks using StreamSelfDecryptor
     let decrypted_file_path = dir.path().join("decrypted");
+
+    // Write something to the decrypted file first to simulate it's corrupted.
+    {
+        let mut file = File::create(&decrypted_file_path)?;
+        let file_size = 1024; // 1KB
+        let data = random_bytes(file_size);
+        file.write_all(&data)?;
+    }
+
     let mut decryptor =
         StreamSelfDecryptor::decrypt_to_file(Box::new(decrypted_file_path.clone()), &data_map)?;
     for chunk in encrypted_chunks {
