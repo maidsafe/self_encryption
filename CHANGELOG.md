@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.28.5](https://github.com/maidsafe/self_encryption/compare/v0.28.4...v0.28.5) (2023-10-09)
+
+
+### Bug Fixes
+
+* ensure decrypter targeting file shall not be pre-existing ([dbeacce](https://github.com/maidsafe/self_encryption/commit/dbeaccedf9a1be4d6f0ebfb4229eb810c48a6b07))
+
 ### [0.28.4](https://github.com/maidsafe/self_encryption/compare/v0.28.3...v0.28.4) (2023-09-07)
 
 
