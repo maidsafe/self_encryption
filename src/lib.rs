@@ -295,7 +295,7 @@ impl StreamSelfDecryptor {
     pub fn next_encrypted(&mut self, encrypted_chunk: EncryptedChunk) -> Result<bool> {
         if encrypted_chunk.index == self.chunk_index {
             let decrypted_content =
-                decrypt_chunk(self.chunk_index, encrypted_chunk.content, &self.src_hashes)?;
+                decrypt_chunk(self.chunk_index, &encrypted_chunk.content, &self.src_hashes)?;
             self.append_to_file(&decrypted_content)?;
 
             self.chunk_index += 1;
@@ -344,7 +344,7 @@ impl StreamSelfDecryptor {
             let _ = chunk_file.read_to_end(&mut chunk_data)?;
 
             let decrypted_content =
-                decrypt_chunk(self.chunk_index, chunk_data.into(), &self.src_hashes)?;
+                decrypt_chunk(self.chunk_index, &chunk_data.into(), &self.src_hashes)?;
             self.append_to_file(&decrypted_content)?;
 
             self.chunk_index += 1;
@@ -426,12 +426,9 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
 /// Decrypts what is expected to be the full set of chunks covered by the data map.
 pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
-    let sorted_chunks = chunks
-        .iter()
-        .sorted_by_key(|c| c.index)
-        .cloned() // should not be needed, something is wrong here, the docs for sorted_by_key says it will return owned items...!
-        .collect_vec();
-    decrypt::decrypt(src_hashes, sorted_chunks)
+    let mut sorted_chunks = Vec::with_capacity(chunks.len());
+    sorted_chunks.extend(chunks.iter().sorted_by_key(|c| c.index));
+    decrypt::decrypt(src_hashes, &sorted_chunks)
 }
 
 /// Decrypts a range, used when seeking.
@@ -444,12 +441,10 @@ pub fn decrypt_range(
     len: usize,
 ) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
-    let encrypted_chunks = chunks
-        .iter()
-        .sorted_by_key(|c| c.index)
-        .cloned()
-        .collect_vec();
-    let mut bytes = decrypt::decrypt(src_hashes, encrypted_chunks)?;
+    let mut sorted_chunks = Vec::with_capacity(chunks.len());
+    sorted_chunks.extend(chunks.iter().sorted_by_key(|c| c.index));
+
+    let mut bytes = decrypt::decrypt(src_hashes, &sorted_chunks)?;
 
     if relative_pos >= bytes.len() {
         return Ok(Bytes::new());
@@ -463,7 +458,7 @@ pub fn decrypt_range(
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)
-pub(crate) fn xor(data: Bytes, &Pad(pad): &Pad) -> Bytes {
+pub(crate) fn xor(data: &Bytes, &Pad(pad): &Pad) -> Bytes {
     let vec: Vec<_> = data
         .iter()
         .zip(pad.iter().cycle())

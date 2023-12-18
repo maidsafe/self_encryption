@@ -11,11 +11,9 @@ use bytes::Bytes;
 use itertools::Itertools;
 use rayon::prelude::*;
 use std::io::Cursor;
-use std::sync::Arc;
 use xor_name::XorName;
 
-pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: Vec<EncryptedChunk>) -> Result<Bytes> {
-    let src_hashes = Arc::new(src_hashes);
+pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: &[&EncryptedChunk]) -> Result<Bytes> {
     let num_chunks = encrypted_chunks.len();
     let cpus = num_cpus::get();
     let batch_size = usize::max(1, (num_chunks as f64 / cpus as f64).ceil() as usize);
@@ -23,29 +21,20 @@ pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: Vec<EncryptedChunk>) 
     let raw_chunks: Vec<(usize, Bytes)> = encrypted_chunks
         .chunks(batch_size)
         .par_bridge()
-        .map(|batch| DecryptionBatch {
-            jobs: batch
-                .iter()
-                .map(|c| DecryptionJob {
-                    index: c.index,
-                    encrypted_content: c.content.clone(),
-                    src_hashes: src_hashes.clone(),
-                })
-                .collect_vec(),
-        })
         .map(|batch| {
-            batch
-                .jobs
+            let mut decrypted_batch = Vec::with_capacity(batch.len());
+            let iter = batch
                 .par_iter()
                 .map(|c| {
-                    Ok::<(usize, Bytes), Error>((
-                        c.index,
-                        decrypt_chunk(c.index, c.encrypted_content.clone(), c.src_hashes.as_ref())?,
-                    ))
+                    // we can pass &src_hashes since Rayon uses scopes under the hood which guarantees that threads are
+                    // joined before src_hashes goes out of scope
+                    let bytes = decrypt_chunk(c.index, &c.content, &src_hashes)?;
+                    Ok::<(usize, Bytes), Error>((c.index, bytes))
                 })
-                .collect::<Vec<_>>()
+                .flatten();
+            decrypted_batch.par_extend(iter);
+            decrypted_batch
         })
-        .flatten()
         .flatten()
         .collect();
 
@@ -66,19 +55,9 @@ pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: Vec<EncryptedChunk>) 
     Ok(raw_data)
 }
 
-struct DecryptionBatch {
-    jobs: Vec<DecryptionJob>,
-}
-
-struct DecryptionJob {
-    index: usize,
-    encrypted_content: Bytes,
-    src_hashes: Arc<Vec<XorName>>,
-}
-
 pub(crate) fn decrypt_chunk(
     chunk_number: usize,
-    content: Bytes,
+    content: &Bytes,
     chunk_hashes: &[XorName],
 ) -> Result<Bytes> {
     let (pad, key, iv) = get_pad_key_and_iv(chunk_number, chunk_hashes);
