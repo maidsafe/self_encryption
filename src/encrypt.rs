@@ -102,5 +102,5 @@ pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes
     )
     .map_err(|_| Error::Compression)?;
     let encrypted = encryption::encrypt(Bytes::from(compressed), &key, &iv)?;
-    Ok(xor(encrypted, &pad))
+    Ok(xor(&encrypted, &pad))
 }
