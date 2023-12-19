@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.28.6](https://github.com/maidsafe/self_encryption/compare/v0.28.5...v0.28.6) (2023-12-19)
+
+
+### Bug Fixes
+
+* **decrypt:** prevent extra clones while decrypting chunks ([9f77326](https://github.com/maidsafe/self_encryption/commit/9f77326bdf477d467ae992478bdc4a795286ef97))
+
 ### [0.28.5](https://github.com/maidsafe/self_encryption/compare/v0.28.4...v0.28.5) (2023-10-09)
 
 
