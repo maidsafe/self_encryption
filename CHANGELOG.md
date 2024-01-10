@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.29.0](https://github.com/maidsafe/self_encryption/compare/v0.28.6...v0.29.0) (2024-01-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* this will affect current chunked data
+
+### Features
+
+* reduce MIN_CHUNK_SIZE and MIN_ENCRYPTABLE_BYTES down to 1/3 bytes. ([11f6a70](https://github.com/maidsafe/self_encryption/commit/11f6a70e6c2a68085612b2c96d6aadca3c8c4f20))
+
 ### [0.28.6](https://github.com/maidsafe/self_encryption/compare/v0.28.5...v0.28.6) (2023-12-19)
 
 
