@@ -45,12 +45,13 @@ xor_name = "5.0.0"
   features = [ "sha3" ]
 
   [dependencies.tokio]
-  version = "1.17.0"
-  features = [ "macros", "sync", "io-util", "rt", "rt-multi-thread" ]
+  version = "1.34.0"
+  features = [ "rt" ]
 
 [dev-dependencies]
 criterion = "~0.3"
 docopt = "~0.9.0"
+tokio = { version = "1.34.0", features = ["rt-multi-thread", "macros"] }
 
 [[example]]
 bench = false
