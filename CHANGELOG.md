@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.29.1](https://github.com/maidsafe/self_encryption/compare/v0.29.0...v0.29.1) (2024-01-24)
+
+
+### Features
+
+* reduce tokio dep requirements ([5f1ab1a](https://github.com/maidsafe/self_encryption/commit/5f1ab1a3ccd6af6d190cdd3e1580ed0a874fe9a3))
+
 ## [0.29.0](https://github.com/maidsafe/self_encryption/compare/v0.28.6...v0.29.0) (2024-01-10)
 
 
