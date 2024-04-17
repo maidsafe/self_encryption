@@ -579,11 +579,7 @@ fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
         return 0;
     }
     if file_size < 3 * MAX_CHUNK_SIZE {
-        if chunk_index < 2 {
-            return file_size / 3;
-        } else {
-            return file_size - (2 * (file_size / 3));
-        }
+        return file_size / 3;
     }
     let total_chunks = get_num_chunks(file_size);
     if chunk_index < total_chunks - 2 {
