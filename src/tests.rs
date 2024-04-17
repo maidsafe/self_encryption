@@ -137,6 +137,39 @@ fn seek_indices() -> Result<(), Error> {
 }
 
 #[test]
+fn seek_indices_on_medium_size_file() -> Result<(), Error> {
+    let file_size = 969_265;
+    let pos = 0;
+    let len = 131072;
+
+    let info = seek_info(file_size, pos, len);
+
+    assert_eq!(0, info.relative_pos);
+    assert_eq!(0, info.index_range.start);
+    assert_eq!(0, info.index_range.end);
+
+    let info = seek_info(file_size, 131072, len);
+
+    assert_eq!(131072, info.relative_pos);
+    assert_eq!(0, info.index_range.start);
+    assert_eq!(0, info.index_range.end);
+
+    let info = seek_info(file_size, 393216, len);
+
+    assert_eq!(70128, info.relative_pos);
+    assert_eq!(1, info.index_range.start);
+    assert_eq!(1, info.index_range.end);
+
+    let info = seek_info(file_size, 655360, len);
+
+    assert_eq!(9184, info.relative_pos);
+    assert_eq!(2, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    Ok(())
+}
+
+#[test]
 fn seek_and_join() -> Result<(), Error> {
     for i in 1..15 {
         let file_size = i * MIN_ENCRYPTABLE_BYTES;
