@@ -195,7 +195,7 @@ fn seek_indices_on_small_size_file() -> Result<(), Error> {
     assert_eq!(2, info.index_range.end);
 
     // last byte of index 2
-    let info = seek_info(file_size, file_size-1, 1);
+    let info = seek_info(file_size, file_size - 1, 1);
 
     assert_eq!(341, info.relative_pos);
     assert_eq!(2, info.index_range.start);
@@ -209,7 +209,7 @@ fn seek_indices_on_small_size_file() -> Result<(), Error> {
     assert_eq!(0, info.index_range.end);
 
     // last byte of index 2 (as 2 remainders in last chunk)
-    let info = seek_info(file_size+1, file_size, 1);
+    let info = seek_info(file_size + 1, file_size, 1);
 
     assert_eq!(342, info.relative_pos);
     assert_eq!(2, info.index_range.start);
