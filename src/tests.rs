@@ -170,6 +170,78 @@ fn seek_indices_on_medium_size_file() -> Result<(), Error> {
 }
 
 #[test]
+fn seek_indices_on_small_size_file() -> Result<(), Error> {
+    let file_size = 1024;
+
+    // first byte of index 0
+    let info = seek_info(file_size, 0, 340);
+
+    assert_eq!(0, info.relative_pos);
+    assert_eq!(0, info.index_range.start);
+    assert_eq!(0, info.index_range.end);
+
+    // first byte of index 1
+    let info = seek_info(file_size, 341, 340);
+
+    assert_eq!(0, info.relative_pos);
+    assert_eq!(1, info.index_range.start);
+    assert_eq!(1, info.index_range.end);
+
+    // first byte of index 2
+    let info = seek_info(file_size, 682, 340);
+
+    assert_eq!(0, info.relative_pos);
+    assert_eq!(2, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    // last byte of index 2
+    let info = seek_info(file_size, file_size-1, 1);
+
+    assert_eq!(341, info.relative_pos);
+    assert_eq!(2, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    // overflow - should this error?
+    let info = seek_info(file_size, file_size, 1);
+
+    assert_eq!(1, info.relative_pos);
+    assert_eq!(0, info.index_range.start);
+    assert_eq!(0, info.index_range.end);
+
+    // last byte of index 2 (as 2 remainders in last chunk)
+    let info = seek_info(file_size+1, file_size, 1);
+
+    assert_eq!(342, info.relative_pos);
+    assert_eq!(2, info.index_range.start);
+    assert_eq!(2, info.index_range.end);
+
+    Ok(())
+}
+
+#[test]
+fn get_chunk_sizes() -> Result<(), Error> {
+    let file_size = 969_265;
+
+    assert_eq!(323088, get_chunk_size(file_size, 0));
+    assert_eq!(323088, get_chunk_size(file_size, 1));
+    assert_eq!(323089, get_chunk_size(file_size, 2));
+
+    let file_size = 1024;
+
+    assert_eq!(341, get_chunk_size(file_size, 0));
+    assert_eq!(341, get_chunk_size(file_size, 1));
+    assert_eq!(342, get_chunk_size(file_size, 2));
+
+    let file_size = 1025;
+
+    assert_eq!(341, get_chunk_size(file_size, 0));
+    assert_eq!(341, get_chunk_size(file_size, 1));
+    assert_eq!(343, get_chunk_size(file_size, 2));
+
+    Ok(())
+}
+
+#[test]
 fn seek_and_join() -> Result<(), Error> {
     for i in 1..15 {
         let file_size = i * MIN_ENCRYPTABLE_BYTES;

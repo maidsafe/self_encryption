@@ -487,9 +487,16 @@ pub struct SeekInfo {
 /// with `relative_pos` from the `SeekInfo` instance, and the `len` to be read.
 pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
     let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
+
+    let relative_pos = if start_index == 2 && file_size < 3 * MAX_CHUNK_SIZE {
+        pos - (2 * get_chunk_size(file_size, 0))
+    } else {
+        pos % get_chunk_size(file_size, start_index)
+    };
+
     SeekInfo {
         index_range: start_index..end_index,
-        relative_pos: pos % get_chunk_size(file_size, start_index),
+        relative_pos,
     }
 }
 
@@ -579,7 +586,12 @@ fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
         return 0;
     }
     if file_size < 3 * MAX_CHUNK_SIZE {
-        return file_size / 3;
+        if chunk_index < 2 {
+            return file_size / 3;
+        } else {
+            // When the file_size % 3 > 0, the third (last) chunk includes the remainder
+            return file_size - (2 * (file_size / 3));
+        }
     }
     let total_chunks = get_num_chunks(file_size);
     if chunk_index < total_chunks - 2 {
