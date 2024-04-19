@@ -324,7 +324,6 @@ impl StreamSelfDecryptor {
     // If the file already exists, the content will be appended to the end of the file.
     fn append_to_file(&self, content: &Bytes) -> std::io::Result<()> {
         let mut file = OpenOptions::new()
-            .write(true)
             .append(true)
             .create(true)
             .open(&*self.file_path)?;
