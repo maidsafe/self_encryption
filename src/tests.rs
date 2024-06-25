@@ -9,7 +9,7 @@
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
     seek_info, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, StreamSelfDecryptor,
-    StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
+    StreamSelfEncryptor, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -239,6 +239,20 @@ fn get_chunk_sizes() -> Result<(), Error> {
     assert_eq!(343, get_chunk_size(file_size, 2));
 
     Ok(())
+}
+
+#[test]
+fn test_get_num_chunks() {
+    for i in 0..3 * MIN_CHUNK_SIZE {
+        assert_eq!(get_num_chunks(i), 0);
+    }
+
+    for i in 3 * MIN_CHUNK_SIZE..3 * MAX_CHUNK_SIZE {
+        assert_eq!(get_num_chunks(i), 3);
+    }
+
+    assert_eq!(get_num_chunks(3 * MAX_CHUNK_SIZE), 3);
+    assert_eq!(get_num_chunks(3 * MAX_CHUNK_SIZE + 1), 4);
 }
 
 #[test]
