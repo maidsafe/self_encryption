@@ -572,11 +572,8 @@ fn get_num_chunks(file_size: usize) -> usize {
     if file_size < (3 * MAX_CHUNK_SIZE) {
         return 3;
     }
-    if file_size % MAX_CHUNK_SIZE == 0 {
-        file_size / MAX_CHUNK_SIZE
-    } else {
-        (file_size / MAX_CHUNK_SIZE) + 1
-    }
+
+    usize::div_ceil(file_size, MAX_CHUNK_SIZE)
 }
 
 // Returns the size of a chunk according to file size.
