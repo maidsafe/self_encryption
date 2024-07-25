@@ -11,7 +11,6 @@ use bytes::Bytes;
 use rayon::prelude::*;
 use xor_name::XorName;
 
-///
 #[derive(Clone)]
 pub(crate) struct EncryptionBatch {
     pub(crate) raw_chunks: Vec<RawChunk>,

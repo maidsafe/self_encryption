@@ -148,7 +148,7 @@ pub struct EncryptedChunk {
 #[derive(Clone)]
 pub struct StreamSelfEncryptor {
     // File path for the encryption target.
-    file_path: Box<PathBuf>,
+    file_path: PathBuf,
     // List of `(start_position, end_position)` for each chunk for the target file.
     batch_positions: Vec<(usize, usize)>,
     // Current step (i.e. chunk_index) for encryption
@@ -158,15 +158,15 @@ pub struct StreamSelfEncryptor {
     // Progressing collection of source chunks' names
     src_hashes: BTreeMap<usize, XorName>,
     // File path to flush encrypted_chunks into.
-    chunk_dir: Option<Box<PathBuf>>,
+    chunk_dir: Option<PathBuf>,
 }
 
 impl StreamSelfEncryptor {
     /// For encryption, return with an intialized streaming encryptor.
     /// If a `chunk_dir` is provided, the encrypted_chunks will be written into the specified dir as well.
     pub fn encrypt_from_file(
-        file_path: Box<PathBuf>,
-        chunk_dir: Option<Box<PathBuf>>,
+        file_path: PathBuf,
+        chunk_dir: Option<PathBuf>,
     ) -> Result<Self> {
         let file = File::open(&*file_path)?;
         let metadata = file.metadata()?;
@@ -261,7 +261,7 @@ impl StreamSelfEncryptor {
 /// The streaming decryptor to carry out the decryption on fly, chunk by chunk.
 pub struct StreamSelfDecryptor {
     // File path for the decryption output.
-    file_path: Box<PathBuf>,
+    file_path: PathBuf,
     // Current step (i.e. chunk_index) for decryption
     chunk_index: usize,
     // Source hashes of the chunks that collected from the data_map, they shall already be sorted by index.
@@ -274,7 +274,7 @@ pub struct StreamSelfDecryptor {
 
 impl StreamSelfDecryptor {
     /// For decryption, return with an intialized streaming decryptor
-    pub fn decrypt_to_file(file_path: Box<PathBuf>, data_map: &DataMap) -> Result<Self> {
+    pub fn decrypt_to_file(file_path: PathBuf, data_map: &DataMap) -> Result<Self> {
         let temp_dir = tempdir()?;
         let src_hashes = extract_hashes(data_map);
 
