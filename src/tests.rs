@@ -35,8 +35,8 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
 
     // Encrypt the file using StreamSelfEncryptor
     let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-        Box::new(file_path),
-        Some(Box::new(chunk_path.clone())),
+        file_path,
+        Some(chunk_path.clone()),
     )?;
     let mut encrypted_chunks = Vec::new();
     let mut data_map = None;
@@ -68,7 +68,7 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     }
 
     let mut decryptor =
-        StreamSelfDecryptor::decrypt_to_file(Box::new(decrypted_file_path.clone()), &data_map)?;
+        StreamSelfDecryptor::decrypt_to_file(decrypted_file_path.clone(), &data_map)?;
     for chunk in encrypted_chunks {
         let _ = decryptor.next_encrypted(chunk)?;
     }
