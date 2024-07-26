@@ -333,7 +333,7 @@ impl StreamSelfDecryptor {
     // Drain any in-order chunks due to the recent filled in piece.
     fn drain_unprocessed(&mut self) -> Result<()> {
         while let Some(chunk_name) = self.encrypted_chunks.get(&self.chunk_index) {
-            let file_path = self.temp_dir.path().join(&hex::encode(chunk_name));
+            let file_path = self.temp_dir.path().join(hex::encode(chunk_name));
             let mut chunk_file = File::open(file_path)?;
             let mut chunk_data = Vec::new();
             let _ = chunk_file.read_to_end(&mut chunk_data)?;
@@ -363,7 +363,7 @@ pub fn encrypt_from_file(file_path: &Path, output_dir: &Path) -> Result<(DataMap
         let chunk_name = XorName::from_content(&chunk.content);
         chunk_names.push(chunk_name);
 
-        let file_path = output_dir.join(&hex::encode(chunk_name));
+        let file_path = output_dir.join(hex::encode(chunk_name));
         let mut output_file = File::create(file_path)?;
         output_file.write_all(&chunk.content)?;
     }
@@ -381,7 +381,7 @@ pub fn decrypt_from_chunk_files(
     let mut encrypted_chunks = Vec::new();
     for chunk_info in data_map.infos() {
         let chunk_name = chunk_info.dst_hash;
-        let file_path = chunk_dir.join(&hex::encode(chunk_name));
+        let file_path = chunk_dir.join(hex::encode(chunk_name));
         let mut chunk_file = File::open(file_path)?;
         let mut chunk_data = Vec::new();
         let _ = chunk_file.read_to_end(&mut chunk_data)?;
