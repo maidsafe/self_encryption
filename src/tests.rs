@@ -34,10 +34,8 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     create_dir_all(chunk_path.clone())?;
 
     // Encrypt the file using StreamSelfEncryptor
-    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-        file_path,
-        Some(chunk_path.clone()),
-    )?;
+    let mut encryptor =
+        StreamSelfEncryptor::encrypt_from_file(file_path, Some(chunk_path.clone()))?;
     let mut encrypted_chunks = Vec::new();
     let mut data_map = None;
     while let Ok((chunk, map)) = encryptor.next_encryption() {
