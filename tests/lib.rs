@@ -43,7 +43,6 @@
     unused_results
 )]
 #![allow(
-    box_pointers,
     missing_copy_implementations,
     missing_debug_implementations,
     variant_size_differences
