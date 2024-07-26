@@ -42,7 +42,6 @@
     variant_size_differences
 )]
 #![allow(
-    box_pointers,
     missing_copy_implementations,
     missing_debug_implementations
 )]
