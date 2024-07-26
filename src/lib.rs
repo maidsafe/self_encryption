@@ -164,10 +164,7 @@ pub struct StreamSelfEncryptor {
 impl StreamSelfEncryptor {
     /// For encryption, return with an intialized streaming encryptor.
     /// If a `chunk_dir` is provided, the encrypted_chunks will be written into the specified dir as well.
-    pub fn encrypt_from_file(
-        file_path: PathBuf,
-        chunk_dir: Option<PathBuf>,
-    ) -> Result<Self> {
+    pub fn encrypt_from_file(file_path: PathBuf, chunk_dir: Option<PathBuf>) -> Result<Self> {
         let file = File::open(&*file_path)?;
         let metadata = file.metadata()?;
         let file_size = metadata.len();
