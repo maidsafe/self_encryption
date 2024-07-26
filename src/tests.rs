@@ -80,7 +80,7 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     // Use the flushed encrypted chunks to recover the file and verify with the original data
     let mut flushed_encrypted_chunks = Vec::new();
     for chunk_info in data_map.infos() {
-        let file_path = chunk_path.join(&hex::encode(chunk_info.dst_hash));
+        let file_path = chunk_path.join(hex::encode(chunk_info.dst_hash));
         let mut chunk_file = File::open(file_path)?;
         let mut chunk_data = Vec::new();
         let _ = chunk_file.read_to_end(&mut chunk_data)?;
