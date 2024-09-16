@@ -22,7 +22,10 @@ use std::sync::Arc;
 use xor_name::XorName;
 
 /// Encrypt the chunks
-pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedChunk>) {
+pub(crate) fn encrypt(
+    max_chunk_size: usize,
+    batches: Vec<EncryptionBatch>,
+) -> (DataMap, Vec<EncryptedChunk>) {
     let src_hashes = Arc::new(
         batches
             .iter()
@@ -84,7 +87,7 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedC
             },
         );
 
-    (DataMap::new(keys), chunks)
+    (DataMap::new(max_chunk_size, keys), chunks)
 }
 
 /// Encrypt the chunk

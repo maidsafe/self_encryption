@@ -13,10 +13,14 @@ use xor_name::XorName;
 
 /// Holds the information that is required to recover the content of the encrypted file.
 /// This is held as a vector of `ChunkInfo`, i.e. a list of the file's chunk hashes.
-/// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
+/// Only files larger than 3072 bytes (3 * chunk size) can be self-encrypted.
 /// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct DataMap(Vec<ChunkInfo>);
+pub struct DataMap {
+    /// max chunk size used during encryption
+    max_chunk_size: usize,
+    chunks: Vec<ChunkInfo>,
+}
 
 #[allow(clippy::len_without_is_empty)]
 impl DataMap {
@@ -25,19 +29,26 @@ impl DataMap {
     /// Sorts on instantiation.
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
-    pub fn new(mut keys: Vec<ChunkInfo>) -> Self {
+    pub fn new(max_chunk_size: usize, mut keys: Vec<ChunkInfo>) -> Self {
         keys.sort_by(|a, b| a.index.cmp(&b.index));
-        Self(keys)
+        Self {
+            max_chunk_size,
+            chunks: keys,
+        }
     }
 
     /// Original (pre-encryption) size of the file.
     pub fn file_size(&self) -> usize {
-        DataMap::total_size(&self.0)
+        DataMap::total_size(&self.chunks)
     }
 
+    /// Returns the maximum chunk size used during encryption.
+    pub fn max_chunk_size(&self) -> usize {
+        self.max_chunk_size
+    }
     /// Returns the list of chunks pre and post encryption hashes if present.
     pub fn infos(&self) -> Vec<ChunkInfo> {
-        self.0.to_vec()
+        self.chunks.to_vec()
     }
 
     /// Iterates through the keys to figure out the total size of the data, i.e. the file size.
@@ -48,9 +59,9 @@ impl DataMap {
 
 impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
-        writeln!(formatter, "DataMap:")?;
-        let len = self.0.len();
-        for (index, chunk) in self.0.iter().enumerate() {
+        writeln!(formatter, "DataMap max_chunk {:?}:", self.max_chunk_size)?;
+        let len = self.chunks.len();
+        for (index, chunk) in self.chunks.iter().enumerate() {
             if index + 1 == len {
                 write!(formatter, "        {:?}", chunk)?
             } else {

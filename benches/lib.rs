@@ -51,6 +51,11 @@ use std::time::Duration;
 // https://bheisler.github.io/criterion.rs/book/analysis.html#measurement
 const SAMPLE_SIZE: usize = 20;
 
+/// The maximum size (before compression) of an individual chunk of a file, defined as 1024kiB.
+const MAX_CHUNK_SIZE: usize = 1024 * 1024;
+/// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
+const MIN_CHUNK_SIZE: usize = 1;
+
 fn custom_criterion() -> Criterion {
     Criterion::default()
         .measurement_time(Duration::from_secs(40))
@@ -63,7 +68,8 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
         || random_bytes(bytes_len),
         // actual benchmark
         |bytes| {
-            let (_data_map, _encrypted_chunks) = encrypt(bytes).unwrap();
+            let (_data_map, _encrypted_chunks) =
+                encrypt(bytes, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE).unwrap();
         },
         BatchSize::SmallInput,
     );
@@ -72,7 +78,7 @@ fn write(b: &mut Bencher<'_>, bytes_len: usize) {
 fn read(b: &mut Bencher, bytes_len: usize) {
     b.iter_batched(
         // the setup
-        || encrypt(random_bytes(bytes_len)).unwrap(),
+        || encrypt(random_bytes(bytes_len), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE).unwrap(),
         // actual benchmark
         |(data_map, encrypted_chunks)| {
             let _raw_data = decrypt_full_set(&data_map, &encrypted_chunks).unwrap();
