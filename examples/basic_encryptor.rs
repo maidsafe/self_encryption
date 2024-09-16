@@ -89,6 +89,11 @@ fn file_name(name: XorName) -> String {
     string
 }
 
+/// The maximum size (before compression) of an individual chunk of a file, defined as 1024kiB.
+const MAX_CHUNK_SIZE: usize = 1024 * 1024;
+/// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
+const MIN_CHUNK_SIZE: usize = 1;
+
 #[derive(Clone)]
 struct DiskBasedStorage {
     pub(crate) storage_path: String,
@@ -147,7 +152,8 @@ async fn main() {
                 Err(error) => return println!("{}", error),
             }
 
-            let (data_map, encrypted_chunks) = encrypt(Bytes::from(data)).unwrap();
+            let (data_map, encrypted_chunks) =
+                encrypt(Bytes::from(data), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE).unwrap();
 
             let result = encrypted_chunks
                 .par_iter()
