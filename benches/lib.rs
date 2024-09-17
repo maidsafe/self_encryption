@@ -41,11 +41,7 @@
     unused_qualifications,
     variant_size_differences
 )]
-#![allow(
-    box_pointers,
-    missing_copy_implementations,
-    missing_debug_implementations
-)]
+#![allow(missing_copy_implementations, missing_debug_implementations)]
 
 use criterion::{BatchSize, Bencher, Criterion};
 use self_encryption::{decrypt_full_set, encrypt, test_helpers::random_bytes};
