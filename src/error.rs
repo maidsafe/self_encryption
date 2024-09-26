@@ -7,8 +7,8 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use bincode::ErrorKind;
-use err_derive::Error;
 use std::io::Error as IoError;
+use thiserror::Error;
 
 /// Specialisation of `std::Result` for crate.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -17,26 +17,26 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum Error {
-    #[error(display = "An error during compression or decompression.")]
+    #[error("An error during compression or decompression.")]
     Compression,
-    #[error(display = "An error during initializing CBC-AES cipher instance.")]
+    #[error("An error during initializing CBC-AES cipher instance.")]
     Cipher(String),
-    #[error(display = "An error within the symmetric encryption process.")]
+    #[error("An error within the symmetric encryption process.")]
     Encryption,
-    #[error(display = "An error within the symmetric decryption process({})", _0)]
+    #[error("An error within the symmetric decryption process({})", _0)]
     Decryption(String),
-    #[error(display = "A generic I/O error")]
-    Io(#[source] IoError),
-    #[error(display = "Generic error({})", _0)]
+    #[error("A generic I/O error")]
+    Io(#[from] IoError),
+    #[error("Generic error({})", _0)]
     Generic(String),
-    #[error(display = "Serialisation error")]
-    Bincode(#[source] Box<ErrorKind>),
-    #[error(display = "deserialization")]
+    #[error("Serialisation error")]
+    Bincode(#[from] Box<ErrorKind>),
+    #[error("deserialization")]
     Deserialise,
-    #[error(display = "num parse error")]
-    NumParse(#[source] std::num::ParseIntError),
-    #[error(display = "Rng error")]
-    Rng(#[source] rand::Error),
-    #[error(display = "Unable to obtain lock")]
+    #[error("num parse error")]
+    NumParse(#[from] std::num::ParseIntError),
+    #[error("Rng error")]
+    Rng(#[from] rand::Error),
+    #[error("Unable to obtain lock")]
     Poison,
 }
