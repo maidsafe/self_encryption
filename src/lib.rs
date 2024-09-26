@@ -109,6 +109,7 @@ use chunk::batch_positions;
 use decrypt::decrypt_chunk;
 use encrypt::encrypt_chunk;
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
@@ -125,8 +126,17 @@ pub use xor_name;
 
 /// The minimum size (before compression) of data to be self-encrypted, defined as 3B.
 pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
-/// The maximum size (before compression) of an individual chunk of a file, defined as 500kiB.
-pub const MAX_CHUNK_SIZE: usize = 512 * 1024;
+/// The default maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
+const DEFAULT_MAX_CHUNK_SIZE: usize = 1024 * 1024;
+
+lazy_static! {
+    /// The maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
+    pub static ref MAX_CHUNK_SIZE: usize = std::option_env!("MAX_CHUNK_SIZE")
+        .unwrap_or("1048576")
+        .parse::<usize>()
+        .unwrap_or(DEFAULT_MAX_CHUNK_SIZE);
+}
+
 /// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
 pub const MIN_CHUNK_SIZE: usize = 1;
 /// Controls the compression-speed vs compression-density tradeoffs.  The higher the quality, the
@@ -483,7 +493,7 @@ pub struct SeekInfo {
 pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
     let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
 
-    let relative_pos = if start_index == 2 && file_size < 3 * MAX_CHUNK_SIZE {
+    let relative_pos = if start_index == 2 && file_size < 3 * *MAX_CHUNK_SIZE {
         pos - (2 * get_chunk_size(file_size, 0))
     } else {
         pos % get_chunk_size(file_size, start_index)
@@ -565,13 +575,13 @@ fn get_num_chunks(file_size: usize) -> usize {
     if file_size < (3 * MIN_CHUNK_SIZE) {
         return 0;
     }
-    if file_size < (3 * MAX_CHUNK_SIZE) {
+    if file_size < (3 * *MAX_CHUNK_SIZE) {
         return 3;
     }
-    if file_size % MAX_CHUNK_SIZE == 0 {
-        file_size / MAX_CHUNK_SIZE
+    if file_size % *MAX_CHUNK_SIZE == 0 {
+        file_size / *MAX_CHUNK_SIZE
     } else {
-        (file_size / MAX_CHUNK_SIZE) + 1
+        (file_size / *MAX_CHUNK_SIZE) + 1
     }
 }
 
@@ -580,7 +590,7 @@ fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
     if file_size < 3 * MIN_CHUNK_SIZE {
         return 0;
     }
-    if file_size < 3 * MAX_CHUNK_SIZE {
+    if file_size < 3 * *MAX_CHUNK_SIZE {
         if chunk_index < 2 {
             return file_size / 3;
         } else {
@@ -590,21 +600,21 @@ fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
     }
     let total_chunks = get_num_chunks(file_size);
     if chunk_index < total_chunks - 2 {
-        return MAX_CHUNK_SIZE;
+        return *MAX_CHUNK_SIZE;
     }
-    let remainder = file_size % MAX_CHUNK_SIZE;
+    let remainder = file_size % *MAX_CHUNK_SIZE;
     let penultimate = (total_chunks - 2) == chunk_index;
     if remainder == 0 {
-        return MAX_CHUNK_SIZE;
+        return *MAX_CHUNK_SIZE;
     }
     if remainder < MIN_CHUNK_SIZE {
         if penultimate {
-            MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
+            *MAX_CHUNK_SIZE - MIN_CHUNK_SIZE
         } else {
             MIN_CHUNK_SIZE + remainder
         }
     } else if penultimate {
-        MAX_CHUNK_SIZE
+        *MAX_CHUNK_SIZE
     } else {
         remainder
     }
