@@ -11,6 +11,22 @@ All notable changes to this project will be documented in this file. See [standa
 
 * reduce tokio dep requirements ([5f1ab1a](https://github.com/maidsafe/self_encryption/commit/5f1ab1a3ccd6af6d190cdd3e1580ed0a874fe9a3))
 
+## [0.30.0](https://github.com/maidsafe/self_encryption/compare/v0.29.2...v0.30.0) - 2024-09-26
+
+### Added
+- allow compile time override of MAX_CHUNK_SIZE
+
+### Other
+- update error derivation crates
+- add test doc to please udeps
+- *(pr)* change code coverage generation
+- *(merge)* remove auto-merge (dependabot)
+- cargo fmt
+- apply cargo clippy --fix
+- remove box_pointers lint
+- cargo fmt
+- [**breaking**] remove usage of Box<PathBuf>
+
 ## [0.29.0](https://github.com/maidsafe/self_encryption/compare/v0.28.6...v0.29.0) (2024-01-10)
 
 
