@@ -9,7 +9,7 @@
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, overlapped_chunks,
     seek_info, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, StreamSelfDecryptor,
-    StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
+    StreamSelfEncryptor,
 };
 use bytes::Bytes;
 use itertools::Itertools;
@@ -19,6 +19,13 @@ use std::{
     io::{Read, Write},
 };
 use tempfile::tempdir;
+
+/// The maximum size (before compression) of an individual chunk of a file, defined as 1024kiB.
+const MAX_CHUNK_SIZE: usize = 1024 * 1024;
+/// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
+const MIN_CHUNK_SIZE: usize = 1;
+
+const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
 
 #[test]
 fn test_stream_self_encryptor() -> Result<(), Error> {
@@ -34,8 +41,12 @@ fn test_stream_self_encryptor() -> Result<(), Error> {
     create_dir_all(chunk_path.clone())?;
 
     // Encrypt the file using StreamSelfEncryptor
-    let mut encryptor =
-        StreamSelfEncryptor::encrypt_from_file(file_path, Some(chunk_path.clone()))?;
+    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
+        file_path,
+        Some(chunk_path.clone()),
+        MIN_CHUNK_SIZE,
+        MAX_CHUNK_SIZE,
+    )?;
     let mut encrypted_chunks = Vec::new();
     let mut data_map = None;
     while let Ok((chunk, map)) = encryptor.next_encryption() {
@@ -100,7 +111,7 @@ fn write_and_read() -> Result<(), Error> {
     let file_size = 10_000_000;
     let bytes = random_bytes(file_size);
 
-    let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+    let (data_map, encrypted_chunks) = test_encrypt_chunks(bytes.clone())?;
     let raw_data = decrypt_full_set(&data_map, &encrypted_chunks)?;
 
     compare(bytes, raw_data)
@@ -112,20 +123,20 @@ fn seek_indices() -> Result<(), Error> {
     let pos = 0;
     let len = file_size / 2;
 
-    let info = seek_info(file_size, pos, len);
+    let info = seek_info(file_size, pos, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(0, info.relative_pos);
     assert_eq!(0, info.index_range.start);
     assert_eq!(1, info.index_range.end);
 
     let pos = len;
-    let info = seek_info(file_size, pos, len);
+    let info = seek_info(file_size, pos, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(512, info.relative_pos);
     assert_eq!(1, info.index_range.start);
     assert_eq!(2, info.index_range.end);
 
-    let info = seek_info(file_size, pos, len + 1);
+    let info = seek_info(file_size, pos, len + 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(512, info.relative_pos);
     assert_eq!(1, info.index_range.start);
@@ -140,25 +151,25 @@ fn seek_indices_on_medium_size_file() -> Result<(), Error> {
     let pos = 0;
     let len = 131072;
 
-    let info = seek_info(file_size, pos, len);
+    let info = seek_info(file_size, pos, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(0, info.relative_pos);
     assert_eq!(0, info.index_range.start);
     assert_eq!(0, info.index_range.end);
 
-    let info = seek_info(file_size, 131072, len);
+    let info = seek_info(file_size, 131072, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(131072, info.relative_pos);
     assert_eq!(0, info.index_range.start);
     assert_eq!(0, info.index_range.end);
 
-    let info = seek_info(file_size, 393216, len);
+    let info = seek_info(file_size, 393216, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(70128, info.relative_pos);
     assert_eq!(1, info.index_range.start);
     assert_eq!(1, info.index_range.end);
 
-    let info = seek_info(file_size, 655360, len);
+    let info = seek_info(file_size, 655360, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(9184, info.relative_pos);
     assert_eq!(2, info.index_range.start);
@@ -172,42 +183,42 @@ fn seek_indices_on_small_size_file() -> Result<(), Error> {
     let file_size = 1024;
 
     // first byte of index 0
-    let info = seek_info(file_size, 0, 340);
+    let info = seek_info(file_size, 0, 340, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(0, info.relative_pos);
     assert_eq!(0, info.index_range.start);
     assert_eq!(0, info.index_range.end);
 
     // first byte of index 1
-    let info = seek_info(file_size, 341, 340);
+    let info = seek_info(file_size, 341, 340, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(0, info.relative_pos);
     assert_eq!(1, info.index_range.start);
     assert_eq!(1, info.index_range.end);
 
     // first byte of index 2
-    let info = seek_info(file_size, 682, 340);
+    let info = seek_info(file_size, 682, 340, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(0, info.relative_pos);
     assert_eq!(2, info.index_range.start);
     assert_eq!(2, info.index_range.end);
 
     // last byte of index 2
-    let info = seek_info(file_size, file_size - 1, 1);
+    let info = seek_info(file_size, file_size - 1, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(341, info.relative_pos);
     assert_eq!(2, info.index_range.start);
     assert_eq!(2, info.index_range.end);
 
     // overflow - should this error?
-    let info = seek_info(file_size, file_size, 1);
+    let info = seek_info(file_size, file_size, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(1, info.relative_pos);
     assert_eq!(0, info.index_range.start);
     assert_eq!(0, info.index_range.end);
 
     // last byte of index 2 (as 2 remainders in last chunk)
-    let info = seek_info(file_size + 1, file_size, 1);
+    let info = seek_info(file_size + 1, file_size, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     assert_eq!(342, info.relative_pos);
     assert_eq!(2, info.index_range.start);
@@ -220,21 +231,48 @@ fn seek_indices_on_small_size_file() -> Result<(), Error> {
 fn get_chunk_sizes() -> Result<(), Error> {
     let file_size = 969_265;
 
-    assert_eq!(323088, get_chunk_size(file_size, 0));
-    assert_eq!(323088, get_chunk_size(file_size, 1));
-    assert_eq!(323089, get_chunk_size(file_size, 2));
+    assert_eq!(
+        323088,
+        get_chunk_size(file_size, 0, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        323088,
+        get_chunk_size(file_size, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        323089,
+        get_chunk_size(file_size, 2, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
 
     let file_size = 1024;
 
-    assert_eq!(341, get_chunk_size(file_size, 0));
-    assert_eq!(341, get_chunk_size(file_size, 1));
-    assert_eq!(342, get_chunk_size(file_size, 2));
+    assert_eq!(
+        341,
+        get_chunk_size(file_size, 0, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        341,
+        get_chunk_size(file_size, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        342,
+        get_chunk_size(file_size, 2, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
 
     let file_size = 1025;
 
-    assert_eq!(341, get_chunk_size(file_size, 0));
-    assert_eq!(341, get_chunk_size(file_size, 1));
-    assert_eq!(343, get_chunk_size(file_size, 2));
+    assert_eq!(
+        341,
+        get_chunk_size(file_size, 0, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        341,
+        get_chunk_size(file_size, 1, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
+    assert_eq!(
+        343,
+        get_chunk_size(file_size, 2, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)
+    );
 
     Ok(())
 }
@@ -247,7 +285,7 @@ fn seek_and_join() -> Result<(), Error> {
         for divisor in 2..15 {
             let len = file_size / divisor;
             let data = random_bytes(file_size);
-            let (data_map, encrypted_chunks) = encrypt_chunks(data.clone())?;
+            let (data_map, encrypted_chunks) = test_encrypt_chunks(data.clone())?;
 
             // Read first part
             let read_data_1 = {
@@ -282,7 +320,13 @@ fn seek(
     len: usize,
 ) -> Result<Bytes, Error> {
     let expected_data = bytes.slice(pos..(pos + len));
-    let info = seek_info(data_map.file_size(), pos, len);
+    let info = seek_info(
+        data_map.file_size(),
+        pos,
+        len,
+        MIN_CHUNK_SIZE,
+        MAX_CHUNK_SIZE,
+    );
 
     // select a subset of chunks; the ones covering the bytes we want to read
     let subset: Vec<_> = encrypted_chunks
@@ -314,10 +358,11 @@ fn seek_over_chunk_limit() -> Result<(), Error> {
         let expected_data = bytes.slice(pos..(pos + len));
 
         // the chunks covering the bytes we want to read
-        let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
+        let (start_index, end_index) =
+            overlapped_chunks(file_size, pos, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
         // first encrypt the whole file
-        let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+        let (data_map, encrypted_chunks) = test_encrypt_chunks(bytes.clone())?;
 
         // select a subset of chunks; the ones covering the bytes we want to read
         let subset: Vec<_> = encrypted_chunks
@@ -327,7 +372,8 @@ fn seek_over_chunk_limit() -> Result<(), Error> {
             .collect();
 
         // the start position within the first chunk (thus `relative`..)
-        let relative_pos = pos % get_chunk_size(file_size, start_index);
+        let relative_pos =
+            pos % get_chunk_size(file_size, start_index, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
         let read_data = decrypt_range(&data_map, &subset, relative_pos, len)?;
 
         compare(expected_data, read_data)?;
@@ -345,10 +391,11 @@ fn seek_with_length_over_data_size() -> Result<(), Error> {
     let len = bytes.len() - start_pos + 1;
 
     // the chunks covering the bytes we want to read
-    let (start_index, end_index) = overlapped_chunks(file_size, start_pos, len);
+    let (start_index, end_index) =
+        overlapped_chunks(file_size, start_pos, len, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
 
     // first encrypt the whole file
-    let (data_map, encrypted_chunks) = encrypt_chunks(bytes.clone())?;
+    let (data_map, encrypted_chunks) = test_encrypt_chunks(bytes.clone())?;
 
     // select a subset of chunks; the ones covering the bytes we want to read
     let subset: Vec<_> = encrypted_chunks
@@ -380,9 +427,9 @@ fn compare(original: Bytes, result: Bytes) -> Result<(), Error> {
     Ok(())
 }
 
-fn encrypt_chunks(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>), Error> {
-    let num_chunks = get_num_chunks(bytes.len());
-    let (data_map, encrypted_chunks) = encrypt(bytes)?;
+fn test_encrypt_chunks(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>), Error> {
+    let num_chunks = get_num_chunks(bytes.len(), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+    let (data_map, encrypted_chunks) = encrypt(bytes, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)?;
 
     assert_eq!(num_chunks, encrypted_chunks.len());
 

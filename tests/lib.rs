@@ -51,8 +51,13 @@
 )]
 
 use bytes::Bytes;
-use self_encryption::{encrypt, ChunkInfo, Result, MAX_CHUNK_SIZE};
+use self_encryption::{encrypt, ChunkInfo, Result};
 use xor_name::XorName;
+
+/// The maximum size (before compression) of an individual chunk of a file, defined as 1024kiB.
+const MAX_CHUNK_SIZE: usize = 1024 * 1024;
+/// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
+const MIN_CHUNK_SIZE: usize = 1;
 
 #[tokio::test]
 async fn cross_platform_check() -> Result<()> {
@@ -62,7 +67,7 @@ async fn cross_platform_check() -> Result<()> {
         *c = (i % 17) as u8;
     }
 
-    let (data_map, _) = encrypt(Bytes::from(content))?;
+    let (data_map, _) = encrypt(Bytes::from(content), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE)?;
 
     // (NB: this hard-coded ref needs update if algorithm changes)
     let ref_data_map = vec![

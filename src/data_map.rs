@@ -13,7 +13,7 @@ use xor_name::XorName;
 
 /// Holds the information that is required to recover the content of the encrypted file.
 /// This is held as a vector of `ChunkInfo`, i.e. a list of the file's chunk hashes.
-/// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
+/// Only files larger than 3072 bytes (3 * chunk size) can be self-encrypted.
 /// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct DataMap(Vec<ChunkInfo>);

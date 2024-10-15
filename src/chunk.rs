@@ -32,15 +32,15 @@ pub struct RawChunk {
 
 /// Hash all the chunks.
 /// Creates [num cores] batches.
-pub(crate) fn batch_chunks(bytes: Bytes) -> (usize, Vec<EncryptionBatch>) {
+pub(crate) fn batch_chunks(bytes: Bytes, max_chunk_size: usize) -> (usize, Vec<EncryptionBatch>) {
     let data_size = bytes.len();
-    let num_chunks = get_num_chunks(data_size);
+    let num_chunks = get_num_chunks(data_size, max_chunk_size);
 
     let raw_chunks: Vec<_> = (0..num_chunks)
         .map(|index| (index, bytes.clone()))
         .par_bridge()
         .map(|(index, bytes)| {
-            let (start, end) = get_start_end_positions(data_size, index);
+            let (start, end) = get_start_end_positions(data_size, index, max_chunk_size);
             let data = bytes.slice(start..end);
             let hash = XorName::from_content(data.as_ref());
             RawChunk { index, data, hash }
@@ -63,10 +63,10 @@ pub(crate) fn batch_chunks(bytes: Bytes) -> (usize, Vec<EncryptionBatch>) {
 }
 
 /// Calculate (start_position, end_position) for each chunk for the input file size
-pub(crate) fn batch_positions(data_size: usize) -> Vec<(usize, usize)> {
-    let num_chunks = get_num_chunks(data_size);
+pub(crate) fn batch_positions(data_size: usize, max_chunk_size: usize) -> Vec<(usize, usize)> {
+    let num_chunks = get_num_chunks(data_size, max_chunk_size);
 
     (0..num_chunks)
-        .map(|index| get_start_end_positions(data_size, index))
+        .map(|index| get_start_end_positions(data_size, index, max_chunk_size))
         .collect()
 }
