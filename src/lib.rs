@@ -76,7 +76,6 @@
     trivial_numeric_casts,
     unused_extern_crates,
     unused_import_braces,
-    unused_qualifications,
     unused_results
 )]
 #![allow(
@@ -98,6 +97,8 @@ mod error;
 pub mod test_helpers;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "python")]
+mod python;
 
 use self::encryption::{Iv, Key, Pad, IV_SIZE, KEY_SIZE, PAD_SIZE};
 pub use self::{

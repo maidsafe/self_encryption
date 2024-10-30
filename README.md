@@ -29,9 +29,27 @@ This library provides very secure encryption of the data, and the returned encry
 
 [Self Encrypting Data](https://docs.maidsafe.net/Whitepapers/pdf/SelfEncryptingData.pdf), David Irvine, First published September 2010, Revised June 2015.
 
-## Examples
+# Python 
 
-### Using `self_encryptor`
+## Installation
+
+```bash
+pip install self-encryption
+```
+'''python
+from self_encryption import PyDataMap
+## Create a data map and encrypt data
+data = b"Hello, World!"
+data_map = PyDataMap(data)
+## Encrypt some data
+encrypted_chunks = data_map.encrypt(data)
+## Decrypt the chunks
+decrypted = data_map.decrypt(encrypted_chunks)
+assert data == decrypted
+'''
+
+
+### Rust - Using `self_encryptor` (Rust)
 
 This library splits a set of bytes into encrypted chunks and also produces a secret key for the same. This secret key allows the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows:
 
