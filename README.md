@@ -11,90 +11,106 @@ Self encrypting files (convergent encryption plus obfuscation)
 
 ## Overview
 
-A version of [convergent encryption](http://en.wikipedia.org/wiki/Convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that takes a set of bytes and returns a secret key derived from those bytes, and a set of encrypted chunks. 
-A reverse function is provided, where the pair returned from encryption (secret key and encrypted chunks) is passed in, returning the original bytes.
-There is also the possibility to seek the original bytes in the contents of the encrypted chunks, by calling the seek helper function to produce information used to locate the relevant chunks, and then call the decrypt_range api with the chunks, the secret key and seek information from the previous step.
+A version of [convergent encryption](http://en.wikipedia.org/wiki/convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that takes a set of bytes and returns a secret key derived from those bytes, and a set of encrypted chunks.
 
-There is an important aspect to note:
-
-This library provides very secure encryption of the data, and the returned encrypted chunks can be considered as safe as if encrypted by any other modern encryption algorithm.
-**However** the returned secret key **requires the same secure handling as would be necessary for any secret key**.
+**Important Security Note**: While this library provides very secure encryption of the data, the returned secret key **requires the same secure handling as would be necessary for any secret key**.
 
 ![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self_encryption.png?raw=true)
 
-## Video of the process
-[self_encryption process and use case video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
+## Documentation
+- [Self Encrypting Data Whitepaper](https://docs.maidsafe.net/Whitepapers/pdf/SelfEncryptingData.pdf)
+- [Process Overview Video](https://www.youtube.com/watch?v=Jnvwv4z17b4)
 
-## Whitepaper
+## Usage
 
-[Self Encrypting Data](https://docs.maidsafe.net/Whitepapers/pdf/SelfEncryptingData.pdf), David Irvine, First published September 2010, Revised June 2015.
+The library can be used through either Rust or Python interfaces.
 
-# Python 
+### Rust Usage
 
-## Installation and example use for python
+#### Installation
+
+Add this to your `Cargo.toml`:
+```toml
+[dependencies]
+self_encryption = "0.30"
+```
+
+#### Example Using Basic Encryptor
+
+```bash
+# Encrypt a file
+cargo run --example basic_encryptor -- -e <full_path_to_any_file>
+
+# Decrypt a file
+cargo run --example basic_encryptor -- -d <full_path_to_secret_key> <full_destination_path_including_filename>
+```
+
+### Python Usage
+
+#### Installation
 
 ```bash
 pip install self-encryption
 ```
-'''python
-from self_encryption import (
-    encrypt_bytes, decrypt_chunks,
-    encrypt_file, decrypt_from_files,
-    StreamSelfEncryptor, StreamSelfDecryptor,
-    DataMap, EncryptedChunk
-)
 
-# Basic encryption/decryption
+#### Basic In-Memory Example
 
-data = b"Hello World" * 1024  # Must be at least 3 bytes
+```python
+from self_encryption import encrypt_bytes, decrypt_chunks
+
+# Create test data (must be at least 3 bytes)
+data = b"Hello World" * 1024  
+
+# Encrypt the data
 data_map, chunks = encrypt_bytes(data)
+
+# Decrypt and verify
 decrypted = decrypt_chunks(data_map, chunks)
+assert data == decrypted
+```
 
-# File-based with chunk storage
+#### File-Based Example with Chunk Storage
 
+```python
+from self_encryption import encrypt_file, decrypt_from_files
+
+# Encrypt file and store chunks
 data_map, chunk_files = encrypt_file("input.txt", "chunks_dir")
+
+# Decrypt from stored chunks
 decrypt_from_files("chunks_dir", data_map, "output.txt")
+```
 
-# Streaming encryption
+#### Streaming Interface Example
 
-encryptor = StreamSelfEncryptor("large_file.dat", "chunks_dir")
+```python
+from self_encryption import StreamSelfEncryptor, StreamSelfDecryptor
+
+# Stream encryption
+encryptor = StreamSelfEncryptor("input_file.dat", chunk_dir="chunks_dir")
+chunks = []
+data_map = None
+
 while True:
-    chunk, data_map = encryptor.next_encryption()
+    chunk, maybe_data_map = encryptor.next_encryption()
     if chunk is None:
+        data_map = maybe_data_map
         break
-    # Process chunk...
+    chunks.append(chunk)
 
-# Streaming decryption
-
-decryptor = StreamSelfDecryptor("output.dat", data_map)
+# Stream decryption
+decryptor = StreamSelfDecryptor("output_file.dat", data_map)
 for chunk in chunks:
     is_complete = decryptor.next_encrypted(chunk)
     if is_complete:
         break
-'''
-
-
-### Rust - Using `self_encryptor` (Rust)
-
-This library splits a set of bytes into encrypted chunks and also produces a secret key for the same. This secret key allows the file to be reconstituted. Instructions to use the 'basic_encryptor' example are as follows:
-
-##### Encrypt a file:
-
-    cargo run --example basic_encryptor -- -e <full_path_to_any_file>
-
-You should now have the example binary in `../self_encryption/target/debug/examples/`. The `secret_key` for the given file and it's encrypted chunks will be written to the current directory.
-
-##### Decrypt a file:
-
-    cargo run --example basic_encryptor -- -d <full_path_to_secret_key> <full_destination_path_including_filename>
-
-This will restore the original file to the given destination path.
+```
 
 ## License
 
 Licensed under the General Public License (GPL), version 3 ([LICENSE](LICENSE) http://www.gnu.org/licenses/gpl-3.0.en.html).
 
-### Linking exception
+### Linking Exception
 
 self_encryption is licensed under GPLv3 with linking exception. This means you can link to and use the library from any program, proprietary or open source; paid or gratis. However, if you modify self_encryption, you must distribute the source to your modified version under the terms of the GPLv3.
 
