@@ -23,6 +23,12 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist
           sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
+          if-no-files-found: error
 
   windows:
     runs-on: windows-latest
@@ -41,6 +47,12 @@ jobs:
         with:
           args: --release --out dist
           sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
+          if-no-files-found: error
 
   linux:
     runs-on: ubuntu-latest
@@ -60,6 +72,12 @@ jobs:
           manylinux: auto
           args: --release --out dist
           sccache: 'true'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
+          if-no-files-found: error
 
   sdist:
     runs-on: ubuntu-latest
@@ -70,6 +88,12 @@ jobs:
         with:
           command: sdist
           args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.tar.gz
+          if-no-files-found: error
 
   release:
     name: Release
@@ -80,10 +104,12 @@ jobs:
         with:
           name: wheels
           path: dist
+      - name: Display structure of downloaded files
+        run: ls -R dist
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         with:
           command: upload
-          args: --skip-existing dist/* 
+          args: --skip-existing dist/*
