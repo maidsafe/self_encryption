@@ -57,7 +57,6 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedC
                             src_size,
                         },
                         EncryptedChunk {
-                            index,
                             content: encrypted_content,
                         },
                     ))

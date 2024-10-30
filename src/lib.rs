@@ -147,8 +147,6 @@ pub const COMPRESSION_QUALITY: i32 = 6;
 /// of the chunk, and its key index.
 #[derive(Clone)]
 pub struct EncryptedChunk {
-    /// Index number (zero-based)
-    pub index: usize,
     /// The encrypted contents of the chunk.
     pub content: Bytes,
 }
@@ -215,7 +213,6 @@ impl StreamSelfEncryptor {
         });
 
         let encrypted_chunk = EncryptedChunk {
-            index,
             content: encrypted_content,
         };
 
@@ -272,8 +269,10 @@ pub struct StreamSelfDecryptor {
     chunk_index: usize,
     // Source hashes of the chunks that collected from the data_map, they shall already be sorted by index.
     src_hashes: Vec<XorName>,
-    // Progressing collection of received encrypted chunks
-    encrypted_chunks: BTreeMap<usize, XorName>,
+    // Progressing collection of received encrypted chunks, maps chunk hash to content
+    encrypted_chunks: BTreeMap<XorName, Bytes>,
+    // Map of chunk indices to their expected hashes from the data map
+    chunk_hash_map: BTreeMap<usize, XorName>,
     // Temp directory to hold the un-processed encrypted_chunks
     temp_dir: TempDir,
 }
@@ -283,6 +282,13 @@ impl StreamSelfDecryptor {
     pub fn decrypt_to_file(file_path: PathBuf, data_map: &DataMap) -> Result<Self> {
         let temp_dir = tempdir()?;
         let src_hashes = extract_hashes(data_map);
+        
+        // Create mapping of indices to expected chunk hashes
+        let chunk_hash_map = data_map
+            .infos()
+            .iter()
+            .map(|info| (info.index, info.dst_hash))
+            .collect();
 
         // The targeted file shall not be pre-exist.
         // Hence we carry out a forced removal before carry out any further action.
@@ -293,34 +299,37 @@ impl StreamSelfDecryptor {
             chunk_index: 0,
             src_hashes,
             encrypted_chunks: BTreeMap::new(),
+            chunk_hash_map,
             temp_dir,
         })
     }
 
     /// Return true if all encrypted chunk got received and file decrypted.
     pub fn next_encrypted(&mut self, encrypted_chunk: EncryptedChunk) -> Result<bool> {
-        if encrypted_chunk.index == self.chunk_index {
-            let decrypted_content =
-                decrypt_chunk(self.chunk_index, &encrypted_chunk.content, &self.src_hashes)?;
-            self.append_to_file(&decrypted_content)?;
+        let chunk_hash = XorName::from_content(&encrypted_chunk.content);
+        
+        // Find the index for this chunk based on its hash
+        let chunk_index = self.chunk_hash_map
+            .iter()
+            .find(|(_, &hash)| hash == chunk_hash)
+            .map(|(&idx, _)| idx);
 
-            self.chunk_index += 1;
+        if let Some(idx) = chunk_index {
+            if idx == self.chunk_index {
+                // Process this chunk immediately
+                let decrypted_content = decrypt_chunk(idx, &encrypted_chunk.content, &self.src_hashes)?;
+                self.append_to_file(&decrypted_content)?;
+                self.chunk_index += 1;
+                self.drain_unprocessed()?;
 
-            self.drain_unprocessed()?;
-
-            if self.chunk_index == self.src_hashes.len() {
-                return Ok(true);
+                return Ok(self.chunk_index == self.src_hashes.len());
+            } else {
+                // Store for later processing
+                let file_path = self.temp_dir.path().join(hex::encode(chunk_hash));
+                let mut output_file = File::create(file_path)?;
+                output_file.write_all(&encrypted_chunk.content)?;
+                let _ = self.encrypted_chunks.insert(chunk_hash, encrypted_chunk.content);
             }
-        } else {
-            let chunk_name = XorName::from_content(&encrypted_chunk.content);
-
-            let file_path = self.temp_dir.path().join(hex::encode(chunk_name));
-            let mut output_file = File::create(file_path)?;
-            output_file.write_all(&encrypted_chunk.content)?;
-
-            let _ = self
-                .encrypted_chunks
-                .insert(encrypted_chunk.index, chunk_name);
         }
 
         Ok(false)
@@ -342,19 +351,15 @@ impl StreamSelfDecryptor {
     // The encrypted chunks may come in out-of-order.
     // Drain any in-order chunks due to the recent filled in piece.
     fn drain_unprocessed(&mut self) -> Result<()> {
-        while let Some(chunk_name) = self.encrypted_chunks.get(&self.chunk_index) {
-            let file_path = self.temp_dir.path().join(hex::encode(chunk_name));
-            let mut chunk_file = File::open(file_path)?;
-            let mut chunk_data = Vec::new();
-            let _ = chunk_file.read_to_end(&mut chunk_data)?;
-
-            let decrypted_content =
-                decrypt_chunk(self.chunk_index, &chunk_data.into(), &self.src_hashes)?;
-            self.append_to_file(&decrypted_content)?;
-
-            self.chunk_index += 1;
+        while let Some(&next_hash) = self.chunk_hash_map.get(&self.chunk_index) {
+            if let Some(content) = self.encrypted_chunks.remove(&next_hash) {
+                let decrypted_content = decrypt_chunk(self.chunk_index, &content, &self.src_hashes)?;
+                self.append_to_file(&decrypted_content)?;
+                self.chunk_index += 1;
+            } else {
+                break;
+            }
         }
-
         Ok(())
     }
 }
@@ -396,7 +401,6 @@ pub fn decrypt_from_chunk_files(
         let mut chunk_data = Vec::new();
         let _ = chunk_file.read_to_end(&mut chunk_data)?;
         encrypted_chunks.push(EncryptedChunk {
-            index: chunk_info.index,
             content: Bytes::from(chunk_data),
         });
     }
@@ -431,14 +435,22 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
 /// Decrypts what is expected to be the full set of chunks covered by the data map.
 pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
+    let chunk_indices: BTreeMap<XorName, usize> = data_map
+        .infos()
+        .iter()
+        .map(|info| (info.dst_hash, info.index))
+        .collect();
+        
     let mut sorted_chunks = Vec::with_capacity(chunks.len());
-    sorted_chunks.extend(chunks.iter().sorted_by_key(|c| c.index));
+    sorted_chunks.extend(chunks.iter().map(|c| {
+        let hash = XorName::from_content(&c.content);
+        (chunk_indices[&hash], c)
+    }).sorted_by_key(|(i, _)| *i).map(|(_, c)| c));
+    
     decrypt::decrypt(src_hashes, &sorted_chunks)
 }
 
 /// Decrypts a range, used when seeking.
-///
-/// `relative_pos` is the position within the first read chunk, that we start reading from.
 pub fn decrypt_range(
     data_map: &DataMap,
     chunks: &[EncryptedChunk],
@@ -446,20 +458,71 @@ pub fn decrypt_range(
     len: usize,
 ) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
-    let mut sorted_chunks = Vec::with_capacity(chunks.len());
-    sorted_chunks.extend(chunks.iter().sorted_by_key(|c| c.index));
+    
+    // Create a mapping of chunk hashes to their indices
+    let chunk_indices: BTreeMap<XorName, usize> = data_map
+        .infos()
+        .iter()
+        .map(|info| (info.dst_hash, info.index))
+        .collect();
 
-    let mut bytes = decrypt::decrypt(src_hashes, &sorted_chunks)?;
+    // Get chunk size info
+    let file_size = data_map.file_size();
+    
+    // Calculate which chunks we need based on the range
+    let start_chunk = get_chunk_index(file_size, relative_pos);
+    let end_pos = std::cmp::min(relative_pos + len, file_size);
+    let end_chunk = get_chunk_index(file_size, end_pos);
 
-    if relative_pos >= bytes.len() {
+    // Sort and filter chunks to only include the ones we need
+    let sorted_chunks: Vec<_> = chunks
+        .iter()
+        .map(|c| {
+            let hash = XorName::from_content(&c.content);
+            chunk_indices.get(&hash).map(|&idx| (idx, c))
+        })
+        .filter_map(|x| x)
+        .filter(|(idx, _)| *idx >= start_chunk && *idx <= end_chunk)
+        .sorted_by_key(|(idx, _)| *idx)
+        .map(|(_, c)| c)
+        .collect();
+
+    // Verify we have all needed chunks
+    let expected_chunks = end_chunk - start_chunk + 1;
+    if sorted_chunks.len() != expected_chunks {
+        return Err(Error::Generic(format!(
+            "Missing chunks. Expected {} chunks (from {} to {}), got {}",
+            expected_chunks,
+            start_chunk,
+            end_chunk,
+            sorted_chunks.len()
+        )));
+    }
+
+    // Decrypt all required chunks completely
+    let mut all_bytes = Vec::new();
+    for (idx, chunk) in sorted_chunks.iter().enumerate() {
+        let chunk_idx = start_chunk + idx;
+        let decrypted = decrypt_chunk(chunk_idx, &chunk.content, &src_hashes)?;
+        all_bytes.extend_from_slice(&decrypted);
+    }
+    
+    let bytes = Bytes::from(all_bytes);
+    
+    // Calculate the actual offset within our decrypted data
+    let chunk_start_pos = get_start_position(file_size, start_chunk);
+    let internal_offset = relative_pos - chunk_start_pos;
+    
+    if internal_offset >= bytes.len() {
         return Ok(Bytes::new());
     }
 
-    // truncate taking care of overflows
-    let _ = bytes.split_to(relative_pos);
-    bytes.truncate(len);
+    // Extract just the range we need from the decrypted data
+    let available_len = bytes.len() - internal_offset;
+    let range_len = std::cmp::min(len, available_len);
+    let range_bytes = bytes.slice(internal_offset..internal_offset + range_len);
 
-    Ok(bytes)
+    Ok(range_bytes)
 }
 
 /// Helper function to XOR a data with a pad (pad will be rotated to fill the length)

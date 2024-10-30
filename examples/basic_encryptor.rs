@@ -151,7 +151,8 @@ async fn main() {
 
             let result = encrypted_chunks
                 .par_iter()
-                .map(|c| (c, storage.clone()))
+                .enumerate()
+                .map(|(_, c)| (c, storage.clone()))
                 .map(|(c, store)| store.put(XorName::from_content(&c.content), c.content.clone()))
                 .collect::<Vec<_>>();
 
@@ -195,7 +196,6 @@ async fn main() {
                             Ok::<(_, _), Error>((
                                 key.clone(),
                                 EncryptedChunk {
-                                    index: key.index,
                                     content: storage.get(key.dst_hash)?,
                                 },
                             ))
