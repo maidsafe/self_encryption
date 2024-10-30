@@ -31,21 +31,46 @@ This library provides very secure encryption of the data, and the returned encry
 
 # Python 
 
-## Installation
+## Installation and example use for python
 
 ```bash
 pip install self-encryption
 ```
 '''python
-from self_encryption import PyDataMap
-## Create a data map and encrypt data
-data = b"Hello, World!"
-data_map = PyDataMap(data)
-## Encrypt some data
-encrypted_chunks = data_map.encrypt(data)
-## Decrypt the chunks
-decrypted = data_map.decrypt(encrypted_chunks)
-assert data == decrypted
+from self_encryption import (
+    encrypt_bytes, decrypt_chunks,
+    encrypt_file, decrypt_from_files,
+    StreamSelfEncryptor, StreamSelfDecryptor,
+    DataMap, EncryptedChunk
+)
+
+# Basic encryption/decryption
+
+data = b"Hello World" * 1024  # Must be at least 3 bytes
+data_map, chunks = encrypt_bytes(data)
+decrypted = decrypt_chunks(data_map, chunks)
+
+# File-based with chunk storage
+
+data_map, chunk_files = encrypt_file("input.txt", "chunks_dir")
+decrypt_from_files("chunks_dir", data_map, "output.txt")
+
+# Streaming encryption
+
+encryptor = StreamSelfEncryptor("large_file.dat", "chunks_dir")
+while True:
+    chunk, data_map = encryptor.next_encryption()
+    if chunk is None:
+        break
+    # Process chunk...
+
+# Streaming decryption
+
+decryptor = StreamSelfDecryptor("output.dat", data_map)
+for chunk in chunks:
+    is_complete = decryptor.next_encrypted(chunk)
+    if is_complete:
+        break
 '''
 
 
