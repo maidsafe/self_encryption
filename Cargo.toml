@@ -8,7 +8,7 @@ license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.30.0"
+version = "0.30.1"
 
 [dependencies]
 aes = "~0.8.1"
