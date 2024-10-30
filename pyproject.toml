@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "self_encryption"
-version = "0.30.21"
+version = "0.30.22"
 description = "Python bindings for self-encryption library"
 authors = [{name = "David Irvine", email = "david.irvine@maidsafe.net"}]
 requires-python = ">=3.7"
