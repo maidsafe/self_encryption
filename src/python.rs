@@ -44,6 +44,7 @@ impl PyDataMap {
 }
 
 #[pymodule]
+#[pyo3(name = "self_encryption")]
 fn self_encryption(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyDataMap>()?;
     Ok(())
