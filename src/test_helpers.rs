@@ -8,7 +8,7 @@
 
 #![doc(hidden)]
 
-use crate::Error;
+use crate::{ChunkInfo, DataMap, Error};
 
 use bytes::Bytes;
 use rand::{self, rngs::OsRng, Rng, SeedableRng};
@@ -80,4 +80,12 @@ pub fn random_bytes(size: usize) -> Bytes {
     bytes.extend(vec![0u8; remainder]);
 
     Bytes::from(bytes)
+}
+
+pub fn create_test_data_map(chunks: Vec<ChunkInfo>) -> DataMap {
+    DataMap::new(chunks)
+}
+
+pub fn create_test_data_map_with_child(chunks: Vec<ChunkInfo>, child: usize) -> DataMap {
+    DataMap::with_child(chunks, child)
 }

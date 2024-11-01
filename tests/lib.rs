@@ -51,7 +51,7 @@
 )]
 
 use bytes::Bytes;
-use self_encryption::{encrypt, ChunkInfo, Result, MAX_CHUNK_SIZE};
+use self_encryption::{encrypt, ChunkInfo, DataMap, Result, MAX_CHUNK_SIZE};
 use xor_name::XorName;
 
 #[tokio::test]
@@ -331,4 +331,105 @@ async fn cross_platform_check() -> Result<()> {
     }
 
     Ok(())
+}
+
+// Add this test to verify the new child functionality
+#[test]
+fn data_map_with_child() {
+    let chunk_infos = vec![ChunkInfo {
+        index: 0,
+        dst_hash: XorName([1; 32]),
+        src_hash: XorName([2; 32]),
+        src_size: 1024,
+    }];
+
+    // Test DataMap without child
+    let data_map = DataMap::new(chunk_infos.clone());
+    assert_eq!(data_map.child(), None);
+    assert_eq!(data_map.infos(), chunk_infos);
+
+    // Test DataMap with child
+    let child_value = 42;
+    let data_map_with_child = DataMap::with_child(chunk_infos.clone(), child_value);
+    assert_eq!(data_map_with_child.child(), Some(child_value));
+    assert_eq!(data_map_with_child.infos(), chunk_infos);
+}
+
+
+
+#[test]
+fn test_data_map_serialization() {
+    let chunk_infos = vec![ChunkInfo {
+        index: 0,
+        dst_hash: XorName([1; 32]),
+        src_hash: XorName([2; 32]),
+        src_size: 1024,
+    }];
+
+    // Test serialization without child
+    let data_map = DataMap::new(chunk_infos.clone());
+    let serialized = bincode::serialize(&data_map).unwrap();
+    let deserialized: DataMap = bincode::deserialize(&serialized).unwrap();
+    assert_eq!(data_map, deserialized);
+    assert_eq!(deserialized.child(), None);
+
+    // Test serialization with child
+    let data_map = DataMap::with_child(chunk_infos, 42);
+    let serialized = bincode::serialize(&data_map).unwrap();
+    let deserialized: DataMap = bincode::deserialize(&serialized).unwrap();
+    assert_eq!(data_map, deserialized);
+    assert_eq!(deserialized.child(), Some(42));
+}
+
+#[test]
+fn test_data_map_debug() {
+    let chunk_infos = vec![ChunkInfo {
+        index: 0,
+        dst_hash: XorName([1; 32]),
+        src_hash: XorName([2; 32]),
+        src_size: 1024,
+    }];
+
+    // Test Debug output without child
+    let data_map = DataMap::new(chunk_infos.clone());
+    let debug_str = format!("{:?}", data_map);
+    assert!(!debug_str.contains("child:"));
+
+    // Test Debug output with child
+    let data_map = DataMap::with_child(chunk_infos, 42);
+    let debug_str = format!("{:?}", data_map);
+    assert!(debug_str.contains("child: 42"));
+}
+
+#[test]
+fn test_data_map_len_and_is_child() {
+    let chunk_infos = vec![
+        ChunkInfo {
+            index: 0,
+            dst_hash: XorName([1; 32]),
+            src_hash: XorName([2; 32]),
+            src_size: 1024,
+        },
+        ChunkInfo {
+            index: 1,
+            dst_hash: XorName([3; 32]),
+            src_hash: XorName([4; 32]),
+            src_size: 1024,
+        },
+    ];
+
+    // Test len() and is_child() for DataMap without child
+    let data_map = DataMap::new(chunk_infos.clone());
+    assert_eq!(data_map.len(), 2);
+    assert!(!data_map.is_child());
+
+    // Test len() and is_child() for DataMap with child
+    let data_map_with_child = DataMap::with_child(chunk_infos, 42);
+    assert_eq!(data_map_with_child.len(), 2);
+    assert!(data_map_with_child.is_child());
+
+    // Test len() for empty DataMap
+    let empty_data_map = DataMap::new(vec![]);
+    assert_eq!(empty_data_map.len(), 0);
+    assert!(!empty_data_map.is_child());
 }

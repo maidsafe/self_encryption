@@ -16,7 +16,10 @@ use xor_name::XorName;
 /// Only files larger than 3072 bytes (3 * MIN_CHUNK_SIZE) can be self-encrypted.
 /// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct DataMap(Vec<ChunkInfo>);
+pub struct DataMap {
+    chunk_identifiers: Vec<ChunkInfo>,
+    child: Option<usize>,
+}
 
 #[allow(clippy::len_without_is_empty)]
 impl DataMap {
@@ -27,30 +30,60 @@ impl DataMap {
     /// correct pre-encryption hashes for decryption/encryption.
     pub fn new(mut keys: Vec<ChunkInfo>) -> Self {
         keys.sort_by(|a, b| a.index.cmp(&b.index));
-        Self(keys)
+        Self {
+            chunk_identifiers: keys,
+            child: None,
+        }
+    }
+
+    /// Creates a new DataMap with a specified child value
+    pub fn with_child(mut keys: Vec<ChunkInfo>, child: usize) -> Self {
+        keys.sort_by(|a, b| a.index.cmp(&b.index));
+        Self {
+            chunk_identifiers: keys,
+            child: Some(child),
+        }
     }
 
     /// Original (pre-encryption) size of the file.
     pub fn file_size(&self) -> usize {
-        DataMap::total_size(&self.0)
+        DataMap::total_size(&self.chunk_identifiers)
     }
 
     /// Returns the list of chunks pre and post encryption hashes if present.
     pub fn infos(&self) -> Vec<ChunkInfo> {
-        self.0.to_vec()
+        self.chunk_identifiers.to_vec()
+    }
+
+    /// Returns the child value if set
+    pub fn child(&self) -> Option<usize> {
+        self.child
     }
 
     /// Iterates through the keys to figure out the total size of the data, i.e. the file size.
     fn total_size(keys: &[ChunkInfo]) -> usize {
         keys.iter().fold(0, |acc, chunk| acc + chunk.src_size)
     }
+
+    /// Returns the number of chunks in the DataMap
+    pub fn len(&self) -> usize {
+        self.chunk_identifiers.len()
+    }
+
+    /// Returns true if this DataMap has a child value
+    pub fn is_child(&self) -> bool {
+        self.child.is_some()
+    }
 }
 
 impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
         writeln!(formatter, "DataMap:")?;
-        let len = self.0.len();
-        for (index, chunk) in self.0.iter().enumerate() {
+        if let Some(child) = self.child {
+            writeln!(formatter, "    child: {}", child)?;
+        }
+        let len = self.chunk_identifiers.len();
+        for (index, chunk) in self.chunk_identifiers.iter().enumerate() {
             if index + 1 == len {
                 write!(formatter, "        {:?}", chunk)?
             } else {
