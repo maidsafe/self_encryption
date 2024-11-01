@@ -17,8 +17,10 @@ use xor_name::XorName;
 /// Smaller files will have to be batched together.
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct DataMap {
-    chunk_identifiers: Vec<ChunkInfo>,
-    child: Option<usize>,
+    /// List of chunk hashes
+    pub chunk_identifiers: Vec<ChunkInfo>,
+    /// Child value
+    pub child: Option<usize>,
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -36,6 +38,8 @@ impl DataMap {
         }
     }
 
+
+    
     /// Creates a new DataMap with a specified child value
     pub fn with_child(mut keys: Vec<ChunkInfo>, child: usize) -> Self {
         keys.sort_by(|a, b| a.index.cmp(&b.index));
@@ -46,7 +50,7 @@ impl DataMap {
     }
 
     /// Original (pre-encryption) size of the file.
-    pub fn file_size(&self) -> usize {
+    pub fn original_file_size(&self) -> usize {
         DataMap::total_size(&self.chunk_identifiers)
     }
 
