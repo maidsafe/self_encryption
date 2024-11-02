@@ -42,8 +42,8 @@ pub(crate) fn decrypt_chunk(
     // Finally decompress
     let mut decompressed = Vec::new();
     let mut cursor = Cursor::new(&decrypted);
-    let _size =
-        brotli::BrotliDecompress(&mut cursor, &mut decompressed).map_err(|_| Error::Compression)?;
+
+    brotli::BrotliDecompress(&mut cursor, &mut decompressed).map_err(|_| Error::Compression)?;
 
     Ok(Bytes::from(decompressed))
 }

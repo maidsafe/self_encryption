@@ -8,12 +8,10 @@ use std::path::PathBuf;
 use xor_name::XorName;
 
 use crate::{
-    decrypt_from_storage as rust_decrypt_from_storage,
-    decrypt_full_set as rust_decrypt_full_set,
-    encrypt, encrypt_from_file, Error, Result,
-    StreamSelfDecryptor, StreamSelfEncryptor, DataMap,
-    EncryptedChunk, shrink_data_map as rust_shrink_data_map,
-    get_root_data_map as rust_get_root_data_map,
+    decrypt_from_storage as rust_decrypt_from_storage, decrypt_full_set as rust_decrypt_full_set,
+    encrypt, encrypt_from_file, get_root_data_map as rust_get_root_data_map,
+    shrink_data_map as rust_shrink_data_map, DataMap, EncryptedChunk, Error, Result,
+    StreamSelfDecryptor, StreamSelfEncryptor,
 };
 
 #[pyclass(name = "EncryptedChunk")]
@@ -193,7 +191,9 @@ fn shrink_data_map(data_map: &PyDataMap, chunk_dir: String) -> PyResult<PyDataMa
 
     match rust_shrink_data_map(data_map.inner.clone(), store_chunk) {
         Ok(shrunk_map) => Ok(PyDataMap { inner: shrunk_map }),
-        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            e.to_string(),
+        )),
     }
 }
 
@@ -209,7 +209,9 @@ fn get_root_data_map(data_map: &PyDataMap, chunk_dir: String) -> PyResult<PyData
 
     match rust_get_root_data_map(data_map.inner.clone(), get_chunk) {
         Ok(root_map) => Ok(PyDataMap { inner: root_map }),
-        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            e.to_string(),
+        )),
     }
 }
 
