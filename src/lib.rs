@@ -392,8 +392,6 @@ pub fn encrypt_from_file(file_path: &Path, output_dir: &Path) -> Result<(DataMap
     Ok((data_map, chunk_names))
 }
 
-
-
 /// Encrypts a set of bytes and returns the encrypted data together with
 /// the data map that is derived from the input data, and is used to later decrypt the encrypted data.
 /// Returns an error if the size is too small for self-encryption.
@@ -715,9 +713,9 @@ fn get_chunk_index(file_size: usize, position: usize) -> usize {
 
 /// Shrinks a data map by recursively encrypting it until the number of chunks is small enough
 /// Takes a chunk storage function that handles storing the encrypted chunks
-pub fn shrink_data_map<F>(mut data_map: DataMap, mut store_chunk: F) -> Result<DataMap> 
+pub fn shrink_data_map<F>(mut data_map: DataMap, mut store_chunk: F) -> Result<DataMap>
 where
-    F: FnMut(XorName, Bytes) -> Result<()>
+    F: FnMut(XorName, Bytes) -> Result<()>,
 {
     // Keep shrinking until we have less than 4 chunks
     while data_map.len() > 4 {
@@ -725,18 +723,18 @@ where
         // Serialize the data map
         let bytes = match test_helpers::serialise(&data_map) {
             Ok(bytes) => Bytes::from(bytes),
-            Err(_) => return Err(Error::Generic("Failed to serialize data map".to_string()))
+            Err(_) => return Err(Error::Generic("Failed to serialize data map".to_string())),
         };
 
         // Encrypt the serialized data map
         let (mut new_data_map, encrypted_chunks) = encrypt(bytes)?;
-        
+
         // Store all chunks using the provided storage function
         for chunk in encrypted_chunks {
             let chunk_hash = XorName::from_content(&chunk.content);
             store_chunk(chunk_hash, chunk.content)?;
         }
-        
+
         // Set the child level one higher than the previous
         new_data_map = DataMap::with_child(new_data_map.infos(), child_level + 1);
         data_map = new_data_map;
@@ -748,7 +746,7 @@ where
 /// Takes a chunk retrieval function that handles fetching the encrypted chunks
 pub fn get_root_data_map<F>(data_map: DataMap, mut get_chunk: F) -> Result<DataMap>
 where
-    F: FnMut(XorName) -> Result<Bytes>
+    F: FnMut(XorName) -> Result<Bytes>,
 {
     // If this is the root data map (no child level), return it
     if !data_map.is_child() {
@@ -766,7 +764,7 @@ where
 
     // Decrypt the chunks to get the parent data map bytes
     let decrypted_bytes = decrypt_full_set(&data_map, &encrypted_chunks)?;
-    
+
     // Deserialize into a DataMap
     let parent_data_map = test_helpers::deserialise(&decrypted_bytes)
         .map_err(|_| Error::Generic("Failed to deserialize data map".to_string()))?;
@@ -783,7 +781,7 @@ pub fn decrypt_from_storage<F>(
     mut get_chunk: F,
 ) -> Result<()>
 where
-    F: FnMut(XorName) -> Result<Bytes>
+    F: FnMut(XorName) -> Result<Bytes>,
 {
     let mut encrypted_chunks = Vec::new();
     for chunk_info in data_map.infos() {
@@ -805,9 +803,9 @@ where
 #[cfg(test)]
 mod data_map_tests {
     use super::*;
+    use std::sync::Mutex;
     use std::{collections::HashMap, sync::Arc};
     use tempfile::TempDir;
-    use std::sync::Mutex;
 
     // Helper function to create a data map with specified number of chunks
     fn create_test_data_map(num_chunks: usize) -> Result<DataMap> {
@@ -818,9 +816,9 @@ mod data_map_tests {
         Ok(data_map)
     }
 
-       fn create_dummy_data_map(num_chunks: usize) -> DataMap {
+    fn create_dummy_data_map(num_chunks: usize) -> DataMap {
         let chunk_size = *MAX_CHUNK_SIZE;
-        
+
         // Create dummy hashes - each hash is just the chunk number repeated
         let chunk_identifiers = (0..num_chunks)
             .map(|i| {
@@ -844,7 +842,7 @@ mod data_map_tests {
     fn test_shrink_data_map_with_disk_storage() -> Result<()> {
         // Create a temp directory for chunk storage
         let temp_dir = TempDir::new()?;
-        
+
         // Create disk-based store function
         let store = |hash: XorName, data: Bytes| -> Result<()> {
             let path = temp_dir.path().join(hex::encode(hash));
@@ -859,7 +857,7 @@ mod data_map_tests {
 
         // Shrink the data map
         let shrunk_map = shrink_data_map(large_data_map, store)?;
-        
+
         // Verify the shrunk map has less than 4 chunks
         assert!(shrunk_map.len() < 4);
         // Verify it has a child level set
@@ -873,9 +871,9 @@ mod data_map_tests {
         // Create in-memory storage
         let storage = Arc::new(Mutex::new(HashMap::new()));
         let storage_clone = storage.clone();
-        
+
         let store = move |hash: XorName, data: Bytes| -> Result<()> {
-            let _ =storage_clone.lock().unwrap().insert(hash, data);
+            let _ = storage_clone.lock().unwrap().insert(hash, data);
             Ok(())
         };
 
@@ -888,7 +886,7 @@ mod data_map_tests {
         assert!(original_len >= 4);
         assert!(shrunk_map.len() < 4);
         assert!(shrunk_map.is_child());
-        
+
         // Verify chunks were stored
         assert!(!storage.lock().unwrap().is_empty());
 
@@ -899,7 +897,7 @@ mod data_map_tests {
     fn test_get_root_data_map_with_disk_storage() -> Result<()> {
         // Create temp directory
         let temp_dir = TempDir::new()?;
-        
+
         // Create store and retrieve functions
         let store = |hash: XorName, data: Bytes| -> Result<()> {
             let path = temp_dir.path().join(hex::encode(hash));
@@ -936,7 +934,7 @@ mod data_map_tests {
         // Create in-memory storage
         let storage = Arc::new(Mutex::new(HashMap::new()));
         let storage_clone = storage.clone();
-        
+
         let store = move |hash: XorName, data: Bytes| -> Result<()> {
             let _ = storage_clone.lock().unwrap().insert(hash, data);
             Ok(())
@@ -972,7 +970,7 @@ mod data_map_tests {
         // Create in-memory storage
         let storage = Arc::new(Mutex::new(HashMap::new()));
         let storage_clone = storage.clone();
-        
+
         let store = move |hash: XorName, data: Bytes| -> Result<()> {
             let _ = storage_clone.lock().unwrap().insert(hash, data);
             Ok(())
@@ -1017,9 +1015,8 @@ mod data_map_tests {
         assert!(shrink_data_map(large_map, store).is_err());
 
         // Test with failing retrieval
-        let retrieve = |_: XorName| -> Result<Bytes> {
-            Err(Error::Generic("Retrieval failed".to_string()))
-        };
+        let retrieve =
+            |_: XorName| -> Result<Bytes> { Err(Error::Generic("Retrieval failed".to_string())) };
 
         let child_map = DataMap::with_child(vec![], 1);
         assert!(get_root_data_map(child_map, retrieve).is_err());
@@ -1032,11 +1029,11 @@ mod data_map_tests {
         // Create temp directories for chunks and output
         let chunk_dir = TempDir::new()?;
         let output_dir = TempDir::new()?;
-        
+
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024); // 1MB of random data
         let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
-        
+
         // Store chunks to disk
         for chunk in encrypted_chunks {
             let hash = XorName::from_content(&chunk.content);
@@ -1070,11 +1067,11 @@ mod data_map_tests {
     fn test_decrypt_from_storage_with_memory() -> Result<()> {
         // Create in-memory storage
         let storage = Arc::new(Mutex::new(HashMap::new()));
-        
+
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024); // 1MB of random data
         let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
-        
+
         // Store chunks in memory
         for chunk in encrypted_chunks {
             let hash = XorName::from_content(&chunk.content);
@@ -1111,14 +1108,15 @@ mod data_map_tests {
     fn test_decrypt_from_storage_with_missing_chunks() -> Result<()> {
         // Create in-memory storage with missing chunks
         let storage = Arc::new(Mutex::new(HashMap::new()));
-        
+
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
         let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data))?;
-        
+
         // Store only half of the chunks
         for (i, chunk) in encrypted_chunks.into_iter().enumerate() {
-            if i % 2 == 0 { // Skip odd-numbered chunks
+            if i % 2 == 0 {
+                // Skip odd-numbered chunks
                 let hash = XorName::from_content(&chunk.content);
                 let _previous = storage.lock().unwrap().insert(hash, chunk.content);
             }
@@ -1138,7 +1136,7 @@ mod data_map_tests {
         // Attempt to decrypt with missing chunks
         let output_dir = TempDir::new()?;
         let output_path = output_dir.path().join("decrypted_file");
-        
+
         // Should fail due to missing chunks
         assert!(decrypt_from_storage(&data_map, &output_path, get_chunk).is_err());
 
@@ -1149,11 +1147,11 @@ mod data_map_tests {
     fn test_decrypt_from_storage_with_invalid_output_path() -> Result<()> {
         // Create valid storage
         let storage = Arc::new(Mutex::new(HashMap::new()));
-        
+
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
         let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data))?;
-        
+
         // Store chunks
         for chunk in encrypted_chunks {
             let hash = XorName::from_content(&chunk.content);
@@ -1181,11 +1179,11 @@ mod data_map_tests {
     #[test]
     fn test_decrypt_from_storage_basic_retrieval() -> Result<()> {
         let storage = Arc::new(Mutex::new(HashMap::new()));
-        
+
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
         let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
-        
+
         // Store chunks with their original hashes
         for chunk in encrypted_chunks {
             let hash = XorName::from_content(&chunk.content);
@@ -1205,7 +1203,7 @@ mod data_map_tests {
 
         let output_dir = TempDir::new()?;
         let output_path = output_dir.path().join("decrypted_file");
-        
+
         // Verify basic decryption works
         decrypt_from_storage(&data_map, &output_path, get_chunk)?;
 

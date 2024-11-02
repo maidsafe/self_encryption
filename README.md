@@ -9,11 +9,27 @@ Self encrypting files (convergent encryption plus obfuscation)
 | [MaidSafe website](https://maidsafe.net) | [SAFE Dev Forum](https://forum.safedev.org) | [SAFE Network Forum](https://safenetforum.org) |
 |:----------------------------------------:|:-------------------------------------------:|:----------------------------------------------:|
 
+## Table of Contents
+- [Overview](#overview)
+- [Documentation](#documentation)
+- [Features](#features)
+- [Usage](#usage)
+  - [Rust Usage](#rust-usage)
+    - [Basic Operations](#basic-operations)
+    - [Storage Backends](#storage-backends)
+    - [Streaming Operations](#streaming-operations)
+    - [Advanced Usage](#advanced-usage)
+  - [Python Usage](#python-usage)
+    - [Basic Operations](#python-basic-operations)
+    - [File Operations](#python-file-operations)
+    - [Advanced Features](#python-advanced-features)
+- [Implementation Details](#implementation-details)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Overview
 
 A version of [convergent encryption](http://en.wikipedia.org/wiki/convergent_encryption) with an additional obfuscation step. This pattern allows secured data that can also be [de-duplicated](http://en.wikipedia.org/wiki/Data_deduplication). This library presents an API that takes a set of bytes and returns a secret key derived from those bytes, and a set of encrypted chunks.
-
-The library can be used through either [Rust](#rust-usage) or [Python](#python-usage) interfaces.
 
 **Important Security Note**: While this library provides very secure encryption of the data, the returned secret key **requires the same secure handling as would be necessary for any secret key**.
 
@@ -36,8 +52,6 @@ The library can be used through either [Rust](#rust-usage) or [Python](#python-u
 
 ## Usage
 
-The library can be used through either Rust or Python interfaces.
-
 ### Rust Usage
 
 #### Installation
@@ -49,110 +63,79 @@ self_encryption = "0.30"
 bytes = "1.0"
 ```
 
-#### Basic Encryption/Decryption
+#### Basic Operations
 
 ```rust
 use self_encryption::{encrypt, decrypt_full_set};
 use bytes::Bytes;
 
-fn main() -> Result<()> {
-    // Create test data
-    let data = Bytes::from("Hello, World!".as_bytes());
+// Basic encryption/decryption
+fn basic_example() -> Result<()> {
+    let data = Bytes::from("Hello, World!".repeat(1000));  // Must be at least 3072 bytes
     
     // Encrypt data
-    let (data_map, encrypted_chunks) = encrypt(data)?;
+    let (data_map, encrypted_chunks) = encrypt(data.clone())?;
     
     // Decrypt data
     let decrypted = decrypt_full_set(&data_map, &encrypted_chunks)?;
-    assert_eq!(decrypted, "Hello, World!".as_bytes());
-    
-    // Serialize data map for storage
-    let serialized = bincode::serialize(&data_map)?;
-    
-    // Later, deserialize the data map
-    let restored_map: DataMap = bincode::deserialize(&serialized)?;
+    assert_eq!(data, decrypted);
     
     Ok(())
 }
 ```
 
-#### File Operations
+#### Storage Backends
 
 ```rust
-use self_encryption::{encrypt_from_file, decrypt_from_storage};
-use std::path::Path;
-use std::fs::{self, File};
-use std::io::Write;
-
-fn process_file() -> Result<()> {
-    // Encrypt a file
-    let (data_map, chunk_names) = encrypt_from_file(
-        Path::new("input.txt"),
-        Path::new("chunks/")
-    )?;
-    
-    // Print information about chunks
-    println!("File was split into {} chunks", chunk_names.len());
-    for name in &chunk_names {
-        let path = Path::new("chunks/").join(hex::encode(name));
-        let metadata = fs::metadata(&path)?;
-        println!("Chunk {}: {} bytes", hex::encode(name), metadata.len());
-    }
-    
-    // Create disk-based chunk retrieval
-    let get_chunk = |hash| -> Result<Bytes> {
-        let path = Path::new("chunks/").join(hex::encode(hash));
-        let mut file = File::open(path)?;
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-        Ok(Bytes::from(data))
-    };
-    
-    // Decrypt the file using the retrieval function
-    decrypt_from_storage(
-        &data_map,
-        Path::new("output.txt"),
-        get_chunk
-    )?;
-    
-    Ok(())
-}
-```
-
-#### Custom Storage Backend
-
-```rust
-use self_encryption::{decrypt_from_storage, shrink_data_map};
+use self_encryption::{shrink_data_map, get_root_data_map, decrypt_from_storage};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-// Example with thread-safe in-memory storage
+// Memory Storage Example
 fn memory_storage_example() -> Result<()> {
-    // Create thread-safe storage
     let storage = Arc::new(Mutex::new(HashMap::new()));
-    let storage_clone = storage.clone();
     
-    // Create storage function
-    let store_chunk = move |hash, data| {
-        storage_clone.lock()
-            .map_err(|_| Error::Generic("Lock poisoned".into()))?
-            .insert(hash, data);
+    // Store function
+    let store = |hash, data| {
+        storage.lock().unwrap().insert(hash, data);
         Ok(())
     };
     
-    // Create retrieval function
-    let storage_clone = storage.clone();
-    let get_chunk = move |hash| {
-        storage_clone.lock()
-            .map_err(|_| Error::Generic("Lock poisoned".into()))?
+    // Retrieve function
+    let retrieve = |hash| {
+        storage.lock().unwrap()
             .get(&hash)
             .cloned()
             .ok_or_else(|| Error::Generic("Chunk not found".into()))
     };
     
-    // Use with storage functions
-    let shrunk_map = shrink_data_map(large_data_map, store_chunk)?;
-    decrypt_from_storage(&data_map, Path::new("output.txt"), get_chunk)?;
+    // Use with data map operations
+    let shrunk_map = shrink_data_map(data_map, store)?;
+    let root_map = get_root_data_map(shrunk_map, retrieve)?;
+    
+    Ok(())
+}
+
+// Disk Storage Example
+fn disk_storage_example() -> Result<()> {
+    let chunk_dir = PathBuf::from("chunks");
+    
+    // Store function
+    let store = |hash, data| {
+        let path = chunk_dir.join(hex::encode(hash));
+        std::fs::write(path, data)?;
+        Ok(())
+    };
+    
+    // Retrieve function
+    let retrieve = |hash| {
+        let path = chunk_dir.join(hex::encode(hash));
+        Ok(Bytes::from(std::fs::read(path)?))
+    };
+    
+    // Use with data map operations
+    let shrunk_map = shrink_data_map(data_map, store)?;
+    let root_map = get_root_data_map(shrunk_map, retrieve)?;
     
     Ok(())
 }
@@ -162,41 +145,34 @@ fn memory_storage_example() -> Result<()> {
 
 ```rust
 use self_encryption::{StreamSelfEncryptor, StreamSelfDecryptor};
-use std::path::PathBuf;
 
 fn streaming_example() -> Result<()> {
     // Streaming encryption
     let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-        PathBuf::from("large_input.txt"),
-        Some(PathBuf::from("chunks/"))
+        PathBuf::from("input.txt"),
+        Some(PathBuf::from("chunks"))
     )?;
     
-    // Process chunks as they're generated
-    let mut chunk_count = 0;
-    let final_map = loop {
-        match encryptor.next_encryption()? {
-            (Some(chunk), None) => {
-                chunk_count += 1;
-                println!(
-                    "Processing chunk {}: {} bytes",
-                    chunk_count,
-                    chunk.content.len()
-                );
-                // Process chunk here
-            }
-            (None, Some(map)) => break map,  // Encryption complete
-            _ => unreachable!(),
+    let mut all_chunks = Vec::new();
+    let mut final_map = None;
+    
+    while let (chunk, map) = encryptor.next_encryption()? {
+        if let Some(chunk) = chunk {
+            all_chunks.push(chunk);
         }
-    };
+        if let Some(map) = map {
+            final_map = Some(map);
+            break;
+        }
+    }
     
     // Streaming decryption
     let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
         PathBuf::from("output.txt"),
-        &final_map
+        &final_map.unwrap()
     )?;
     
-    // Process chunks one by one
-    for chunk in chunks {
+    for chunk in all_chunks {
         if decryptor.next_encrypted(chunk)? {
             break;  // Decryption complete
         }
@@ -206,72 +182,33 @@ fn streaming_example() -> Result<()> {
 }
 ```
 
-#### Hierarchical Data Maps
+#### Advanced Usage
 
 ```rust
-use self_encryption::{shrink_data_map, get_root_data_map};
-use std::fs::{self, File};
-use std::io::{Write, Read};
+use self_encryption::{decrypt_range, seek_info};
 
-fn hierarchical_example() -> Result<()> {
-    // Create storage functions
-    let store_chunk = |hash, data| -> Result<()> {
-        let path = Path::new("chunks/").join(hex::encode(hash));
-        File::create(path)?.write_all(&data)?;
+fn advanced_example() -> Result<()> {
+    // Partial decryption (seeking)
+    let start_pos = 1024;
+    let length = 4096;
+    
+    let seek = seek_info(file_size, start_pos, length);
+    let data = decrypt_range(&data_map, &chunks, seek.relative_pos, length)?;
+    
+    // Hierarchical data maps
+    let store = |hash, data| -> Result<()> {
+        // Store chunk
         Ok(())
     };
     
-    let get_chunk = |hash| -> Result<Bytes> {
-        let path = Path::new("chunks/").join(hex::encode(hash));
-        let mut data = Vec::new();
-        File::open(path)?.read_to_end(&mut data)?;
-        Ok(Bytes::from(data))
-    };
+    let shrunk_map = shrink_data_map(large_data_map, store)?;
     
-    // Shrink a large data map
-    let shrunk_map = shrink_data_map(large_data_map, store_chunk)?;
-    
-    // Save the shrunk map
-    let serialized = bincode::serialize(&shrunk_map)?;
-    fs::write("shrunk_map.dat", &serialized)?;
-    
-    // Later, load and expand the map
-    let serialized = fs::read("shrunk_map.dat")?;
-    let loaded_map: DataMap = bincode::deserialize(&serialized)?;
-    
-    // Get back the root map
-    let root_map = get_root_data_map(loaded_map, get_chunk)?;
-    
-    Ok(())
-}
-```
-
-#### Error Handling
-
-```rust
-use self_encryption::{encrypt, decrypt_from_storage, Error};
-
-fn error_handling_example() -> Result<()> {
-    // Handle data too small for encryption
-    let small_data = Bytes::from("tiny");
+    // Custom error handling
     match encrypt(small_data) {
         Err(Error::Generic(msg)) if msg.contains("Too small") => {
             println!("Data too small for encryption");
         }
-        Ok(_) => unreachable!(),
-        Err(e) => return Err(e),
-    }
-    
-    // Handle missing chunks
-    let get_chunk = |_hash| -> Result<Bytes> {
-        Err(Error::Generic("Chunk not found".into()))
-    };
-    
-    match decrypt_from_storage(&data_map, Path::new("output.txt"), get_chunk) {
-        Err(Error::Generic(msg)) if msg.contains("not found") => {
-            println!("Failed to retrieve chunks");
-        }
-        Ok(_) => unreachable!(),
+        Ok(_) => println!("Encryption successful"),
         Err(e) => return Err(e),
     }
     
@@ -279,91 +216,83 @@ fn error_handling_example() -> Result<()> {
 }
 ```
 
-#### Complete File Processing Example
+### Python Usage
 
-```rust
-use self_encryption::*;
-use std::path::{Path, PathBuf};
-use std::fs::{self, File};
-use std::io::{Read, Write};
+#### Installation
 
-fn process_large_file(
-    input_path: &Path,
-    chunk_dir: &Path,
-    output_path: &Path
-) -> Result<()> {
-    // Ensure chunk directory exists
-    fs::create_dir_all(chunk_dir)?;
-    
-    // 1. Encrypt the file
-    println!("Encrypting file...");
-    let (data_map, chunk_names) = encrypt_from_file(input_path, chunk_dir)?;
-    println!("File split into {} chunks", chunk_names.len());
-    
-    // 2. Create storage functions
-    let store_chunk = |hash, data| -> Result<()> {
-        let path = chunk_dir.join(hex::encode(hash));
-        File::create(path)?.write_all(&data)?;
-        Ok(())
-    };
-    
-    let get_chunk = |hash| -> Result<Bytes> {
-        let path = chunk_dir.join(hex::encode(hash));
-        let mut data = Vec::new();
-        File::open(path)?.read_to_end(&mut data)?;
-        Ok(Bytes::from(data))
-    };
-    
-    // 3. Shrink the data map
-    println!("Shrinking data map...");
-    let shrunk_map = shrink_data_map(data_map, store_chunk)?;
-    
-    // 4. Save shrunk map
-    let map_path = chunk_dir.join("map.dat");
-    let serialized = bincode::serialize(&shrunk_map)?;
-    fs::write(&map_path, &serialized)?;
-    println!("Shrunk map saved to {:?}", map_path);
-    
-    // 5. Load and expand map
-    println!("Loading shrunk map...");
-    let serialized = fs::read(map_path)?;
-    let loaded_map: DataMap = bincode::deserialize(&serialized)?;
-    
-    // 6. Get root map
-    println!("Expanding to root map...");
-    let root_map = get_root_data_map(loaded_map, get_chunk)?;
-    
-    // 7. Decrypt file
-    println!("Decrypting file...");
-    decrypt_from_storage(&root_map, output_path, get_chunk)?;
-    println!("File decrypted to {:?}", output_path);
-    
-    // 8. Clean up
-    fs::remove_dir_all(chunk_dir)?;
-    
-    Ok(())
-}
-
-fn main() -> Result<()> {
-    process_large_file(
-        Path::new("input.dat"),
-        Path::new("temp_chunks"),
-        Path::new("decrypted_output.dat")
-    )
-}
+```bash
+pip install self-encryption
 ```
 
-These examples demonstrate:
-- Basic encryption/decryption
-- File operations with detailed error handling
-- Thread-safe in-memory storage
-- Streaming operations for large files
-- Hierarchical data map management
-- Complete file processing workflow
-- Proper resource cleanup
-- Error handling patterns
+#### Python Basic Operations
 
-Each example includes detailed comments and shows idiomatic Rust patterns for using the library.
+```python
+from self_encryption import encrypt_bytes, decrypt_chunks
+
+def basic_example():
+    # Create test data (must be at least 3072 bytes)
+    data = b"Hello, World!" * 1000
+    
+    # Encrypt data
+    data_map, chunks = encrypt_bytes(data)
+    
+    # Decrypt data
+    decrypted = decrypt_chunks(data_map, chunks)
+    assert data == decrypted
+
+```
+
+#### Python File Operations
+
+```python
+from self_encryption import encrypt_file, decrypt_from_files
+import os
+
+def file_example():
+    # Encrypt file
+    data_map, chunk_names = encrypt_file("input.txt", "chunks")
+    
+    # Decrypt file
+    decrypt_from_files("chunks", data_map, "output.txt")
+    
+    # Verify content
+    with open("input.txt", "rb") as f:
+        original = f.read()
+    with open("output.txt", "rb") as f:
+        decrypted = f.read()
+    assert original == decrypted
+```
+
+#### Python Advanced Features
+
+```python
+from self_encryption import (
+    shrink_data_map, 
+    get_root_data_map,
+    StreamSelfEncryptor,
+    StreamSelfDecryptor
+)
+
+def advanced_example():
+    # Hierarchical data maps
+    shrunk_map = shrink_data_map(data_map, "chunks")
+    root_map = get_root_data_map(shrunk_map, "chunks")
+    
+    # Streaming encryption
+    encryptor = StreamSelfEncryptor("input.txt", "chunks")
+    while True:
+        chunk, map = encryptor.next_encryption()
+        if chunk:
+            process_chunk(chunk)
+        if map:
+            break
+    
+    # Streaming decryption
+    decryptor = StreamSelfDecryptor("output.txt", map)
+    for chunk in chunks:
+        if decryptor.next_encrypted(chunk):
+            break  # Decryption complete
+```
 
 ## Implementation Details
 

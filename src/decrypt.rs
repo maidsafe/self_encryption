@@ -13,13 +13,13 @@ use xor_name::XorName;
 
 pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: &[&EncryptedChunk]) -> Result<Bytes> {
     let mut all_bytes = Vec::new();
-    
+
     // Process chunks sequentially to maintain proper boundaries
     for (chunk_index, chunk) in encrypted_chunks.iter().enumerate() {
         let decrypted = decrypt_chunk(chunk_index, &chunk.content, &src_hashes)?;
         all_bytes.extend_from_slice(&decrypted);
     }
-    
+
     Ok(Bytes::from(all_bytes))
 }
 
@@ -32,18 +32,18 @@ pub(crate) fn decrypt_chunk(
 ) -> Result<Bytes> {
     let pki = get_pad_key_and_iv(chunk_index, src_hashes);
     let (pad, key, iv) = pki;
-    
+
     // First remove the XOR obfuscation
     let xored = xor(content, &pad);
-    
+
     // Then decrypt the content
     let decrypted = encryption::decrypt(xored, &key, &iv)?;
 
     // Finally decompress
     let mut decompressed = Vec::new();
     let mut cursor = Cursor::new(&decrypted);
-    let _size = brotli::BrotliDecompress(&mut cursor, &mut decompressed)
-        .map_err(|_| Error::Compression)?;
+    let _size =
+        brotli::BrotliDecompress(&mut cursor, &mut decompressed).map_err(|_| Error::Compression)?;
 
     Ok(Bytes::from(decompressed))
 }
