@@ -38,8 +38,6 @@ impl DataMap {
         }
     }
 
-
-    
     /// Creates a new DataMap with a specified child value
     pub fn with_child(mut keys: Vec<ChunkInfo>, child: usize) -> Self {
         keys.sort_by(|a, b| a.index.cmp(&b.index));

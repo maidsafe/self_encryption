@@ -1,15 +1,19 @@
+use bytes::Bytes;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use std::path::PathBuf;
-use bytes::Bytes;
 use std::fs::File;
-use std::io::Write;
 use std::io::Read;
+use std::io::Write;
+use std::path::PathBuf;
+use xor_name::XorName;
 
 use crate::{
-    DataMap, EncryptedChunk, StreamSelfEncryptor, StreamSelfDecryptor,
-    encrypt, decrypt_full_set, encrypt_from_file, decrypt_from_chunk_files,
-    shrink_data_map, get_root_data_map,
+    decrypt_from_storage as rust_decrypt_from_storage,
+    decrypt_full_set as rust_decrypt_full_set,
+    encrypt, encrypt_from_file, Error, Result,
+    StreamSelfDecryptor, StreamSelfEncryptor, DataMap,
+    EncryptedChunk, shrink_data_map as rust_shrink_data_map,
+    get_root_data_map as rust_get_root_data_map,
 };
 
 #[pyclass(name = "EncryptedChunk")]
@@ -37,7 +41,7 @@ impl PyDataMap {
     #[new]
     fn new() -> Self {
         PyDataMap {
-            inner: DataMap::new(Vec::new())
+            inner: DataMap::new(Vec::new()),
         }
     }
 
@@ -64,21 +68,23 @@ impl PyStreamSelfEncryptor {
     #[new]
     fn new(file_path: String, chunk_dir: Option<String>) -> PyResult<Self> {
         let chunk_dir = chunk_dir.map(PathBuf::from);
-        let inner = StreamSelfEncryptor::encrypt_from_file(
-            PathBuf::from(file_path), 
-            chunk_dir
-        ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        
+        let inner = StreamSelfEncryptor::encrypt_from_file(PathBuf::from(file_path), chunk_dir)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+
         Ok(PyStreamSelfEncryptor { inner })
     }
 
     fn next_encryption(&mut self) -> PyResult<(Option<PyEncryptedChunk>, Option<PyDataMap>)> {
-        let (chunk, data_map) = self.inner.next_encryption()
+        let (chunk, data_map) = self
+            .inner
+            .next_encryption()
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        
-        let chunk = chunk.map(|c| PyEncryptedChunk { content: c.content.to_vec() });
+
+        let chunk = chunk.map(|c| PyEncryptedChunk {
+            content: c.content.to_vec(),
+        });
         let data_map = data_map.map(|dm| PyDataMap { inner: dm });
-        
+
         Ok((chunk, data_map))
     }
 }
@@ -92,11 +98,10 @@ struct PyStreamSelfDecryptor {
 impl PyStreamSelfDecryptor {
     #[new]
     fn new(output_path: String, data_map: &PyDataMap) -> PyResult<Self> {
-        let inner = StreamSelfDecryptor::decrypt_to_file(
-            PathBuf::from(output_path),
-            &data_map.inner
-        ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        
+        let inner =
+            StreamSelfDecryptor::decrypt_to_file(PathBuf::from(output_path), &data_map.inner)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+
         Ok(PyStreamSelfDecryptor { inner })
     }
 
@@ -104,8 +109,9 @@ impl PyStreamSelfDecryptor {
         let encrypted_chunk = EncryptedChunk {
             content: Bytes::from(chunk.content.clone()),
         };
-        
-        self.inner.next_encrypted(encrypted_chunk)
+
+        self.inner
+            .next_encrypted(encrypted_chunk)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 }
@@ -115,20 +121,30 @@ fn encrypt_bytes(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
     let (data_map, chunks) = encrypt(Bytes::from(data.to_vec()))
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
 
-    let py_chunks = chunks.into_iter()
-        .map(|c| PyEncryptedChunk { content: c.content.to_vec() })
+    let py_chunks = chunks
+        .into_iter()
+        .map(|c| PyEncryptedChunk {
+            content: c.content.to_vec(),
+        })
         .collect();
 
     Ok((PyDataMap { inner: data_map }, py_chunks))
 }
 
 #[pyfunction]
-fn decrypt_chunks<'py>(py: Python<'py>, data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<&'py PyBytes> {
-    let chunks: Vec<EncryptedChunk> = chunks.into_iter()
-        .map(|c| EncryptedChunk { content: Bytes::from(c.content) })
+fn decrypt_chunks<'py>(
+    py: Python<'py>,
+    data_map: &PyDataMap,
+    chunks: Vec<PyEncryptedChunk>,
+) -> PyResult<&'py PyBytes> {
+    let chunks: Vec<EncryptedChunk> = chunks
+        .into_iter()
+        .map(|c| EncryptedChunk {
+            content: Bytes::from(c.content),
+        })
         .collect();
 
-    let result = decrypt_full_set(&data_map.inner, &chunks)
+    let result = rust_decrypt_full_set(&data_map.inner, &chunks)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
 
     Ok(PyBytes::new(py, &result))
@@ -136,12 +152,12 @@ fn decrypt_chunks<'py>(py: Python<'py>, data_map: &PyDataMap, chunks: Vec<PyEncr
 
 #[pyfunction]
 fn encrypt_file(file_path: String, output_dir: String) -> PyResult<(PyDataMap, Vec<String>)> {
-    let (data_map, chunk_names) = encrypt_from_file(
-        &PathBuf::from(file_path),
-        &PathBuf::from(output_dir)
-    ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+    let (data_map, chunk_names) =
+        encrypt_from_file(&PathBuf::from(file_path), &PathBuf::from(output_dir))
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
 
-    let chunk_filenames: Vec<String> = chunk_names.into_iter()
+    let chunk_filenames: Vec<String> = chunk_names
+        .into_iter()
         .map(|name| hex::encode(name))
         .collect();
 
@@ -152,48 +168,49 @@ fn encrypt_file(file_path: String, output_dir: String) -> PyResult<(PyDataMap, V
 fn decrypt_from_files(
     chunk_dir: String,
     data_map: &PyDataMap,
-    output_path: String
+    output_path: String,
 ) -> PyResult<()> {
-    decrypt_from_chunk_files(
-        &PathBuf::from(chunk_dir),
-        &data_map.inner,
-        &PathBuf::from(output_path)
-    ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    let get_chunk = |hash: XorName| -> Result<Bytes> {
+        let path = std::path::Path::new(&chunk_dir).join(hex::encode(hash));
+        let mut file = File::open(path)?;
+        let mut data = Vec::new();
+        let _ = file.read_to_end(&mut data)?;
+        Ok(Bytes::from(data))
+    };
+
+    rust_decrypt_from_storage(&data_map.inner, &PathBuf::from(output_path), get_chunk)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
 #[pyfunction]
 fn shrink_data_map(data_map: &PyDataMap, chunk_dir: String) -> PyResult<PyDataMap> {
-    let chunk_dir = PathBuf::from(chunk_dir);
-    
-    let store_chunk = |hash: XorName, data: Bytes| -> Result<()> {
-        let path = chunk_dir.join(hex::encode(hash));
+    let store_chunk = |hash: XorName, data: Bytes| -> Result<(), Error> {
+        let path = std::path::Path::new(&chunk_dir).join(hex::encode(hash));
         let mut file = File::create(path)?;
         file.write_all(&data)?;
         Ok(())
     };
 
-    let shrunk_map = crate::shrink_data_map(data_map.inner.clone(), store_chunk)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-
-    Ok(PyDataMap { inner: shrunk_map })
+    match rust_shrink_data_map(data_map.inner.clone(), store_chunk) {
+        Ok(shrunk_map) => Ok(PyDataMap { inner: shrunk_map }),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
 }
 
 #[pyfunction]
 fn get_root_data_map(data_map: &PyDataMap, chunk_dir: String) -> PyResult<PyDataMap> {
-    let chunk_dir = PathBuf::from(chunk_dir);
-    
-    let get_chunk = |hash: XorName| -> Result<Bytes> {
-        let path = chunk_dir.join(hex::encode(hash));
+    let get_chunk = |hash: XorName| -> Result<Bytes, Error> {
+        let path = std::path::Path::new(&chunk_dir).join(hex::encode(hash));
         let mut file = File::open(path)?;
         let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
+        let _ = file.read_to_end(&mut data)?;
         Ok(Bytes::from(data))
     };
 
-    let root_map = crate::get_root_data_map(data_map.inner.clone(), get_chunk)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-
-    Ok(PyDataMap { inner: root_map })
+    match rust_get_root_data_map(data_map.inner.clone(), get_chunk) {
+        Ok(root_map) => Ok(PyDataMap { inner: root_map }),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
 }
 
 #[pymodule]
@@ -209,4 +226,4 @@ fn self_encryption(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(shrink_data_map, m)?)?;
     m.add_function(wrap_pyfunction!(get_root_data_map, m)?)?;
     Ok(())
-} 
+}

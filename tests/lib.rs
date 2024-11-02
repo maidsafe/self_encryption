@@ -355,8 +355,6 @@ fn data_map_with_child() {
     assert_eq!(data_map_with_child.infos(), chunk_infos);
 }
 
-
-
 #[test]
 fn test_data_map_serialization() {
     let chunk_infos = vec![ChunkInfo {
