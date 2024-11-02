@@ -296,12 +296,112 @@ def advanced_example():
 
 ## Implementation Details
 
+### Core Process
+
 - Files are split into chunks of up to 1MB
-- Each chunk is encrypted using AES-256-GCM
-- Chunk names are SHA3-256 hashes of their content
-- Large data maps are automatically shrunk into a hierarchy
-- All operations support custom storage backends
-- Streaming operations for memory-efficient processing
+- Each chunk is processed in three steps:
+  1. Compression (using Brotli)
+  2. Encryption (using AES-256-CBC)
+  3. XOR obfuscation
+
+### Key Generation and Security
+
+- Each chunk's encryption uses keys derived from the content hashes of three chunks:
+
+  ```
+  For chunk N:
+  - Uses hashes from chunks [N, N+1, N+2]
+  - Combined hash = hash(N) || hash(N+1) || hash(N+2)
+  - Split into:
+    - Pad (first X bytes)
+    - Key (next 16 bytes for AES-256)
+    - IV  (final 16 bytes)
+  ```
+
+- This creates a chain of dependencies where each chunk's encryption depends on its neighbors
+- Provides both convergent encryption and additional security through the interdependencies
+
+### Encryption Flow
+
+1. Content Chunking:
+   - File is split into chunks of optimal size
+   - Each chunk's raw content is hashed (SHA3-256)
+   - These hashes become part of the DataMap
+
+2. Per-Chunk Processing:
+
+   ```rust
+   // For each chunk:
+   1. Compress data using Brotli
+   2. Generate key materials:
+      - Combine three consecutive chunk hashes
+      - Extract pad, key, and IV
+   3. Encrypt compressed data using AES-256-CBC
+   4. XOR encrypted data with pad for obfuscation
+   ```
+
+3. DataMap Creation:
+   - Stores both pre-encryption (src) and post-encryption (dst) hashes
+   - Maintains chunk ordering and size information
+   - Required for both encryption and decryption processes
+
+### Decryption Flow
+
+1. Chunk Retrieval:
+   - Use DataMap to identify required chunks
+   - Retrieve chunks using dst_hash as identifier
+
+2. Per-Chunk Processing:
+
+   ```rust
+   // For each chunk:
+   1. Regenerate key materials using src_hashes from DataMap
+   2. Remove XOR obfuscation using pad
+   3. Decrypt using AES-256-CBC with key and IV
+   4. Decompress using Brotli
+   ```
+
+3. Chunk Reassembly:
+   - Chunks are processed in order specified by DataMap
+   - Reassembled into original file
+
+### Storage Features
+
+- Flexible backend support through trait-based design
+- Supports both memory and disk-based storage
+- Streaming operations for memory efficiency
+- Hierarchical data maps for large files:
+
+  ```rust
+  // DataMap shrinking for large files
+  1. Serialize large DataMap
+  2. Encrypt serialized map using same process
+  3. Create new DataMap with fewer chunks
+  4. Repeat until manageable size reached
+  ```
+
+### Security Properties
+
+- Content-based convergent encryption
+- Additional security through chunk interdependencies
+- Self-validating chunks through hash verification
+- No single point of failure in chunk storage
+- Tamper-evident through hash chains
+
+### Performance Optimizations
+
+- Parallel chunk processing where possible
+- Streaming support for large files
+- Efficient memory usage through chunking
+- Optimized compression settings
+- Configurable chunk sizes
+
+This implementation provides a balance of:
+
+- Security (through multiple encryption layers)
+- Deduplication (through convergent encryption)
+- Performance (through parallelization and streaming)
+- Flexibility (through modular storage backends)
 
 ## License
 
