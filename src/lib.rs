@@ -463,11 +463,10 @@ pub fn decrypt_range(
     // Sort and filter chunks to only include the ones we need
     let sorted_chunks: Vec<_> = chunks
         .iter()
-        .map(|c| {
+        .filter_map(|c| {
             let hash = XorName::from_content(&c.content);
             chunk_indices.get(&hash).map(|&idx| (idx, c))
         })
-        .filter_map(|x| x)
         .filter(|(idx, _)| *idx >= start_chunk && *idx <= end_chunk)
         .sorted_by_key(|(idx, _)| *idx)
         .map(|(_, c)| c)
