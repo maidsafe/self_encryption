@@ -811,7 +811,7 @@ mod data_map_tests {
         let chunk_size = *MAX_CHUNK_SIZE;
         let data_size = num_chunks * chunk_size;
         let data = test_helpers::random_bytes(data_size);
-        let (data_map, _) = encrypt(Bytes::from(data))?;
+        let (data_map, _) = encrypt(data)?;
         Ok(data_map)
     }
 
@@ -821,7 +821,7 @@ mod data_map_tests {
         // Create dummy hashes - each hash is just the chunk number repeated
         let chunk_identifiers = (0..num_chunks)
             .map(|i| {
-                let dummy_hash = XorName::from_content(&vec![i as u8; 32]); // Convert to XorName
+                let dummy_hash = XorName::from_content(&[i as u8; 32]); // Convert to XorName
                 ChunkInfo {
                     index: i,
                     dst_hash: dummy_hash,
@@ -1031,7 +1031,7 @@ mod data_map_tests {
 
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024); // 1MB of random data
-        let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
+        let (data_map, encrypted_chunks) = encrypt(test_data.clone())?;
 
         // Store chunks to disk
         for chunk in encrypted_chunks {
@@ -1069,7 +1069,7 @@ mod data_map_tests {
 
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024); // 1MB of random data
-        let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
+        let (data_map, encrypted_chunks) = encrypt(test_data.clone())?;
 
         // Store chunks in memory
         for chunk in encrypted_chunks {
@@ -1110,7 +1110,7 @@ mod data_map_tests {
 
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
-        let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data))?;
+        let (data_map, encrypted_chunks) = encrypt(test_data)?;
 
         // Store only half of the chunks
         for (i, chunk) in encrypted_chunks.into_iter().enumerate() {
@@ -1149,7 +1149,7 @@ mod data_map_tests {
 
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
-        let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data))?;
+        let (data_map, encrypted_chunks) = encrypt(test_data)?;
 
         // Store chunks
         for chunk in encrypted_chunks {
@@ -1181,7 +1181,7 @@ mod data_map_tests {
 
         // Create test data and encrypt it
         let test_data = test_helpers::random_bytes(1024 * 1024);
-        let (data_map, encrypted_chunks) = encrypt(Bytes::from(test_data.clone()))?;
+        let (data_map, encrypted_chunks) = encrypt(test_data.clone())?;
 
         // Store chunks with their original hashes
         for chunk in encrypted_chunks {
