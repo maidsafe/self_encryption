@@ -104,7 +104,7 @@ impl StorageBackend {
             }
         }
 
-        let disk_chunks: Vec<_> = std::fs::read_dir(&self.disk_dir.path())?
+        let disk_chunks: Vec<_> = std::fs::read_dir(self.disk_dir.path())?
             .filter_map(|entry| entry.ok())
             .collect();
         println!("Disk storage contains {} chunks", disk_chunks.len());

@@ -154,10 +154,7 @@ fn encrypt_file(file_path: String, output_dir: String) -> PyResult<(PyDataMap, V
         encrypt_from_file(&PathBuf::from(file_path), &PathBuf::from(output_dir))
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
 
-    let chunk_filenames: Vec<String> = chunk_names
-        .into_iter()
-        .map(|name| hex::encode(name))
-        .collect();
+    let chunk_filenames: Vec<String> = chunk_names.into_iter().map(hex::encode).collect();
 
     Ok((PyDataMap { inner: data_map }, chunk_filenames))
 }
