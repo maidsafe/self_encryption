@@ -770,7 +770,7 @@ where
 
 /// Recursively gets the root data map by decrypting child data maps
 /// Takes a chunk retrieval function that handles fetching the encrypted chunks
-pub fn get_root_data_map<F>(data_map: DataMap, mut get_chunk: F) -> Result<DataMap>
+pub fn get_root_data_map<F>(data_map: DataMap, get_chunk: &mut F) -> Result<DataMap>
 where
     F: FnMut(XorName) -> Result<Bytes>,
 {
@@ -809,15 +809,20 @@ pub fn decrypt_from_storage<F>(
 where
     F: FnMut(XorName) -> Result<Bytes>,
 {
+    let root_map = if data_map.is_child() {
+        get_root_data_map(data_map.clone(), &mut get_chunk)?
+    } else {
+        data_map.clone()
+    };
     let mut encrypted_chunks = Vec::new();
-    for chunk_info in data_map.infos() {
+    for chunk_info in root_map.infos() {
         let chunk_data = get_chunk(chunk_info.dst_hash)?;
         encrypted_chunks.push(EncryptedChunk {
             content: chunk_data,
         });
     }
 
-    let decrypted_content = decrypt_full_set(data_map, &encrypted_chunks)?;
+    let decrypted_content = decrypt_full_set(&root_map, &encrypted_chunks)?;
     File::create(output_filepath)
         .map_err(Error::from)?
         .write_all(&decrypted_content)
@@ -932,7 +937,7 @@ mod data_map_tests {
             Ok(())
         };
 
-        let retrieve = |hash: XorName| -> Result<Bytes> {
+        let mut retrieve = |hash: XorName| -> Result<Bytes> {
             let path = temp_dir.path().join(hex::encode(hash));
             let mut file = File::open(path)?;
             let mut data = Vec::new();
@@ -945,7 +950,7 @@ mod data_map_tests {
         let shrunk_map = shrink_data_map(original_map.clone(), store)?;
 
         // Get the root data map
-        let root_map = get_root_data_map(shrunk_map, retrieve)?;
+        let root_map = get_root_data_map(shrunk_map, &mut retrieve)?;
 
         // Verify the root map matches the original
         assert_eq!(root_map.len(), original_map.len());
@@ -967,7 +972,7 @@ mod data_map_tests {
         };
 
         let storage_clone = storage.clone();
-        let retrieve = move |hash: XorName| -> Result<Bytes> {
+        let mut retrieve = move |hash: XorName| -> Result<Bytes> {
             storage_clone
                 .lock()
                 .unwrap()
@@ -981,7 +986,7 @@ mod data_map_tests {
         let shrunk_map = shrink_data_map(original_map.clone(), store)?;
 
         // Get the root data map
-        let root_map = get_root_data_map(shrunk_map, retrieve)?;
+        let root_map = get_root_data_map(shrunk_map, &mut retrieve)?;
 
         // Verify results
         assert_eq!(root_map.len(), original_map.len());
@@ -1003,7 +1008,7 @@ mod data_map_tests {
         };
 
         let storage_clone = storage.clone();
-        let retrieve = move |hash: XorName| -> Result<Bytes> {
+        let mut retrieve = move |hash: XorName| -> Result<Bytes> {
             storage_clone
                 .lock()
                 .unwrap()
@@ -1020,7 +1025,7 @@ mod data_map_tests {
         assert!(shrunk_map.child().unwrap() > 1);
 
         // Get back the root map
-        let root_map = get_root_data_map(shrunk_map, retrieve)?;
+        let root_map = get_root_data_map(shrunk_map, &mut retrieve)?;
 
         // Verify the root map matches the original
         assert_eq!(root_map.len(), original_map.len());
@@ -1041,11 +1046,11 @@ mod data_map_tests {
         assert!(shrink_data_map(large_map, store).is_err());
 
         // Test with failing retrieval
-        let retrieve =
+        let mut retrieve = 
             |_: XorName| -> Result<Bytes> { Err(Error::Generic("Retrieval failed".to_string())) };
 
         let child_map = DataMap::with_child(vec![], 1);
-        assert!(get_root_data_map(child_map, retrieve).is_err());
+        assert!(get_root_data_map(child_map, &mut retrieve).is_err());
 
         Ok(())
     }
