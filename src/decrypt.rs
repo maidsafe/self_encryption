@@ -11,6 +11,7 @@ use bytes::Bytes;
 use std::io::Cursor;
 use xor_name::XorName;
 
+// encrypted_Chunks are sorted !!
 pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: &[&EncryptedChunk]) -> Result<Bytes> {
     let mut all_bytes = Vec::new();
 
