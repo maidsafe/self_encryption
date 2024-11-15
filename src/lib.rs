@@ -114,7 +114,6 @@ use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    ops::Range,
     path::{Path, PathBuf},
 };
 use tempfile::{tempdir, TempDir};
@@ -545,63 +544,6 @@ pub(crate) fn xor(data: &Bytes, &Pad(pad): &Pad) -> Bytes {
         .map(|(&a, &b)| a ^ b)
         .collect();
     Bytes::from(vec)
-}
-
-/// Helper struct for seeking
-/// original file bytes from chunks.
-pub struct SeekInfo {
-    /// Start and end index for the chunks
-    /// covered by a pos and len.
-    pub index_range: Range<usize>,
-    /// The start pos of first chunk.
-    /// The position is relative to the
-    /// byte content of that chunk, not the whole file.
-    pub relative_pos: usize,
-}
-
-/// Helper function for getting info needed
-/// to seek original file bytes from chunks.
-///
-/// It is used to first fetch chunks using the `index_range`.
-/// Then the chunks are passed into `self_encryption::decrypt_range` together
-/// with `relative_pos` from the `SeekInfo` instance, and the `len` to be read.
-pub fn seek_info(file_size: usize, pos: usize, len: usize) -> SeekInfo {
-    let (start_index, end_index) = overlapped_chunks(file_size, pos, len);
-
-    let relative_pos = if start_index == 2 && file_size < 3 * *MAX_CHUNK_SIZE {
-        pos - (2 * get_chunk_size(file_size, 0))
-    } else {
-        pos % get_chunk_size(file_size, start_index)
-    };
-
-    SeekInfo {
-        index_range: start_index..end_index,
-        relative_pos,
-    }
-}
-
-// ------------------------------------------------------------------------------
-//   ---------------------- Private methods -----------------------------------
-// ------------------------------------------------------------------------------
-
-/// Returns the chunk index range [start, end) that is overlapped by the byte range defined by `pos`
-/// and `len`. Returns empty range if `file_size` is so small that there are no chunks.
-fn overlapped_chunks(file_size: usize, pos: usize, len: usize) -> (usize, usize) {
-    // FIX THIS SHOULD NOT BE ALLOWED
-    if file_size < (3 * MIN_CHUNK_SIZE) || pos >= file_size || len == 0 {
-        return (0, 0);
-    }
-
-    // calculate end position taking care of overflows
-    let end = match pos.checked_add(len) {
-        Some(end) => end,
-        None => file_size,
-    };
-
-    let start_index = get_chunk_index(file_size, pos);
-    let end_index = get_chunk_index(file_size, end);
-
-    (start_index, end_index)
 }
 
 fn extract_hashes(data_map: &DataMap) -> Vec<XorName> {

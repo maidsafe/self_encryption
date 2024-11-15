@@ -7,7 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use crate::{
-    decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, seek_info,
+    decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, 
     test_helpers::random_bytes, DataMap, EncryptedChunk, Error, StreamSelfDecryptor,
     StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
 };
@@ -102,116 +102,6 @@ fn write_and_read() -> Result<(), Error> {
     let raw_data = decrypt_full_set(&data_map, &encrypted_chunks)?;
 
     compare(bytes, raw_data)
-}
-
-#[test]
-fn seek_indices() -> Result<(), Error> {
-    let file_size = 3072;
-    let pos = 0;
-    let len = file_size / 2;
-
-    let info = seek_info(file_size, pos, len);
-
-    assert_eq!(0, info.relative_pos);
-    assert_eq!(0, info.index_range.start);
-    assert_eq!(1, info.index_range.end);
-
-    let pos = len;
-    let info = seek_info(file_size, pos, len);
-
-    assert_eq!(512, info.relative_pos);
-    assert_eq!(1, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    let info = seek_info(file_size, pos, len + 1);
-
-    assert_eq!(512, info.relative_pos);
-    assert_eq!(1, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    Ok(())
-}
-
-#[test]
-fn seek_indices_on_medium_size_file() -> Result<(), Error> {
-    let file_size = 969_265;
-    let pos = 0;
-    let len = 131072;
-
-    let info = seek_info(file_size, pos, len);
-
-    assert_eq!(0, info.relative_pos);
-    assert_eq!(0, info.index_range.start);
-    assert_eq!(0, info.index_range.end);
-
-    let info = seek_info(file_size, 131072, len);
-
-    assert_eq!(131072, info.relative_pos);
-    assert_eq!(0, info.index_range.start);
-    assert_eq!(0, info.index_range.end);
-
-    let info = seek_info(file_size, 393216, len);
-
-    assert_eq!(70128, info.relative_pos);
-    assert_eq!(1, info.index_range.start);
-    assert_eq!(1, info.index_range.end);
-
-    let info = seek_info(file_size, 655360, len);
-
-    assert_eq!(9184, info.relative_pos);
-    assert_eq!(2, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    Ok(())
-}
-
-#[test]
-fn seek_indices_on_small_size_file() -> Result<(), Error> {
-    let file_size = 1024;
-
-    // first byte of index 0
-    let info = seek_info(file_size, 0, 340);
-
-    assert_eq!(0, info.relative_pos);
-    assert_eq!(0, info.index_range.start);
-    assert_eq!(0, info.index_range.end);
-
-    // first byte of index 1
-    let info = seek_info(file_size, 341, 340);
-
-    assert_eq!(0, info.relative_pos);
-    assert_eq!(1, info.index_range.start);
-    assert_eq!(1, info.index_range.end);
-
-    // first byte of index 2
-    let info = seek_info(file_size, 682, 340);
-
-    assert_eq!(0, info.relative_pos);
-    assert_eq!(2, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    // last byte of index 2
-    let info = seek_info(file_size, file_size - 1, 1);
-
-    assert_eq!(341, info.relative_pos);
-    assert_eq!(2, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    // overflow - should this error?
-    let info = seek_info(file_size, file_size, 1);
-
-    assert_eq!(1, info.relative_pos);
-    assert_eq!(0, info.index_range.start);
-    assert_eq!(0, info.index_range.end);
-
-    // last byte of index 2 (as 2 remainders in last chunk)
-    let info = seek_info(file_size + 1, file_size, 1);
-
-    assert_eq!(342, info.relative_pos);
-    assert_eq!(2, info.index_range.start);
-    assert_eq!(2, info.index_range.end);
-
-    Ok(())
 }
 
 #[test]
