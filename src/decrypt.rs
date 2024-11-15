@@ -12,7 +12,10 @@ use std::io::Cursor;
 use xor_name::XorName;
 
 // encrypted_Chunks are sorted !!
-pub fn decrypt(src_hashes: Vec<XorName>, encrypted_chunks: &[&EncryptedChunk]) -> Result<Bytes> {
+pub(crate) fn decrypt_sorted_set(
+    src_hashes: Vec<XorName>,
+    encrypted_chunks: &[&EncryptedChunk],
+) -> Result<Bytes> {
     let mut all_bytes = Vec::new();
 
     // Process chunks sequentially to maintain proper boundaries

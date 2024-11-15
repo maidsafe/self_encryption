@@ -443,7 +443,7 @@ pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result
     // Extract just the chunks in order
     let sorted_chunks: Vec<_> = sorted_chunks.into_iter().map(|(_, c)| c).collect();
 
-    decrypt::decrypt(src_hashes, &sorted_chunks)
+    decrypt::decrypt_sorted_set(src_hashes, &sorted_chunks)
 }
 
 /// Decrypts a range of data from the encrypted chunks.
@@ -1046,7 +1046,7 @@ mod data_map_tests {
         assert!(shrink_data_map(large_map, store).is_err());
 
         // Test with failing retrieval
-        let mut retrieve = 
+        let mut retrieve =
             |_: XorName| -> Result<Bytes> { Err(Error::Generic("Retrieval failed".to_string())) };
 
         let child_map = DataMap::with_child(vec![], 1);
