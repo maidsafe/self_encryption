@@ -19,7 +19,8 @@ use xor_name::XorName;
 pub struct DataMap {
     /// List of chunk hashes
     pub chunk_identifiers: Vec<ChunkInfo>,
-    /// Child value
+    /// Child value, None means root data map and any other valuesignifies how 
+    /// many levels of data map we have shrunk
     pub child: Option<usize>,
 }
 
