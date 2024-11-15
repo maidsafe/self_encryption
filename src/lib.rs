@@ -109,7 +109,6 @@ use bytes::Bytes;
 use chunk::batch_positions;
 use decrypt::decrypt_chunk;
 use encrypt::encrypt_chunk;
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::{
     collections::BTreeMap,
@@ -413,6 +412,13 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
 }
 
 /// Decrypts what is expected to be the full set of chunks covered by the data map.
+///
+/// # Arguments
+/// * `data_map` - The data map containing chunk information
+/// * `chunks` - The encrypted chunks to decrypt
+///
+/// # Returns
+/// * `Result<Bytes>` - The decrypted data or an error if chunks are missing/corrupted
 pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
     let chunk_indices: BTreeMap<XorName, usize> = data_map
@@ -421,26 +427,39 @@ pub fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result
         .map(|info| (info.dst_hash, info.index))
         .collect();
 
+    // Map chunks to their indices, validating hashes
     let mut sorted_chunks = Vec::with_capacity(chunks.len());
-    sorted_chunks.extend(
-        chunks
-            .iter()
-            .map(|c| {
-                let hash = XorName::from_content(&c.content);
-                (chunk_indices[&hash], c)
-            })
-            .sorted_by_key(|(i, _)| *i)
-            .map(|(_, c)| c),
-    );
+    for chunk in chunks {
+        let hash = XorName::from_content(&chunk.content);
+        let idx = chunk_indices.get(&hash).ok_or_else(|| {
+            Error::Generic(format!("Chunk with hash {:?} not found in data map", hash))
+        })?;
+        sorted_chunks.push((*idx, chunk));
+    }
+
+    // Sort chunks by index
+    sorted_chunks.sort_by_key(|(idx, _)| *idx);
+
+    // Extract just the chunks in order
+    let sorted_chunks: Vec<_> = sorted_chunks.into_iter().map(|(_, c)| c).collect();
 
     decrypt::decrypt(src_hashes, &sorted_chunks)
 }
 
-/// Decrypts a range, used when seeking.
+/// Decrypts a range of data from the encrypted chunks.
+///
+/// # Arguments
+/// * `data_map` - The data map containing chunk information
+/// * `chunks` - The encrypted chunks to decrypt
+/// * `file_pos` - The position within the complete file to start reading from
+/// * `len` - Number of bytes to read
+///
+/// # Returns
+/// * `Result<Bytes>` - The decrypted range of data or an error if chunks are missing/corrupted
 pub fn decrypt_range(
     data_map: &DataMap,
     chunks: &[EncryptedChunk],
-    relative_pos: usize,
+    file_pos: usize,
     len: usize,
 ) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
@@ -456,21 +475,29 @@ pub fn decrypt_range(
     let file_size = data_map.original_file_size();
 
     // Calculate which chunks we need based on the range
-    let start_chunk = get_chunk_index(file_size, relative_pos);
-    let end_pos = std::cmp::min(relative_pos + len, file_size);
+    let start_chunk = get_chunk_index(file_size, file_pos);
+    let end_pos = std::cmp::min(file_pos + len, file_size);
     let end_chunk = get_chunk_index(file_size, end_pos);
 
     // Sort and filter chunks to only include the ones we need
-    let sorted_chunks: Vec<_> = chunks
-        .iter()
-        .filter_map(|c| {
-            let hash = XorName::from_content(&c.content);
-            chunk_indices.get(&hash).map(|&idx| (idx, c))
-        })
-        .filter(|(idx, _)| *idx >= start_chunk && *idx <= end_chunk)
-        .sorted_by_key(|(idx, _)| *idx)
-        .map(|(_, c)| c)
-        .collect();
+    let mut sorted_chunks = Vec::new();
+    for chunk in chunks {
+        let hash = XorName::from_content(&chunk.content);
+        let idx = match chunk_indices.get(&hash) {
+            Some(&idx) if idx >= start_chunk && idx <= end_chunk => idx,
+            Some(_) => continue, // Skip chunks outside our range
+            None => {
+                return Err(Error::Generic(format!(
+                    "Chunk with hash {:?} not found in data map",
+                    hash
+                )))
+            }
+        };
+        sorted_chunks.push((idx, chunk));
+    }
+
+    // Sort by chunk index
+    sorted_chunks.sort_by_key(|(idx, _)| *idx);
 
     // Verify we have all needed chunks
     let expected_chunks = end_chunk - start_chunk + 1;
@@ -488,7 +515,7 @@ pub fn decrypt_range(
     let mut all_bytes = Vec::new();
     for (idx, chunk) in sorted_chunks.iter().enumerate() {
         let chunk_idx = start_chunk + idx;
-        let decrypted = decrypt_chunk(chunk_idx, &chunk.content, &src_hashes)?;
+        let decrypted = decrypt_chunk(chunk_idx, &chunk.1.content, &src_hashes)?;
         all_bytes.extend_from_slice(&decrypted);
     }
 
@@ -496,7 +523,7 @@ pub fn decrypt_range(
 
     // Calculate the actual offset within our decrypted data
     let chunk_start_pos = get_start_position(file_size, start_chunk);
-    let internal_offset = relative_pos - chunk_start_pos;
+    let internal_offset = file_pos - chunk_start_pos;
 
     if internal_offset >= bytes.len() {
         return Ok(Bytes::new());
