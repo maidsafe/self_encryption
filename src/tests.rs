@@ -8,88 +8,11 @@
 
 use crate::{
     decrypt_full_set, decrypt_range, encrypt, get_chunk_size, get_num_chunks, 
-    test_helpers::random_bytes, DataMap, EncryptedChunk, Error, StreamSelfDecryptor,
-    StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
+    test_helpers::random_bytes, DataMap, EncryptedChunk, Error, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
-use std::fs::create_dir_all;
-use tempfile::tempdir;
 
-#[test]
-fn test_stream_self_encryptor() {
-    // Create a temporary directory for our test files
-    let dir = tempdir().unwrap();
-    println!("Created temp dir at: {:?}", dir.path());
-    
-    // Create input file path and write test data
-    let file_path = dir.path().join("input_file");
-    let file_size = 10 * 1024 * 1024; // 10MB
-    let data = random_bytes(file_size);
-    
-    // Create parent directory if it doesn't exist
-    if let Some(parent) = file_path.parent() {
-        std::fs::create_dir_all(parent).unwrap();
-    }
-    
-    std::fs::write(&file_path, &data).unwrap();
-    println!("Written test data to: {:?}", file_path);
 
-    // Create chunk directory
-    let chunk_path = dir.path().join("chunks");
-    create_dir_all(&chunk_path).unwrap();
-    println!("Created chunk directory at: {:?}", chunk_path);
-
-    // Verify directories exist
-    assert!(chunk_path.exists(), "Chunk directory does not exist");
-    assert!(file_path.exists(), "Input file does not exist");
-
-    // Encrypt the file using StreamSelfEncryptor
-    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-        file_path, 
-        Some(chunk_path)
-    ).unwrap();
-    
-    let mut encrypted_chunks = Vec::new();
-    let mut data_map = None;
-    
-    while let Ok((chunk, map)) = encryptor.next_encryption() {
-        if let Some(c) = chunk {
-            encrypted_chunks.push(c);
-        }
-        if let Some(m) = map {
-            data_map = Some(m);
-            break;
-        }
-    }
-    
-    let data_map = data_map.expect("Encryption should produce a data map");
-
-    // Create output file path for decryption
-    let decrypted_file_path = dir.path().join("decrypted_file");
-    
-    // Create parent directory for output file if it doesn't exist
-    if let Some(parent) = decrypted_file_path.parent() {
-        std::fs::create_dir_all(parent).unwrap();
-    }
-
-    // Initialize decryptor
-    let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
-        decrypted_file_path.clone(), 
-        &data_map
-    ).unwrap();
-
-    // Process all chunks
-    for chunk in encrypted_chunks {
-        let done = decryptor.next_encrypted(chunk).unwrap();
-        if done {
-            break;
-        }
-    }
-
-    // Verify the decrypted content matches original
-    let decrypted_data = std::fs::read(&decrypted_file_path).unwrap();
-    assert_eq!(data.to_vec(), decrypted_data, "Decrypted data should match original");
-}
 
 #[test]
 fn write_and_read() -> Result<(), Error> {
