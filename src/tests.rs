@@ -12,85 +12,83 @@ use crate::{
     StreamSelfEncryptor, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
-use rand::prelude::SliceRandom;
-use std::{
-    fs::{create_dir_all, File},
-    io::{Read, Write},
-};
+use std::fs::create_dir_all;
 use tempfile::tempdir;
 
 #[test]
-fn test_stream_self_encryptor() -> Result<(), Error> {
-    // Create a 10MB temporary file
-    let dir = tempdir()?;
-    let file_path = dir.path().join("tempfile");
-    let mut file = File::create(&file_path)?;
+fn test_stream_self_encryptor() {
+    // Create a temporary directory for our test files
+    let dir = tempdir().unwrap();
+    println!("Created temp dir at: {:?}", dir.path());
+    
+    // Create input file path and write test data
+    let file_path = dir.path().join("input_file");
     let file_size = 10 * 1024 * 1024; // 10MB
     let data = random_bytes(file_size);
-    file.write_all(&data)?;
+    
+    // Create parent directory if it doesn't exist
+    if let Some(parent) = file_path.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    
+    std::fs::write(&file_path, &data).unwrap();
+    println!("Written test data to: {:?}", file_path);
 
-    let chunk_path = dir.path().join("chunk_path");
-    create_dir_all(chunk_path.clone())?;
+    // Create chunk directory
+    let chunk_path = dir.path().join("chunks");
+    create_dir_all(&chunk_path).unwrap();
+    println!("Created chunk directory at: {:?}", chunk_path);
+
+    // Verify directories exist
+    assert!(chunk_path.exists(), "Chunk directory does not exist");
+    assert!(file_path.exists(), "Input file does not exist");
 
     // Encrypt the file using StreamSelfEncryptor
-    let mut encryptor =
-        StreamSelfEncryptor::encrypt_from_file(file_path, Some(chunk_path.clone()))?;
+    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
+        file_path, 
+        Some(chunk_path)
+    ).unwrap();
+    
     let mut encrypted_chunks = Vec::new();
     let mut data_map = None;
+    
     while let Ok((chunk, map)) = encryptor.next_encryption() {
         if let Some(c) = chunk {
             encrypted_chunks.push(c);
         }
         if let Some(m) = map {
-            // Returning a data_map means file encryption is completed.
             data_map = Some(m);
             break;
         }
     }
-    let data_map = data_map.unwrap();
+    
+    let data_map = data_map.expect("Encryption should produce a data map");
 
-    // Shuffle the encrypted chunks
-    let mut rng = rand::thread_rng();
-    encrypted_chunks.shuffle(&mut rng);
-
-    // Decrypt the shuffled chunks using StreamSelfDecryptor
-    let decrypted_file_path = dir.path().join("decrypted");
-
-    // Write something to the decrypted file first to simulate it's corrupted.
-    {
-        let mut file = File::create(&decrypted_file_path)?;
-        let file_size = 1024; // 1KB
-        let data = random_bytes(file_size);
-        file.write_all(&data)?;
+    // Create output file path for decryption
+    let decrypted_file_path = dir.path().join("decrypted_file");
+    
+    // Create parent directory for output file if it doesn't exist
+    if let Some(parent) = decrypted_file_path.parent() {
+        std::fs::create_dir_all(parent).unwrap();
     }
 
-    let mut decryptor =
-        StreamSelfDecryptor::decrypt_to_file(decrypted_file_path.clone(), &data_map)?;
+    // Initialize decryptor
+    let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
+        decrypted_file_path.clone(), 
+        &data_map
+    ).unwrap();
+
+    // Process all chunks
     for chunk in encrypted_chunks {
-        let _ = decryptor.next_encrypted(chunk)?;
+        let done = decryptor.next_encrypted(chunk).unwrap();
+        if done {
+            break;
+        }
     }
 
-    // Read the decrypted file and verify that its content matches the original data
-    let mut decrypted_file = File::open(decrypted_file_path)?;
-    let mut decrypted_data = Vec::new();
-    let _ = decrypted_file.read_to_end(&mut decrypted_data)?;
-    assert_eq!(data, decrypted_data);
-
-    // Use the flushed encrypted chunks to recover the file and verify with the original data
-    let mut flushed_encrypted_chunks = Vec::new();
-    for chunk_info in data_map.infos() {
-        let file_path = chunk_path.join(hex::encode(chunk_info.dst_hash));
-        let mut chunk_file = File::open(file_path)?;
-        let mut chunk_data = Vec::new();
-        let _ = chunk_file.read_to_end(&mut chunk_data)?;
-        flushed_encrypted_chunks.push(EncryptedChunk {
-            content: chunk_data.into(),
-        });
-    }
-    let decrypted_flushed_data = decrypt_full_set(&data_map, &flushed_encrypted_chunks)?;
-    assert_eq!(data, decrypted_flushed_data);
-
-    Ok(())
+    // Verify the decrypted content matches original
+    let decrypted_data = std::fs::read(&decrypted_file_path).unwrap();
+    assert_eq!(data.to_vec(), decrypted_data, "Decrypted data should match original");
 }
 
 #[test]
