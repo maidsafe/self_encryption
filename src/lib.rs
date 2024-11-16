@@ -100,7 +100,6 @@ pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 mod utils;
-mod stream;
 
 use decrypt::decrypt_chunk;
 use utils::*;
@@ -108,7 +107,6 @@ use utils::*;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    stream::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
 use lazy_static::lazy_static;
