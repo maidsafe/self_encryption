@@ -39,8 +39,8 @@ def test_file_encryption_decryption():
         data_map, chunk_names = py_encrypt_from_file(str(input_path), str(chunk_dir))
         
         # Create chunk retrieval function
-        def get_chunk(hash_bytes):
-            chunk_path = chunk_dir / hash_bytes.hex()
+        def get_chunk(hash_hex: str):
+            chunk_path = chunk_dir / hash_hex
             return chunk_path.read_bytes()
         
         # Decrypt to new file
@@ -108,8 +108,8 @@ def test_comprehensive_encryption_decryption():
             data_map2, chunk_names = py_encrypt_from_file(str(input_path), str(chunk_dir))
             
             # Create chunk retrieval function
-            def get_chunk(hash_bytes):
-                chunk_path = chunk_dir / hash_bytes.hex()
+            def get_chunk(hash_hex: str):
+                chunk_path = chunk_dir / hash_hex
                 return chunk_path.read_bytes()
             
             # Decrypt file
