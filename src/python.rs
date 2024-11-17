@@ -4,10 +4,9 @@ use crate::{
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyType};
 use std::path::PathBuf;
 use xor_name::XorName;
-use pyo3::types::PyType;
 
 #[pyclass]
 #[derive(Clone)]
@@ -94,11 +93,10 @@ impl PyEncryptedChunk {
         }
     }
 
-    fn content(&self) -> Vec<u8> {
-        self.inner.content.to_vec()
+    fn content(&self) -> &[u8] {
+        &self.inner.content
     }
 
-    // Add a classmethod to create from Python bytes
     #[classmethod]
     fn from_bytes(_cls: &PyType, content: &PyBytes) -> PyResult<Self> {
         Ok(Self::new(content.as_bytes().to_vec()))
@@ -108,7 +106,8 @@ impl PyEncryptedChunk {
 #[pyfunction]
 fn py_encrypt(data: &PyBytes) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
     let bytes = Bytes::from(data.as_bytes().to_vec());
-    let (data_map, chunks) = encrypt(bytes).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+    let (data_map, chunks) = encrypt(bytes)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
     
     Ok((
         PyDataMap { inner: data_map },
@@ -117,7 +116,7 @@ fn py_encrypt(data: &PyBytes) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
 }
 
 #[pyfunction]
-fn py_encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyDataMap, Vec<Vec<u8>>)> {
+fn py_encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyDataMap, Vec<String>)> {
     let (data_map, chunk_names) = encrypt_from_file(
         &PathBuf::from(input_path),
         &PathBuf::from(output_dir),
@@ -126,16 +125,19 @@ fn py_encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyD
 
     Ok((
         PyDataMap { inner: data_map },
-        chunk_names.into_iter().map(|name| name.0.to_vec()).collect(),
+        chunk_names.into_iter().map(|name| hex::encode(name.0)).collect(),
     ))
 }
 
 #[pyfunction]
-fn py_decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Vec<u8>> {
+fn py_decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Py<PyBytes>> {
     let chunks: Vec<EncryptedChunk> = chunks.into_iter().map(|c| c.inner).collect();
     let result = decrypt(&data_map.inner, &chunks)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-    Ok(result.to_vec())
+    
+    Python::with_gil(|py| {
+        Ok(PyBytes::new(py, &result).into())
+    })
 }
 
 #[pyfunction]
@@ -146,9 +148,9 @@ fn py_decrypt_from_storage(
     py: Python<'_>,
 ) -> PyResult<()> {
     let mut get_chunk = |hash: XorName| -> Result<Bytes> {
-        let hash_vec = hash.0.to_vec();
+        let hash_hex = hex::encode(hash.0);
         let result = py_get_chunk
-            .call1(py, (hash_vec,))
+            .call1(py, (hash_hex,))
             .map_err(|e| Error::Generic(format!("Python callback error: {}", e)))?;
         let chunk_data: Vec<u8> = result
             .extract(py)
@@ -167,10 +169,10 @@ fn py_shrink_data_map(
     py: Python<'_>,
 ) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
     let mut store_chunk = |hash: XorName, content: Bytes| -> Result<()> {
-        let hash_vec = hash.0.to_vec();
+        let hash_hex = hex::encode(hash.0);
         let content_vec = content.to_vec();
         let _ = py_store_chunk
-            .call1(py, (hash_vec, content_vec))
+            .call1(py, (hash_hex, content_vec))
             .map_err(|e| Error::Generic(format!("Python callback error: {}", e)))?;
         Ok(())
     };
