@@ -18,7 +18,8 @@ dependencies = [
 [tool.maturin]
 features = ["python"]
 module-name = "self_encryption._self_encryption"
-python-source = "self_encryption"
+bindings = "pyo3"
+develop = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

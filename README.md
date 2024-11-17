@@ -546,3 +546,106 @@ def advanced_example():
 - Error handling follows Python conventions with descriptive exceptions
 - Supports both synchronous and parallel chunk processing
 - Memory efficient through streaming operations
+
+### Chunk Verification
+
+#### Rust
+```rust
+use self_encryption::{verify_chunk, EncryptedChunk, XorName};
+
+// Verify a chunk matches its expected hash
+fn verify_example() -> Result<()> {
+    let chunk_hash = XorName([0; 32]); // 32-byte hash
+    let chunk_content = vec![1, 2, 3]; // Raw chunk content
+    
+    match verify_chunk(chunk_hash, &chunk_content) {
+        Ok(chunk) => println!("Chunk verified successfully"),
+        Err(e) => println!("Chunk verification failed: {}", e),
+    }
+    Ok(())
+}
+```
+
+The `verify_chunk` function provides a way to verify chunk integrity:
+- Takes a `XorName` hash and chunk content as bytes
+- Verifies the content matches the hash
+- Returns a valid `EncryptedChunk` if verification succeeds
+- Returns an error if verification fails
+
+#### Python
+```python
+from self_encryption import verify_chunk
+
+def verify_example():
+    # Get a chunk and its expected hash from somewhere
+    chunk_hash = bytes.fromhex("0" * 64)  # 32-byte hash as hex
+    chunk_content = b"..."  # Raw chunk content
+    
+    try:
+        # Verify and get a usable chunk
+        verified_chunk = verify_chunk(chunk_hash, chunk_content)
+        print("Chunk verified successfully")
+    except ValueError as e:
+        print(f"Chunk verification failed: {e}")
+```
+
+The Python `verify_chunk` function provides similar functionality:
+- Takes a 32-byte hash (as bytes) and the chunk content
+- Verifies the content matches the hash
+- Returns a valid EncryptedChunk if verification succeeds
+- Raises ValueError if verification fails
+
+This functionality is particularly useful for:
+- Verifying chunk integrity after network transfer
+- Validating chunks in storage systems
+- Debugging chunk corruption issues
+- Implementing chunk validation in client applications
+
+### XorName Operations
+
+The `XorName` class provides functionality for working with cryptographic names and hashes:
+
+```python
+from self_encryption import XorName
+
+# Create a XorName from content
+content = b"Hello, World!"
+name = XorName.from_content(content)
+print(f"Content hash: {''.join(format(b, '02x') for b in name.as_bytes())}")
+
+# Create a XorName directly from bytes (must be 32 bytes)
+hash_bytes = bytes([x % 256 for x in range(32)])  # Example 32-byte array
+name = XorName(hash_bytes)
+
+# Get the underlying bytes
+raw_bytes = name.as_bytes()
+
+# Common use cases:
+# 1. Verify chunk content matches its hash
+def verify_chunk_example():
+    # Get a chunk and its expected hash
+    chunk_content = b"..."  # Raw chunk content
+    expected_hash = XorName.from_content(chunk_content)
+    
+    # Verify the chunk
+    verified_chunk = verify_chunk(expected_hash, chunk_content)
+    print("Chunk verified successfully")
+
+# 2. Track chunks by their content hash
+def track_chunks_example():
+    chunks = {}  # Dict to store chunks by hash
+    
+    # Store a chunk
+    content = b"Some chunk content"
+    chunk_hash = XorName.from_content(content)
+    chunks[chunk_hash.as_bytes().hex()] = content
+    
+    # Retrieve a chunk
+    retrieved = chunks.get(chunk_hash.as_bytes().hex())
+```
+
+The `XorName` class provides:
+- `from_content(bytes) -> XorName`: Creates a XorName by hashing the provided content
+- `__init__(bytes) -> XorName`: Creates a XorName from an existing 32-byte hash
+- `as_bytes() -> bytes`: Returns the underlying 32-byte array
+- Used for chunk verification and tracking in the self-encryption process

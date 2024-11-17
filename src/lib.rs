@@ -103,6 +103,8 @@ mod utils;
 
 pub use decrypt::decrypt_chunk;
 use utils::*;
+pub use xor_name::XorName;
+
 
 pub use self::{
     data_map::{ChunkInfo, DataMap},
@@ -115,7 +117,6 @@ use std::{
     io::{Read, Write},
     path::Path,
 };
-use xor_name::XorName;
 
 // export these because they are used in our public API.
 pub use bytes;
@@ -613,6 +614,37 @@ pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
 pub fn deserialize<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     bincode::deserialize(bytes)
         .map_err(|e| Error::Generic(format!("Deserialization error: {}", e)))
+}
+
+/// Verifies and deserializes a chunk by checking its content hash matches the provided name.
+///
+/// # Arguments
+///
+/// * `name` - The expected XorName hash of the chunk content
+/// * `bytes` - The serialized chunk content to verify
+///
+/// # Returns
+///
+/// * `Result<EncryptedChunk>` - The deserialized chunk if verification succeeds
+/// * `Error` - If the content hash doesn't match or deserialization fails
+pub fn verify_chunk(name: XorName, bytes: &[u8]) -> Result<EncryptedChunk> {
+    // Create an EncryptedChunk from the bytes
+    let chunk = EncryptedChunk {
+        content: Bytes::from(bytes.to_vec()),
+    };
+    
+    // Calculate the hash of the encrypted content directly
+    let calculated_hash = XorName::from_content(chunk.content.as_ref());
+    
+    // Verify the hash matches
+    if calculated_hash != name {
+        return Err(Error::Generic(format!(
+            "Chunk content hash mismatch. Expected: {:?}, Got: {:?}",
+            name, calculated_hash
+        )));
+    }
+    
+    Ok(chunk)
 }
 
 #[cfg(test)]

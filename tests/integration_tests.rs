@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use self_encryption::{
     decrypt, decrypt_from_storage, encrypt, encrypt_from_file, get_root_data_map, shrink_data_map,
-    streaming_decrypt_from_storage, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, Result,
+    streaming_decrypt_from_storage, test_helpers::random_bytes, verify_chunk, DataMap, EncryptedChunk, Error, Result,
 };
 use std::{
     collections::HashMap,
@@ -648,6 +648,68 @@ fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
     let mut decrypted_data = Vec::new();
     File::open(&output_path)?.read_to_end(&mut decrypted_data)?;
     assert_eq!(data.as_ref(), decrypted_data.as_slice());
+
+    Ok(())
+}
+
+#[test]
+fn test_chunk_verification() -> Result<()> {
+    let storage = StorageBackend::new()?;
+    let temp_dir = TempDir::new()?;
+
+    // Create test data and encrypt it
+    let test_size = 5 * 1024 * 1024; // 5MB
+    let data = random_bytes(test_size);
+    let input_path = temp_dir.path().join("input.dat");
+    File::create(&input_path)?.write_all(&data)?;
+
+    // Encrypt file to get some chunks
+    let (data_map, _) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
+
+    // Get the first chunk info and content
+    let first_chunk_info = &data_map.infos()[0];
+    let chunk_path = storage.disk_dir.path().join(hex::encode(first_chunk_info.dst_hash));
+    let mut chunk_content = Vec::new();
+    File::open(&chunk_path)?.read_to_end(&mut chunk_content)?;
+
+    // Test 1: Verify valid chunk
+    let verified_chunk = verify_chunk(first_chunk_info.dst_hash, &chunk_content)?;
+    assert_eq!(
+        verified_chunk.content, chunk_content,
+        "Verified chunk content should match original"
+    );
+
+    // Test 2: Try with wrong hash
+    let mut wrong_hash = first_chunk_info.dst_hash.0;
+    wrong_hash[0] ^= 1; // Flip one bit
+    let wrong_name = XorName(wrong_hash);
+    assert!(
+        verify_chunk(wrong_name, &chunk_content).is_err(),
+        "Should fail with incorrect hash"
+    );
+
+    // Test 3: Try with corrupted content
+    let mut corrupted_content = chunk_content.clone();
+    if !corrupted_content.is_empty() {
+        corrupted_content[0] ^= 1; // Flip one bit
+    }
+    assert!(
+        verify_chunk(first_chunk_info.dst_hash, &corrupted_content).is_err(),
+        "Should fail with corrupted content"
+    );
+
+    // Test 4: Verify all chunks from encryption
+    println!("\nVerifying all chunks from encryption:");
+    for (i, info) in data_map.infos().iter().enumerate() {
+        let chunk_path = storage.disk_dir.path().join(hex::encode(info.dst_hash));
+        let mut chunk_content = Vec::new();
+        File::open(&chunk_path)?.read_to_end(&mut chunk_content)?;
+        
+        match verify_chunk(info.dst_hash, &chunk_content) {
+            Ok(_) => println!("✓ Chunk {} verified successfully", i),
+            Err(e) => println!("✗ Chunk {} verification failed: {}", i, e),
+        }
+    }
 
     Ok(())
 }
