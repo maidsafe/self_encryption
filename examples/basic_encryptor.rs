@@ -42,7 +42,7 @@ use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, decrypt_full_set, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
+    self, decrypt, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -55,6 +55,9 @@ use std::{
     sync::Arc,
 };
 use xor_name::XorName;
+use self_encryption::{decrypt, encrypt, encrypt_from_file, decrypt_from_storage};
+use std::path::Path;
+use tempfile::TempDir;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -101,7 +104,7 @@ impl DiskBasedStorage {
         path
     }
 
-    fn get(&self, name: XorName) -> Result<Bytes, Error> {
+    fn get(&self, name: XorName) -> Result<Bytes> {
         let path = self.calculate_path(name);
         let mut file = File::open(path)?;
         let mut data = Vec::new();
@@ -211,8 +214,7 @@ async fn main() {
 
                     if let Ok(mut file) = File::create(args.arg_destination.clone().unwrap()) {
                         let content =
-                            decrypt_full_set(&DataMap::new(keys), encrypted_chunks.as_ref())
-                                .unwrap();
+                            decrypt(&DataMap::new(keys), encrypted_chunks.as_ref()).unwrap();
                         match file.write_all(&content[..]) {
                             Err(error) => println!("File write failed - {:?}", error),
                             Ok(_) => {
