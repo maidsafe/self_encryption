@@ -6,12 +6,14 @@ import pytest
 from self_encryption import (
     DataMap,
     EncryptedChunk,
+    XorName,
     encrypt,
     encrypt_from_file,
     decrypt,
     decrypt_from_storage,
     shrink_data_map,
     streaming_decrypt_from_storage,
+    verify_chunk,
 )
 
 def test_basic_encryption_decryption():
@@ -153,6 +155,36 @@ def test_streaming_decryption():
         
         # Verify
         assert input_path.read_bytes() == output_path.read_bytes()
+
+def test_verify_chunk():
+    # Create some test data and encrypt it
+    data = b"x" * 10_000_000
+    data_map, chunks = encrypt(data)
+    
+    # Get the first chunk and its hash
+    chunk = chunks[0]
+    chunk_info = data_map.infos()[0]
+    
+    # Use dst_hash from chunk info and content from chunk
+    chunk_content = chunk.content()
+    
+    # Create XorName from the content
+    xor_name = XorName.from_content(chunk_content)
+    
+    # Print debug info
+    print(f"Chunk hash (XorName): {''.join(format(b, '02x') for b in xor_name.as_bytes())}")
+    print(f"Content length: {len(chunk_content)}")
+    
+    # Verify valid chunk
+    verified_chunk = verify_chunk(xor_name, chunk_content)
+    assert isinstance(verified_chunk, EncryptedChunk)
+    assert verified_chunk.content() == chunk_content
+    
+    # Test with corrupted content
+    corrupted_content = bytearray(chunk_content)
+    corrupted_content[0] ^= 1  # Flip one bit
+    with pytest.raises(ValueError, match="Chunk content hash mismatch"):
+        verify_chunk(xor_name, bytes(corrupted_content))
 
 if __name__ == "__main__":
     pytest.main([__file__]) 

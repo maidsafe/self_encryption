@@ -25,6 +25,12 @@ struct PyEncryptedChunk {
     inner: RustEncryptedChunk,
 }
 
+#[pyclass(name = "XorName")]
+#[derive(Clone)]
+struct PyXorName {
+    inner: XorName,
+}
+
 #[pymethods]
 impl PyDataMap {
     #[new]
@@ -105,6 +111,27 @@ impl PyEncryptedChunk {
     #[classmethod]
     fn from_bytes(_cls: &PyType, content: &PyBytes) -> PyResult<Self> {
         Ok(Self::new(content.as_bytes().to_vec()))
+    }
+}
+
+#[pymethods]
+impl PyXorName {
+    #[new]
+    fn new(bytes: &PyBytes) -> Self {
+        Self {
+            inner: XorName::from_content(bytes.as_bytes()),
+        }
+    }
+
+    #[staticmethod]
+    fn from_content(content: &PyBytes) -> Self {
+        Self {
+            inner: XorName::from_content(content.as_bytes()),
+        }
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        self.inner.0.to_vec()
     }
 }
 
@@ -211,15 +238,25 @@ fn streaming_decrypt_from_storage(
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
+#[pyfunction]
+fn verify_chunk(name: &PyXorName, content: &PyBytes) -> PyResult<PyEncryptedChunk> {
+    match crate::verify_chunk(name.inner, content.as_bytes()) {
+        Ok(chunk) => Ok(PyEncryptedChunk { inner: chunk }),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
+}
+
 #[pymodule]
 fn _self_encryption(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyDataMap>()?;
     m.add_class::<PyEncryptedChunk>()?;
+    m.add_class::<PyXorName>()?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
     m.add_function(wrap_pyfunction!(encrypt_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt_from_storage, m)?)?;
     m.add_function(wrap_pyfunction!(shrink_data_map, m)?)?;
     m.add_function(wrap_pyfunction!(streaming_decrypt_from_storage, m)?)?;
+    m.add_function(wrap_pyfunction!(verify_chunk, m)?)?;
     Ok(())
 }
