@@ -141,158 +141,146 @@ fn disk_storage_example() -> Result<()> {
 }
 ```
 
-#### Streaming Operations
+# Python Bindings 
 
-```rust
-use self_encryption::{StreamSelfEncryptor, StreamSelfDecryptor};
-
-fn streaming_example() -> Result<()> {
-    // Streaming encryption
-    let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-        PathBuf::from("input.txt"),
-        Some(PathBuf::from("chunks"))
-    )?;
-    
-    let mut all_chunks = Vec::new();
-    let mut final_map = None;
-    
-    while let (chunk, map) = encryptor.next_encryption()? {
-        if let Some(chunk) = chunk {
-            all_chunks.push(chunk);
-        }
-        if let Some(map) = map {
-            final_map = Some(map);
-            break;
-        }
-    }
-    
-    // Streaming decryption
-    let mut decryptor = StreamSelfDecryptor::decrypt_to_file(
-        PathBuf::from("output.txt"),
-        &final_map.unwrap()
-    )?;
-    
-    for chunk in all_chunks {
-        if decryptor.next_encrypted(chunk)? {
-            break;  // Decryption complete
-        }
-    }
-    
-    Ok(())
-}
-```
-
-#### Advanced Usage
-
-```rust
-use self_encryption::{decrypt_range, seek_info};
-
-fn advanced_example() -> Result<()> {
-    // Partial decryption (seeking)
-    let start_pos = 1024;
-    let length = 4096;
-    
-    let seek = seek_info(file_size, start_pos, length);
-    let data = decrypt_range(&data_map, &chunks, seek.relative_pos, length)?;
-    
-    // Hierarchical data maps
-    let store = |hash, data| -> Result<()> {
-        // Store chunk
-        Ok(())
-    };
-    
-    let shrunk_map = shrink_data_map(large_data_map, store)?;
-    
-    // Custom error handling
-    match encrypt(small_data) {
-        Err(Error::Generic(msg)) if msg.contains("Too small") => {
-            println!("Data too small for encryption");
-        }
-        Ok(_) => println!("Encryption successful"),
-        Err(e) => return Err(e),
-    }
-    
-    Ok(())
-}
-```
-
-### Python Usage
-
-#### Installation
-
-```bash
-pip install self-encryption
-```
-
-#### Python Basic Operations
+### Basic Usage
 
 ```python
-from self_encryption import encrypt_bytes, decrypt_chunks
+from self_encryption import encrypt, decrypt
 
+# Basic in-memory encryption/decryption
 def basic_example():
     # Create test data (must be at least 3072 bytes)
     data = b"Hello, World!" * 1000
     
-    # Encrypt data
-    data_map, chunks = encrypt_bytes(data)
+    # Encrypt data - returns data map and encrypted chunks
+    data_map, chunks = encrypt(data)
+    print(f"Data encrypted into {len(chunks)} chunks")
+    print(f"Data map has child level: {data_map.child()}")
     
     # Decrypt data
-    decrypted = decrypt_chunks(data_map, chunks)
+    decrypted = decrypt(data_map, chunks)
     assert data == decrypted
-
 ```
 
-#### Python File Operations
+### File Operations
 
 ```python
-from self_encryption import encrypt_file, decrypt_from_files
-import os
+from pathlib import Path
+from self_encryption import encrypt_from_file, decrypt_from_storage
 
 def file_example():
-    # Encrypt file
-    data_map, chunk_names = encrypt_file("input.txt", "chunks")
+    # Setup paths
+    input_path = Path("large_file.dat")
+    chunk_dir = Path("chunks")
+    output_path = Path("decrypted_file.dat")
+    
+    # Ensure chunk directory exists
+    chunk_dir.mkdir(exist_ok=True)
+    
+    # Encrypt file - stores chunks to disk
+    data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
+    print(f"File encrypted into {len(chunk_names)} chunks")
+    
+    # Create chunk retrieval function
+    def get_chunk(hash_hex: str) -> bytes:
+        chunk_path = chunk_dir / hash_hex
+        return chunk_path.read_bytes()
     
     # Decrypt file
-    decrypt_from_files("chunks", data_map, "output.txt")
-    
-    # Verify content
-    with open("input.txt", "rb") as f:
-        original = f.read()
-    with open("output.txt", "rb") as f:
-        decrypted = f.read()
-    assert original == decrypted
+    decrypt_from_storage(data_map, str(output_path), get_chunk)
 ```
 
-#### Python Advanced Features
+### Advanced Features
 
 ```python
-from self_encryption import (
-    shrink_data_map, 
-    get_root_data_map,
-    StreamSelfEncryptor,
-    StreamSelfDecryptor
-)
+from self_encryption import shrink_data_map
 
 def advanced_example():
-    # Hierarchical data maps
-    shrunk_map = shrink_data_map(data_map, "chunks")
-    root_map = get_root_data_map(shrunk_map, "chunks")
+    # Create large data to ensure multiple chunks
+    data = b"x" * 10_000_000  # 10MB
     
-    # Streaming encryption
-    encryptor = StreamSelfEncryptor("input.txt", "chunks")
-    while True:
-        chunk, map = encryptor.next_encryption()
-        if chunk:
-            process_chunk(chunk)
-        if map:
-            break
+    # Encrypt data
+    data_map, chunks = encrypt(data)
+    print(f"Initial encryption: {len(chunks)} chunks")
     
-    # Streaming decryption
-    decryptor = StreamSelfDecryptor("output.txt", map)
-    for chunk in chunks:
-        if decryptor.next_encrypted(chunk):
-            break  # Decryption complete
+    # Track stored chunks during shrinking
+    stored_chunks = {}
+    def store_chunk(hash_hex: str, content: bytes):
+        stored_chunks[hash_hex] = content
+        print(f"Storing chunk: {hash_hex[:8]}...")
+    
+    # Shrink data map - useful for large files
+    shrunk_map, shrink_chunks = shrink_data_map(data_map, store_chunk)
+    print(f"Generated {len(shrink_chunks)} additional chunks during shrinking")
+    
+    # Verify child level is set
+    assert shrunk_map.child() is not None
+    assert shrunk_map.is_child()
+    
+    # Collect all chunks for decryption
+    all_chunks = chunks + shrink_chunks
+    
+    # Decrypt using all chunks
+    decrypted = decrypt(shrunk_map, all_chunks)
+    assert data == decrypted
 ```
+
+### Streaming Operations
+
+```python
+from self_encryption import streaming_decrypt_from_storage
+from typing import List
+
+def streaming_example():
+    # ... setup code ...
+    
+    # Create parallel chunk retrieval function
+    def get_chunks(hash_hexes: List[str]) -> List[bytes]:
+        return [
+            chunk_dir.joinpath(hash_hex).read_bytes()
+            for hash_hex in hash_hexes
+        ]
+    
+    # Decrypt using streaming - efficient for large files
+    streaming_decrypt_from_storage(data_map, str(output_path), get_chunks)
+```
+
+### API Reference
+
+#### Classes
+
+- `DataMap`
+  - `child() -> Optional[int]`: Get child level if set
+  - `is_child() -> bool`: Check if this is a child data map
+  - `len() -> int`: Get number of chunks
+  - `infos() -> List[Tuple[int, bytes, bytes, int]]`: Get chunk information
+
+- `EncryptedChunk`
+  - `content() -> bytes`: Get chunk content
+  - `from_bytes(content: bytes) -> EncryptedChunk`: Create from bytes
+
+#### Functions
+
+- `encrypt(data: bytes) -> Tuple[DataMap, List[EncryptedChunk]]`
+  - Encrypts bytes data in memory
+  - Returns data map and encrypted chunks
+
+- `encrypt_from_file(input_path: str, output_dir: str) -> Tuple[DataMap, List[str]]`
+  - Encrypts a file and stores chunks to disk
+  - Returns data map and list of chunk hex names
+
+- `decrypt(data_map: DataMap, chunks: List[EncryptedChunk]) -> bytes`
+  - Decrypts data using provided chunks
+  - Returns original data
+
+- `decrypt_from_storage(data_map: DataMap, output_path: str, get_chunk: Callable[[str], bytes]) -> None`
+  - Decrypts data using chunks from storage
+  - Writes result to output path
+
+- `shrink_data_map(data_map: DataMap, store_chunk: Callable[[str, bytes], None]) -> Tuple[DataMap, List[EncryptedChunk]]`
+  - Shrinks a data map by recursively encrypting it
+  - Returns shrunk map and additional chunks
 
 ## Implementation Details
 
@@ -423,10 +411,138 @@ For instructions on how to contribute, see our [Guide to contributing](https://g
 
 ## Python Bindings
 
-This crate provides Python bindings for the self-encryption functionality. Here's how to use them:
+This crate provides comprehensive Python bindings for self-encryption functionality, supporting both in-memory and file-based operations.
 
 ### Installation
 
 ```bash
 pip install self-encryption
 ```
+
+### Basic Usage
+
+```python
+from self_encryption import py_encrypt, py_decrypt
+
+# Basic in-memory encryption/decryption
+def basic_example():
+    # Create test data (must be at least 3072 bytes)
+    data = b"Hello, World!" * 1000
+    
+    # Encrypt data - returns data map and encrypted chunks
+    data_map, chunks = py_encrypt(data)
+    print(f"Data encrypted into {len(chunks)} chunks")
+    print(f"Data map has child level: {data_map.child()}")
+    
+    # Decrypt data
+    decrypted = py_decrypt(data_map, chunks)
+    assert data == decrypted
+
+```
+
+### File Operations
+
+```python
+from pathlib import Path
+from self_encryption import py_encrypt_from_file, py_decrypt_from_storage
+
+def file_example():
+    # Setup paths
+    input_path = Path("large_file.dat")
+    chunk_dir = Path("chunks")
+    output_path = Path("decrypted_file.dat")
+    
+    # Ensure chunk directory exists
+    chunk_dir.mkdir(exist_ok=True)
+    
+    # Encrypt file - stores chunks to disk
+    data_map, chunk_names = py_encrypt_from_file(str(input_path), str(chunk_dir))
+    print(f"File encrypted into {len(chunk_names)} chunks")
+    
+    # Create chunk retrieval function
+    def get_chunk(hash_hex: str) -> bytes:
+        chunk_path = chunk_dir / hash_hex
+        return chunk_path.read_bytes()
+    
+    # Decrypt file
+    py_decrypt_from_storage(data_map, str(output_path), get_chunk)
+```
+
+### Advanced Features
+
+```python
+from self_encryption import py_shrink_data_map
+
+def advanced_example():
+    # Create large data to ensure multiple chunks
+    data = b"x" * 10_000_000  # 10MB
+    
+    # Encrypt data
+    data_map, chunks = py_encrypt(data)
+    print(f"Initial encryption: {len(chunks)} chunks")
+    
+    # Track stored chunks during shrinking
+    stored_chunks = {}
+    def store_chunk(hash_hex: str, content: bytes):
+        stored_chunks[hash_hex] = content
+        print(f"Storing chunk: {hash_hex[:8]}...")
+    
+    # Shrink data map - useful for large files
+    shrunk_map, shrink_chunks = py_shrink_data_map(data_map, store_chunk)
+    print(f"Generated {len(shrink_chunks)} additional chunks during shrinking")
+    
+    # Verify child level is set
+    assert shrunk_map.child() is not None
+    assert shrunk_map.is_child()
+    
+    # Collect all chunks for decryption
+    all_chunks = chunks + shrink_chunks
+    
+    # Decrypt using all chunks
+    decrypted = py_decrypt(shrunk_map, all_chunks)
+    assert data == decrypted
+```
+
+### API Reference
+
+#### Classes
+
+- `PyDataMap`
+  - `child() -> Optional[int]`: Get child level if set
+  - `is_child() -> bool`: Check if this is a child data map
+  - `len() -> int`: Get number of chunks
+  - `infos() -> List[Tuple[int, bytes, bytes, int]]`: Get chunk information
+
+- `PyEncryptedChunk`
+  - `content() -> bytes`: Get chunk content
+  - `from_bytes(content: bytes) -> PyEncryptedChunk`: Create from bytes
+
+#### Functions
+
+- `py_encrypt(data: bytes) -> Tuple[PyDataMap, List[PyEncryptedChunk]]`
+  - Encrypts bytes data in memory
+  - Returns data map and encrypted chunks
+
+- `py_encrypt_from_file(input_path: str, output_dir: str) -> Tuple[PyDataMap, List[str]]`
+  - Encrypts a file and stores chunks to disk
+  - Returns data map and list of chunk hex names
+
+- `py_decrypt(data_map: PyDataMap, chunks: List[PyEncryptedChunk]) -> bytes`
+  - Decrypts data using provided chunks
+  - Returns original data
+
+- `py_decrypt_from_storage(data_map: PyDataMap, output_path: str, get_chunk: Callable[[str], bytes]) -> None`
+  - Decrypts data using chunks from storage
+  - Writes result to output path
+
+- `py_shrink_data_map(data_map: PyDataMap, store_chunk: Callable[[str, bytes], None]) -> Tuple[PyDataMap, List[PyEncryptedChunk]]`
+  - Shrinks a data map by recursively encrypting it
+  - Returns shrunk map and additional chunks
+
+### Notes
+
+- All encryption methods handle parent/child relationships automatically
+- Chunk storage and retrieval can be customized through callbacks
+- Error handling follows Python conventions with descriptive exceptions
+- Supports both synchronous and parallel chunk processing
+- Memory efficient through streaming operations

@@ -12,7 +12,7 @@ use std::io::Cursor;
 use xor_name::XorName;
 
 // encrypted_Chunks are sorted !!
-pub(crate) fn decrypt_sorted_set(
+pub fn decrypt_sorted_set(
     src_hashes: Vec<XorName>,
     encrypted_chunks: &[&EncryptedChunk],
 ) -> Result<Bytes> {
@@ -29,7 +29,7 @@ pub(crate) fn decrypt_sorted_set(
 
 /// Decrypt a chunk, given the index of that chunk in the sequence of chunks,
 /// and the raw encrypted content.
-pub(crate) fn decrypt_chunk(
+pub fn decrypt_chunk(
     chunk_index: usize,
     content: &Bytes,
     src_hashes: &[XorName],

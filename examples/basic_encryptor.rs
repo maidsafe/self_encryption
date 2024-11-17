@@ -42,7 +42,8 @@ use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
 use self_encryption::{
-    self, decrypt, encrypt, test_helpers, DataMap, EncryptedChunk, Error, Result,
+    self, DataMap, EncryptedChunk, Error, Result, 
+    encrypt, serialize, deserialize
 };
 use serde::Deserialize;
 use std::{
@@ -55,9 +56,7 @@ use std::{
     sync::Arc,
 };
 use xor_name::XorName;
-use self_encryption::{decrypt, encrypt, encrypt_from_file, decrypt_from_storage};
-use std::path::Path;
-use tempfile::TempDir;
+use self_encryption::decrypt;
 
 #[rustfmt::skip]
 static USAGE: &str = "
@@ -163,7 +162,7 @@ async fn main() {
 
             match File::create(data_map_file.clone()) {
                 Ok(mut file) => {
-                    let encoded = test_helpers::serialise(&data_map).unwrap();
+                    let encoded = serialize(&data_map).unwrap();
                     match file.write_all(&encoded[..]) {
                         Ok(_) => println!("Data map written to {:?}", data_map_file),
                         Err(error) => {
@@ -190,7 +189,7 @@ async fn main() {
         if let Ok(mut file) = File::open(args.arg_target.clone().unwrap()) {
             let mut data = Vec::new();
             let _ = file.read_to_end(&mut data).unwrap();
-            match test_helpers::deserialise::<DataMap>(&data) {
+            match deserialize::<DataMap>(&data) {
                 Ok(data_map) => {
                     let (keys, encrypted_chunks) = data_map
                         .infos()

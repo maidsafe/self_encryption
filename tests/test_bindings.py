@@ -1,15 +1,17 @@
 import os
 import tempfile
 from pathlib import Path
+from typing import List
 import pytest
 from self_encryption import (
-    PyDataMap,
-    PyEncryptedChunk,
-    py_encrypt,
-    py_encrypt_from_file,
-    py_decrypt,
-    py_decrypt_from_storage,
-    py_shrink_data_map,
+    DataMap,
+    EncryptedChunk,
+    encrypt,
+    encrypt_from_file,
+    decrypt,
+    decrypt_from_storage,
+    shrink_data_map,
+    streaming_decrypt_from_storage,
 )
 
 def test_basic_encryption_decryption():
@@ -17,11 +19,11 @@ def test_basic_encryption_decryption():
     data = b"x" * 10_000_000  # 10MB of data
     
     # Encrypt
-    data_map, chunks = py_encrypt(data)
+    data_map, chunks = encrypt(data)
     assert len(chunks) > 0
     
     # Decrypt
-    decrypted = py_decrypt(data_map, chunks)
+    decrypted = decrypt(data_map, chunks)
     assert data == decrypted
 
 def test_file_encryption_decryption():
@@ -36,16 +38,16 @@ def test_file_encryption_decryption():
         chunk_dir.mkdir()
         
         # Encrypt file
-        data_map, chunk_names = py_encrypt_from_file(str(input_path), str(chunk_dir))
+        data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
         
         # Create chunk retrieval function
-        def get_chunk(hash_hex: str):
+        def get_chunk(hash_hex: str) -> bytes:
             chunk_path = chunk_dir / hash_hex
             return chunk_path.read_bytes()
         
         # Decrypt to new file
         output_path = Path(temp_dir) / "output.dat"
-        py_decrypt_from_storage(data_map, str(output_path), get_chunk)
+        decrypt_from_storage(data_map, str(output_path), get_chunk)
         
         # Verify
         assert input_path.read_bytes() == output_path.read_bytes()
@@ -55,15 +57,15 @@ def test_data_map_shrinking():
     data = b"x" * 10_000_000
     
     # Encrypt
-    data_map, chunks = py_encrypt(data)
+    data_map, chunks = encrypt(data)
     
     # Track stored chunks
     stored_chunks = {}
-    def store_chunk(hash_bytes, content):
-        stored_chunks[hash_bytes.hex()] = content
+    def store_chunk(hash_hex: str, content: bytes) -> None:
+        stored_chunks[hash_hex] = content
     
     # Shrink data map
-    shrunk_map, shrink_chunks = py_shrink_data_map(data_map, store_chunk)
+    shrunk_map, shrink_chunks = shrink_data_map(data_map, store_chunk)
     
     # Verify child level is set
     assert shrunk_map.child() is not None
@@ -73,7 +75,7 @@ def test_data_map_shrinking():
     all_chunks = chunks + shrink_chunks
     
     # Decrypt using all chunks
-    decrypted = py_decrypt(shrunk_map, all_chunks)
+    decrypted = decrypt(shrunk_map, all_chunks)
     assert data == decrypted
 
 def test_comprehensive_encryption_decryption():
@@ -88,8 +90,8 @@ def test_comprehensive_encryption_decryption():
         data = b"x" * size
         
         # Test in-memory encryption/decryption
-        data_map1, chunks1 = py_encrypt(data)
-        decrypted1 = py_decrypt(data_map1, chunks1)
+        data_map1, chunks1 = encrypt(data)
+        decrypted1 = decrypt(data_map1, chunks1)
         assert data == decrypted1
         print(f"✓ In-memory encryption/decryption successful")
         
@@ -105,15 +107,15 @@ def test_comprehensive_encryption_decryption():
             chunk_dir.mkdir()
             
             # Encrypt file
-            data_map2, chunk_names = py_encrypt_from_file(str(input_path), str(chunk_dir))
+            data_map2, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
             
             # Create chunk retrieval function
-            def get_chunk(hash_hex: str):
+            def get_chunk(hash_hex: str) -> bytes:
                 chunk_path = chunk_dir / hash_hex
                 return chunk_path.read_bytes()
             
             # Decrypt file
-            py_decrypt_from_storage(data_map2, str(output_path), get_chunk)
+            decrypt_from_storage(data_map2, str(output_path), get_chunk)
             
             # Verify
             assert data == output_path.read_bytes()
@@ -123,6 +125,34 @@ def test_comprehensive_encryption_decryption():
             assert data_map1.len() == data_map2.len()
             assert data_map1.child() == data_map2.child()
             print(f"✓ Data maps match")
+
+def test_streaming_decryption():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create test file
+        input_path = Path(temp_dir) / "input.dat"
+        data = b"x" * 10_000_000  # 10MB
+        input_path.write_bytes(data)
+        
+        # Create output directory for chunks
+        chunk_dir = Path(temp_dir) / "chunks"
+        chunk_dir.mkdir()
+        
+        # Encrypt file
+        data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
+        
+        # Create parallel chunk retrieval function
+        def get_chunks(hash_hexes: List[str]) -> List[bytes]:
+            return [
+                (chunk_dir / hash_hex).read_bytes()
+                for hash_hex in hash_hexes
+            ]
+        
+        # Decrypt using streaming
+        output_path = Path(temp_dir) / "output.dat"
+        streaming_decrypt_from_storage(data_map, str(output_path), get_chunks)
+        
+        # Verify
+        assert input_path.read_bytes() == output_path.read_bytes()
 
 if __name__ == "__main__":
     pytest.main([__file__]) 
