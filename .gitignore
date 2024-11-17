@@ -12,3 +12,14 @@ target/
 *.sublime-*
 /bin/
 .DS_Store
+
+# Python
+*__pycache__*
+*.pyc
+*.DS_Store
+*.egg-info
+*.egg
+*.whl
+*.so 
+
+

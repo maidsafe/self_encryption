@@ -4,9 +4,6 @@ build-backend = "maturin"
 
 [project]
 name = "self_encryption"
-dynamic = ["version"]
-description = "Python bindings for self-encryption library"
-authors = [{ name = "David Irvine", email = "david.irvine@maidsafe.net" }]
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -14,12 +11,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "pip>=24.0",
     "pytest>=7.4.4",
 ]
 
 [tool.maturin]
 features = ["python"]
-module-name = "self_encryption"
+module-name = "self_encryption._self_encryption"
+python-source = "self_encryption"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

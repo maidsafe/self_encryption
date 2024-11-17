@@ -12,7 +12,7 @@ pub(crate) fn xor(data: &Bytes, &Pad(pad): &Pad) -> Bytes {
     Bytes::from(vec)
 }
 
-pub(crate) fn extract_hashes(data_map: &crate::DataMap) -> Vec<XorName> {
+pub fn extract_hashes(data_map: &crate::DataMap) -> Vec<XorName> {
     data_map.infos().iter().map(|c| c.src_hash).collect()
 }
 

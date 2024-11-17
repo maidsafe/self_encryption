@@ -101,7 +101,7 @@ pub mod test_helpers;
 mod tests;
 mod utils;
 
-use decrypt::decrypt_chunk;
+pub use decrypt::decrypt_chunk;
 use utils::*;
 
 pub use self::{
@@ -204,15 +204,23 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
     Ok((shrunk_data_map, encrypted_chunks))
 }
 
-/// Decrypts what is expected to be the full set of chunks covered by the data map.
+/// Decrypts a full set of chunks using the provided data map.
+///
+/// This function takes a data map and a slice of encrypted chunks and decrypts them to recover
+/// the original data. It handles both root data maps and child data maps.
 ///
 /// # Arguments
+///
 /// * `data_map` - The data map containing chunk information
 /// * `chunks` - The encrypted chunks to decrypt
 ///
 /// # Returns
+///
 /// * `Result<Bytes>` - The decrypted data or an error if chunks are missing/corrupted
-pub(crate) fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
+pub(crate) fn decrypt_full_set(
+    data_map: &DataMap,
+    chunks: &[EncryptedChunk],
+) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
 
     // Create a mapping of chunk hashes to chunks for efficient lookup
@@ -450,6 +458,161 @@ pub fn decrypt(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     };
 
     decrypt_full_set(&root_map, chunks)
+}
+
+/// Decrypts data from storage in a streaming fashion using parallel chunk retrieval.
+///
+/// This function retrieves the encrypted chunks in parallel using the provided `get_chunk_parallel` function,
+/// decrypts them, and writes the decrypted data directly to the specified output file path.
+///
+/// # Arguments
+///
+/// * `data_map` - The data map containing chunk information.
+/// * `output_filepath` - The path to write the decrypted data to.
+/// * `get_chunk_parallel` - A function that retrieves chunks in parallel given a list of XorName hashes.
+///
+/// # Returns
+///
+/// * `Result<()>` - An empty result or an error if decryption fails.
+pub fn streaming_decrypt_from_storage<F>(
+    data_map: &DataMap,
+    output_filepath: &Path,
+    get_chunk_parallel: F,
+) -> Result<()>
+where
+    F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+{
+    let root_map = if data_map.is_child() {
+        // Recursively get root data map
+        get_root_data_map_parallel(data_map.clone(), &get_chunk_parallel)?
+    } else {
+        data_map.clone()
+    };
+
+    // Retrieve all chunks in parallel
+    let chunk_hashes: Vec<_> = root_map.infos().iter().map(|info| info.dst_hash).collect();
+    let encrypted_chunks = get_chunk_parallel(&chunk_hashes)?
+        .into_iter()
+        .map(|content| EncryptedChunk { content })
+        .collect::<Vec<_>>();
+
+    // Open the output file for writing
+    let mut output_file = File::create(output_filepath).map_err(Error::from)?;
+
+    // Decrypt and write data in order
+    let src_hashes = extract_hashes(&root_map);
+
+    for (info, chunk) in root_map.infos().iter().zip(encrypted_chunks.iter()) {
+        let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
+        output_file.write_all(&decrypted_chunk).map_err(Error::from)?;
+    }
+
+    Ok(())
+}
+
+/// Recursively gets the root data map by decrypting child data maps using parallel chunk retrieval.
+///
+/// This function works similarly to `get_root_data_map`, but it retrieves chunks in parallel,
+/// improving performance when dealing with large data maps or slow storage backends.
+///
+/// # Arguments
+///
+/// * `data_map` - The data map to retrieve the root from.
+/// * `get_chunk_parallel` - A function that retrieves chunks in parallel given a list of XorName hashes.
+///
+/// # Returns
+///
+/// * `Result<DataMap>` - The root data map or an error if retrieval or decryption fails.
+pub fn get_root_data_map_parallel<F>(
+    data_map: DataMap,
+    get_chunk_parallel: &F,
+) -> Result<DataMap>
+where
+    F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+{
+    // Create a cache for chunks to avoid redundant retrievals
+    let mut chunk_cache = std::collections::HashMap::new();
+
+    fn inner_get_root_map<F>(
+        data_map: DataMap,
+        get_chunk_parallel: &F,
+        chunk_cache: &mut std::collections::HashMap<XorName, Bytes>,
+    ) -> Result<DataMap>
+    where
+        F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+    {
+        // If this is the root data map (no child level), return it
+        if !data_map.is_child() {
+            return Ok(data_map);
+        }
+
+        // Determine which chunks are missing from the cache
+        let missing_hashes: Vec<_> = data_map
+            .infos()
+            .iter()
+            .map(|info| info.dst_hash)
+            .filter(|hash| !chunk_cache.contains_key(hash))
+            .collect();
+
+        if !missing_hashes.is_empty() {
+            let new_chunks = get_chunk_parallel(&missing_hashes)?;
+            for (hash, chunk_data) in missing_hashes.iter().zip(new_chunks.into_iter()) {
+                let _ = chunk_cache.insert(*hash, chunk_data);
+            }
+        }
+
+        let encrypted_chunks: Vec<EncryptedChunk> = data_map
+            .infos()
+            .iter()
+            .map(|info| {
+                let content = chunk_cache.get(&info.dst_hash).ok_or_else(|| {
+                    Error::Generic(format!("Chunk not found for hash: {:?}", info.dst_hash))
+                })?;
+                Ok(EncryptedChunk {
+                    content: content.clone(),
+                })
+            })
+            .collect::<Result<_>>()?;
+
+        // Decrypt the chunks to get the parent data map bytes
+        let decrypted_bytes = decrypt_full_set(&data_map, &encrypted_chunks)?;
+        let parent_data_map = test_helpers::deserialise(&decrypted_bytes)
+            .map_err(|_| Error::Generic("Failed to deserialize data map".to_string()))?;
+
+        // Recursively get the root data map
+        inner_get_root_map(parent_data_map, get_chunk_parallel, chunk_cache)
+    }
+
+    // Start the recursive process with our cache
+    inner_get_root_map(data_map, get_chunk_parallel, &mut chunk_cache)
+}
+
+/// Serializes a data structure using bincode.
+///
+/// # Arguments
+///
+/// * `data` - The data structure to serialize, must implement `serde::Serialize`
+///
+/// # Returns
+///
+/// * `Result<Vec<u8>>` - The serialized bytes or an error
+pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
+    bincode::serialize(data)
+        .map_err(|e| Error::Generic(format!("Serialization error: {}", e)))
+}
+
+/// Deserializes bytes into a data structure using bincode.
+///
+/// # Arguments
+///
+/// * `bytes` - The bytes to deserialize
+///
+/// # Returns
+///
+/// * `Result<T>` - The deserialized data structure or an error
+pub fn deserialize<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
+    bincode::deserialize(bytes)
+        .map_err(|e| Error::Generic(format!("Deserialization error: {}", e)))
 }
 
 #[cfg(test)]

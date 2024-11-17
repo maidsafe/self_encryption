@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use self_encryption::{
     decrypt, decrypt_from_storage, encrypt, encrypt_from_file, get_root_data_map, shrink_data_map,
-    test_helpers::random_bytes, DataMap, EncryptedChunk, Error, Result,
+    streaming_decrypt_from_storage, test_helpers::random_bytes, DataMap, EncryptedChunk, Error, Result,
 };
 use std::{
     collections::HashMap,
@@ -11,6 +11,7 @@ use std::{
 };
 use tempfile::TempDir;
 use xor_name::XorName;
+use rayon::prelude::*;
 
 // Define traits for our storage operations
 type StoreFn = Box<dyn FnMut(XorName, Bytes) -> Result<()>>;
@@ -199,7 +200,7 @@ fn test_large_file_cross_backend() -> Result<()> {
 
     // Shrink to memory
     let mut store_fn = storage.store_to_memory();
-    let shrunk_map = shrink_data_map(data_map, &mut store_fn)?;
+    let shrunk_map = shrink_data_map(data_map.clone(), &mut store_fn)?;
 
     // Get root map from memory
     let mut retrieve_fn = storage.retrieve_from_memory();
@@ -461,44 +462,43 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
     let storage = StorageBackend::new()?;
     let temp_dir = TempDir::new()?;
 
-    // Test sizes
+    // Test sizes to ensure we test both small and large files
     let test_cases = vec![
-        ("2MB", 2 * 1024 * 1024),
-        ("5MB", 5 * 1024 * 1024),
-        ("10MB", 10 * 1024 * 1024),
+        ("3MB", 3 * 1024 * 1024),     // Basic 3-chunk case
+        ("5MB", 5 * 1024 * 1024),     // Triggers shrinking
+        ("10MB", 10 * 1024 * 1024),   // Larger file
+        ("20MB", 20 * 1024 * 1024),   // Even larger file
     ];
 
     for (size_name, size) in test_cases {
-        println!("\nTesting {} file:", size_name);
+        println!("\n=== Testing {} file ===", size_name);
         let original_data = random_bytes(size);
 
-        // Method 1: encrypt() -> in-memory encryption
-        println!("\n1. Testing encrypt():");
+        // 1. In-memory encryption (encrypt)
+        println!("\n1. Testing in-memory encryption (encrypt):");
         let (data_map1, chunks1) = encrypt(Bytes::from(original_data.clone()))?;
-        println!("- Encrypted with {} chunks", chunks1.len());
+        println!("- Generated {} chunks", chunks1.len());
+        println!("- Data map child level: {:?}", data_map1.child());
 
-        // Method 2: encrypt_from_file() -> disk-based encryption
-        println!("\n2. Testing encrypt_from_file():");
+        // 2. File-based encryption (encrypt_from_file)
+        println!("\n2. Testing file-based encryption (encrypt_from_file):");
         let input_path = temp_dir.path().join(format!("input_{}.dat", size_name));
         File::create(&input_path)?.write_all(&original_data)?;
         let (data_map2, chunk_names) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
-        println!("- Encrypted with {} chunks", chunk_names.len());
+        println!("- Generated {} chunks", chunk_names.len());
+        println!("- Data map child level: {:?}", data_map2.child());
 
         // Now test all decryption methods with each encryption result
-        println!("\nTesting decryption methods for encrypt() result:");
+        println!("\n=== Testing all decrypt combinations ===");
 
-        // 1. Test decrypt() with encrypt() result
-        println!("1.1 Testing decrypt():");
-        let decrypted1 = decrypt(&data_map1, &chunks1)?;
-        assert_eq!(
-            original_data.as_ref(),
-            decrypted1.as_ref(),
-            "Mismatch: encrypt() -> decrypt()"
-        );
+        // A. Test decrypt() with in-memory encryption result
+        println!("\nA.1 Testing decrypt() with encrypt() result:");
+        let decrypted_a1 = decrypt(&data_map1, &chunks1)?;
+        assert_eq!(original_data.as_ref(), decrypted_a1.as_ref(), "Mismatch: encrypt() -> decrypt()");
         println!("✓ decrypt() successful");
 
-        // 2. Test decrypt_from_storage() with encrypt() result
-        println!("1.2 Testing decrypt_from_storage():");
+        // B. Test decrypt_from_storage() with in-memory encryption result
+        println!("\nA.2 Testing decrypt_from_storage() with encrypt() result:");
         // First store chunks to disk
         for chunk in &chunks1 {
             let hash = XorName::from_content(&chunk.content);
@@ -511,20 +511,39 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
 
         let mut decrypted = Vec::new();
         File::open(&output_path1)?.read_to_end(&mut decrypted)?;
-        assert_eq!(
-            original_data.as_ref(),
-            decrypted.as_slice(),
-            "Mismatch: encrypt() -> decrypt_from_storage()"
-        );
+        assert_eq!(original_data.as_ref(), decrypted.as_slice(), "Mismatch: encrypt() -> decrypt_from_storage()");
         println!("✓ decrypt_from_storage() successful");
 
-        println!("\nTesting decryption methods for encrypt_from_file() result:");
+        // C. Test streaming_decrypt_from_storage() with in-memory encryption result
+        println!("\nA.3 Testing streaming_decrypt_from_storage() with encrypt() result:");
+        let output_path1_stream = temp_dir.path().join(format!("output1_stream_{}.dat", size_name));
+        
+        // Create parallel chunk retrieval function
+        let chunk_dir = storage.disk_dir.path().to_owned();
+        let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
+            hashes.par_iter()
+                .map(|hash| {
+                    let chunk_path = chunk_dir.join(hex::encode(hash));
+                    let mut chunk_data = Vec::new();
+                    File::open(&chunk_path)
+                        .and_then(|mut file| file.read_to_end(&mut chunk_data))
+                        .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                    Ok(Bytes::from(chunk_data))
+                })
+                .collect()
+        };
 
-        // 3. Test decrypt() with encrypt_from_file() result
-        println!("2.1 Testing decrypt():");
-        // First collect all chunks from disk
+        streaming_decrypt_from_storage(&data_map1, &output_path1_stream, &get_chunk_parallel)?;
+
+        let mut decrypted = Vec::new();
+        File::open(&output_path1_stream)?.read_to_end(&mut decrypted)?;
+        assert_eq!(original_data.as_ref(), decrypted.as_slice(), "Mismatch: encrypt() -> streaming_decrypt_from_storage()");
+        println!("✓ streaming_decrypt_from_storage() successful");
+
+        // D. Test decrypt() with file-based encryption result
+        println!("\nB.1 Testing decrypt() with encrypt_from_file() result:");
         let mut file_chunks = Vec::new();
-        for hash in chunk_names {
+        for hash in &chunk_names {
             let chunk_path = storage.disk_dir.path().join(hex::encode(hash));
             let mut chunk_data = Vec::new();
             File::open(&chunk_path)?.read_to_end(&mut chunk_data)?;
@@ -533,52 +552,102 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
             });
         }
         let decrypted2 = decrypt(&data_map2, &file_chunks)?;
-        assert_eq!(
-            original_data.as_ref(),
-            decrypted2.as_ref(),
-            "Mismatch: encrypt_from_file() -> decrypt()"
-        );
+        assert_eq!(original_data.as_ref(), decrypted2.as_ref(), "Mismatch: encrypt_from_file() -> decrypt()");
         println!("✓ decrypt() successful");
 
-        // 4. Test decrypt_from_storage() with encrypt_from_file() result
-        println!("2.2 Testing decrypt_from_storage():");
+        // E. Test decrypt_from_storage() with file-based encryption result
+        println!("\nB.2 Testing decrypt_from_storage() with encrypt_from_file() result:");
         let output_path2 = temp_dir.path().join(format!("output2_{}.dat", size_name));
         let mut retrieve_fn = storage.retrieve_from_disk();
         decrypt_from_storage(&data_map2, &output_path2, &mut retrieve_fn)?;
 
         let mut decrypted = Vec::new();
         File::open(&output_path2)?.read_to_end(&mut decrypted)?;
-        assert_eq!(
-            original_data.as_ref(),
-            decrypted.as_slice(),
-            "Mismatch: encrypt_from_file() -> decrypt_from_storage()"
-        );
+        assert_eq!(original_data.as_ref(), decrypted.as_slice(), "Mismatch: encrypt_from_file() -> decrypt_from_storage()");
         println!("✓ decrypt_from_storage() successful");
 
-        // Additional checks
-        println!("\nVerifying data maps:");
-        assert_eq!(
-            data_map1.len(),
-            data_map2.len(),
-            "Data maps have different number of chunks"
-        );
-        assert_eq!(
-            data_map1.child(),
-            data_map2.child(),
-            "Data maps have different child levels"
-        );
+        // F. Test streaming_decrypt_from_storage() with file-based encryption result
+        println!("\nB.3 Testing streaming_decrypt_from_storage() with encrypt_from_file() result:");
+        let output_path2_stream = temp_dir.path().join(format!("output2_stream_{}.dat", size_name));
+        streaming_decrypt_from_storage(&data_map2, &output_path2_stream, &get_chunk_parallel)?;
+
+        let mut decrypted = Vec::new();
+        File::open(&output_path2_stream)?.read_to_end(&mut decrypted)?;
+        assert_eq!(original_data.as_ref(), decrypted.as_slice(), "Mismatch: encrypt_from_file() -> streaming_decrypt_from_storage()");
+        println!("✓ streaming_decrypt_from_storage() successful");
+
+        // Additional verifications
+        println!("\n=== Verifying consistency ===");
+        
+        // Verify data maps are equivalent
+        assert_eq!(data_map1.len(), data_map2.len(), "Data maps have different number of chunks");
+        assert_eq!(data_map1.child(), data_map2.child(), "Data maps have different child levels");
         println!("✓ Data maps match");
 
-        println!("\nVerifying chunk counts:");
-        assert_eq!(
-            chunks1.len(),
-            file_chunks.len(),
-            "Different number of chunks between methods"
-        );
+        // Verify chunk counts
+        assert_eq!(chunks1.len(), file_chunks.len(), "Different number of chunks between methods");
         println!("✓ Chunk counts match");
+
+        // Verify all output files are identical
+        let outputs = vec![
+            output_path1, output_path1_stream,
+            output_path2, output_path2_stream
+        ];
+        for (i, path1) in outputs.iter().enumerate() {
+            for path2 in outputs.iter().skip(i + 1) {
+                let mut content1 = Vec::new();
+                let mut content2 = Vec::new();
+                File::open(path1)?.read_to_end(&mut content1)?;
+                File::open(path2)?.read_to_end(&mut content2)?;
+                assert_eq!(content1, content2, "Output files don't match: {:?} vs {:?}", path1, path2);
+            }
+        }
+        println!("✓ All output files match");
 
         println!("\n{} test completed successfully", size_name);
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
+    let storage = StorageBackend::new()?;
+    let temp_dir = TempDir::new()?;
+
+    // Create test data and encrypt it
+    let test_size = 10 * 1024 * 1024; // 10MB
+    let data = random_bytes(test_size);
+    let input_path = temp_dir.path().join("input.dat");
+    File::create(&input_path)?.write_all(&data)?;
+
+    // Encrypt and store chunks to disk
+    let (data_map, _) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
+
+    // Implement parallel chunk retrieval function
+    let chunk_dir = storage.disk_dir.path().to_owned();
+    let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
+        hashes
+            .par_iter()
+            .map(|hash| {
+                let chunk_path = chunk_dir.join(hex::encode(hash));
+                let mut chunk_data = Vec::new();
+                File::open(&chunk_path)
+                    .and_then(|mut file| file.read_to_end(&mut chunk_data))
+                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                Ok(Bytes::from(chunk_data))
+            })
+            .collect()
+    };
+
+    // Use the streaming decryption function
+    let output_path = temp_dir.path().join("output.dat");
+    streaming_decrypt_from_storage(&data_map, &output_path, &get_chunk_parallel)?;
+
+    // Verify the output file matches original data
+    let mut decrypted_data = Vec::new();
+    File::open(&output_path)?.read_to_end(&mut decrypted_data)?;
+    assert_eq!(data.as_ref(), decrypted_data.as_slice());
 
     Ok(())
 }
