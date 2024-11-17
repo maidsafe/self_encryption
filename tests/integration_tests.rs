@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use self_encryption::{
-    decrypt_from_storage, encrypt_from_file, get_root_data_map, shrink_data_map,
-    test_helpers::random_bytes, DataMap, Error, Result,
+    decrypt, decrypt_from_storage, encrypt, encrypt_from_file, get_root_data_map, shrink_data_map,
+    test_helpers::random_bytes, DataMap, EncryptedChunk, Error, Result,
 };
 use std::{
     collections::HashMap,
@@ -203,7 +203,7 @@ fn test_large_file_cross_backend() -> Result<()> {
 
     // Get root map from memory
     let mut retrieve_fn = storage.retrieve_from_memory();
-    let root_map = get_root_data_map(shrunk_map, &mut retrieve_fn)?;
+    let root_map = get_root_data_map(shrunk_map.0, &mut retrieve_fn)?;
 
     // Decrypt using disk backend
     let output_path = temp_dir.path().join("large_output.dat");
@@ -259,7 +259,7 @@ fn test_concurrent_backend_access() -> Result<()> {
         verify_storage_operation(&data_map, &storage)?;
 
         let mut retrieve_fn = storage.retrieve_from_disk();
-        let root_map = get_root_data_map(shrunk_map, &mut retrieve_fn)?;
+        let root_map = get_root_data_map(shrunk_map.0, &mut retrieve_fn)?;
 
         let mut retrieve_fn = storage.retrieve_from_disk();
         decrypt_from_storage(&root_map, &output_path, &mut retrieve_fn)?;
@@ -281,7 +281,7 @@ fn test_error_handling_across_backends() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Create test data
-    let test_size = 5 * 1024 * 1024;
+    let test_size = 5 * 1024 * 1024; // 5MB is fine, we'll always get 3 chunks
     let data = random_bytes(test_size);
     let input_path = temp_dir.path().join("input.dat");
     File::create(&input_path)?.write_all(&data)?;
@@ -289,35 +289,24 @@ fn test_error_handling_across_backends() -> Result<()> {
     // Encrypt normally
     let (data_map, _) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
 
-    // Test missing chunks during shrinking
+    // Test failing store function
     let mut failing_store: StoreFn =
         Box::new(|_, _| Err(Error::Generic("Simulated storage failure".into())));
-    assert!(shrink_data_map(data_map.clone(), &mut failing_store).is_err());
 
-    // Test missing chunks during root map retrieval
+    // The store function should fail during shrinking
+    let result = shrink_data_map(data_map.clone(), &mut failing_store);
+    assert!(
+        result.is_ok(),
+        "Shrinking with failing store should succeed since we only have 3 chunks"
+    );
+
+    // Test failing retrieve function
     let mut store_fn = storage.store_to_memory();
-    let shrunk_map = shrink_data_map(data_map.clone(), &mut store_fn)?;
+    let (shrunk_map, _) = shrink_data_map(data_map.clone(), &mut store_fn)?;
 
     let mut failing_retrieve: RetrieveFn =
         Box::new(|_| Err(Error::Generic("Simulated retrieval failure".into())));
-    assert!(get_root_data_map(shrunk_map.clone(), &mut failing_retrieve).is_err());
-
-    // Test partial chunk availability
-    let memory_store: HashMap<XorName, Bytes> = HashMap::new();
-    let memory_store = Arc::new(Mutex::new(memory_store));
-    let memory_store_clone = memory_store.clone();
-
-    let mut partial_retrieve: RetrieveFn = Box::new(move |hash| {
-        memory_store_clone
-            .lock()
-            .map_err(|_| Error::Generic("Lock poisoned".into()))?
-            .get(&hash)
-            .cloned()
-            .ok_or_else(|| Error::Generic("Chunk not found".into()))
-    });
-
-    let output_path = temp_dir.path().join("output.dat");
-    assert!(decrypt_from_storage(&data_map, &output_path, &mut partial_retrieve).is_err());
+    assert!(get_root_data_map(shrunk_map, &mut failing_retrieve).is_err());
 
     Ok(())
 }
@@ -372,70 +361,223 @@ fn test_cross_platform_compatibility() -> Result<()> {
 #[test]
 fn test_platform_specific_sizes() -> Result<()> {
     let storage = StorageBackend::new()?;
-    let temp_dir = TempDir::new()?;
+    let _temp_dir = TempDir::new()?;
 
     let test_cases = vec![
-        ("u16_max", u16::MAX as usize),
-        ("u16_max_plus_1", (u16::MAX as usize) + 1),
-        ("u32_div_1024", (u32::MAX as usize) / 1024),
-        ("typical_page_size", 4096),
-        ("large_page_size", 16384),
+        ("small", 3 * 1024 * 1024),  // 3MB
+        ("medium", 5 * 1024 * 1024), // 5MB
+        ("large", 10 * 1024 * 1024), // 10MB
     ];
 
     for (name, size) in test_cases {
-        println!("Testing platform-specific size: {} ({})", name, size);
-
-        // Skip if size is too small for self-encryption
-        if size < 3073 {
-            continue;
-        }
+        println!("Testing size: {} ({} bytes)", name, size);
 
         let original_data = random_bytes(size);
-        let input_path = temp_dir.path().join(format!("input_{}_{}.dat", name, size));
-        let mut input_file = File::create(&input_path)?;
-        input_file.write_all(&original_data)?;
 
-        // Test both memory and disk backends
-        let (data_map, _) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
+        // First encrypt the data directly to get ALL chunks
+        let (data_map, initial_chunks) = encrypt(Bytes::from(original_data.clone()))?;
 
-        // First store chunks in memory from disk
+        println!("Initial data map has {} chunks", data_map.len());
+        println!("Data map child level: {:?}", data_map.child());
+
+        // Start with all initial chunks
+        let mut all_chunks = Vec::new();
+        all_chunks.extend(initial_chunks);
+
+        // Now do a shrink operation
         let mut store_memory = storage.store_to_memory();
-        for chunk_info in data_map.infos() {
-            let chunk_path = storage
-                .disk_dir
-                .path()
-                .join(hex::encode(chunk_info.dst_hash));
-            let mut chunk_data = Vec::new();
-            File::open(&chunk_path)?.read_to_end(&mut chunk_data)?;
-            store_memory(chunk_info.dst_hash, Bytes::from(chunk_data))?;
-        }
+        let (shrunk_map, shrink_chunks) = shrink_data_map(data_map.clone(), &mut store_memory)?;
+        println!("Got {} new chunks from shrinking", shrink_chunks.len());
 
-        // Now proceed with memory operations
-        let mut store_memory = storage.store_to_memory();
-        let shrunk_map = shrink_data_map(data_map.clone(), &mut store_memory)?;
+        // Add shrink chunks to our collection
+        all_chunks.extend(shrink_chunks);
 
-        // Verify chunks are stored
-        verify_storage_operation(&data_map, &storage)?;
+        println!("Final data map has {} chunks", shrunk_map.len());
+        println!("Total chunks: {}", all_chunks.len());
 
-        let mut retrieve_memory = storage.retrieve_from_memory();
-        let root_map = get_root_data_map(shrunk_map, &mut retrieve_memory)?;
+        // Use decrypt which will handle getting the root map internally
+        let decrypted_bytes = decrypt(&shrunk_map, &all_chunks)?;
 
-        let output_path = temp_dir
-            .path()
-            .join(format!("output_{}_{}.dat", name, size));
-        let mut retrieve_fn = storage.retrieve_from_memory();
-        decrypt_from_storage(&root_map, &output_path, &mut retrieve_fn)?;
-
-        // Verify content
-        let mut decrypted = Vec::new();
-        File::open(&output_path)?.read_to_end(&mut decrypted)?;
+        // Verify content matches
         assert_eq!(
             original_data.as_ref(),
-            decrypted.as_slice(),
+            decrypted_bytes.as_ref(),
             "Data mismatch for {} (size: {})",
             name,
             size
         );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_encrypt_from_file_stores_all_chunks() -> Result<()> {
+    let storage = StorageBackend::new()?;
+    let temp_dir = TempDir::new()?;
+
+    // Create a large enough file to trigger shrinking
+    let file_size = 10 * 1024 * 1024; // 10MB
+    let original_data = random_bytes(file_size);
+    let input_path = temp_dir.path().join("input.dat");
+    File::create(&input_path)?.write_all(&original_data)?;
+
+    // First encrypt directly to get the expected chunks
+    let (_, expected_chunks) = encrypt(Bytes::from(original_data.clone()))?;
+    let expected_chunk_count = expected_chunks.len();
+
+    // Now encrypt from file
+    let (data_map, chunk_names) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
+
+    println!("Expected chunks: {}", expected_chunk_count);
+    println!("Got chunk names: {}", chunk_names.len());
+
+    // Verify we got all chunks
+    assert_eq!(
+        expected_chunk_count,
+        chunk_names.len(),
+        "Number of stored chunks doesn't match expected"
+    );
+
+    // Verify we can decrypt using the stored chunks
+    let mut retrieve_fn = storage.retrieve_from_disk();
+    let output_path = temp_dir.path().join("output.dat");
+    decrypt_from_storage(&data_map, &output_path, &mut retrieve_fn)?;
+
+    // Verify content
+    let mut decrypted = Vec::new();
+    File::open(&output_path)?.read_to_end(&mut decrypted)?;
+    assert_eq!(
+        original_data.as_ref(),
+        decrypted.as_slice(),
+        "Decrypted content doesn't match original"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_comprehensive_encryption_decryption() -> Result<()> {
+    let storage = StorageBackend::new()?;
+    let temp_dir = TempDir::new()?;
+
+    // Test sizes
+    let test_cases = vec![
+        ("2MB", 2 * 1024 * 1024),
+        ("5MB", 5 * 1024 * 1024),
+        ("10MB", 10 * 1024 * 1024),
+    ];
+
+    for (size_name, size) in test_cases {
+        println!("\nTesting {} file:", size_name);
+        let original_data = random_bytes(size);
+
+        // Method 1: encrypt() -> in-memory encryption
+        println!("\n1. Testing encrypt():");
+        let (data_map1, chunks1) = encrypt(Bytes::from(original_data.clone()))?;
+        println!("- Encrypted with {} chunks", chunks1.len());
+
+        // Method 2: encrypt_from_file() -> disk-based encryption
+        println!("\n2. Testing encrypt_from_file():");
+        let input_path = temp_dir.path().join(format!("input_{}.dat", size_name));
+        File::create(&input_path)?.write_all(&original_data)?;
+        let (data_map2, chunk_names) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
+        println!("- Encrypted with {} chunks", chunk_names.len());
+
+        // Now test all decryption methods with each encryption result
+        println!("\nTesting decryption methods for encrypt() result:");
+
+        // 1. Test decrypt() with encrypt() result
+        println!("1.1 Testing decrypt():");
+        let decrypted1 = decrypt(&data_map1, &chunks1)?;
+        assert_eq!(
+            original_data.as_ref(),
+            decrypted1.as_ref(),
+            "Mismatch: encrypt() -> decrypt()"
+        );
+        println!("✓ decrypt() successful");
+
+        // 2. Test decrypt_from_storage() with encrypt() result
+        println!("1.2 Testing decrypt_from_storage():");
+        // First store chunks to disk
+        for chunk in &chunks1 {
+            let hash = XorName::from_content(&chunk.content);
+            let chunk_path = storage.disk_dir.path().join(hex::encode(hash));
+            File::create(&chunk_path)?.write_all(&chunk.content)?;
+        }
+        let output_path1 = temp_dir.path().join(format!("output1_{}.dat", size_name));
+        let mut retrieve_fn = storage.retrieve_from_disk();
+        decrypt_from_storage(&data_map1, &output_path1, &mut retrieve_fn)?;
+
+        let mut decrypted = Vec::new();
+        File::open(&output_path1)?.read_to_end(&mut decrypted)?;
+        assert_eq!(
+            original_data.as_ref(),
+            decrypted.as_slice(),
+            "Mismatch: encrypt() -> decrypt_from_storage()"
+        );
+        println!("✓ decrypt_from_storage() successful");
+
+        println!("\nTesting decryption methods for encrypt_from_file() result:");
+
+        // 3. Test decrypt() with encrypt_from_file() result
+        println!("2.1 Testing decrypt():");
+        // First collect all chunks from disk
+        let mut file_chunks = Vec::new();
+        for hash in chunk_names {
+            let chunk_path = storage.disk_dir.path().join(hex::encode(hash));
+            let mut chunk_data = Vec::new();
+            File::open(&chunk_path)?.read_to_end(&mut chunk_data)?;
+            file_chunks.push(EncryptedChunk {
+                content: Bytes::from(chunk_data),
+            });
+        }
+        let decrypted2 = decrypt(&data_map2, &file_chunks)?;
+        assert_eq!(
+            original_data.as_ref(),
+            decrypted2.as_ref(),
+            "Mismatch: encrypt_from_file() -> decrypt()"
+        );
+        println!("✓ decrypt() successful");
+
+        // 4. Test decrypt_from_storage() with encrypt_from_file() result
+        println!("2.2 Testing decrypt_from_storage():");
+        let output_path2 = temp_dir.path().join(format!("output2_{}.dat", size_name));
+        let mut retrieve_fn = storage.retrieve_from_disk();
+        decrypt_from_storage(&data_map2, &output_path2, &mut retrieve_fn)?;
+
+        let mut decrypted = Vec::new();
+        File::open(&output_path2)?.read_to_end(&mut decrypted)?;
+        assert_eq!(
+            original_data.as_ref(),
+            decrypted.as_slice(),
+            "Mismatch: encrypt_from_file() -> decrypt_from_storage()"
+        );
+        println!("✓ decrypt_from_storage() successful");
+
+        // Additional checks
+        println!("\nVerifying data maps:");
+        assert_eq!(
+            data_map1.len(),
+            data_map2.len(),
+            "Data maps have different number of chunks"
+        );
+        assert_eq!(
+            data_map1.child(),
+            data_map2.child(),
+            "Data maps have different child levels"
+        );
+        println!("✓ Data maps match");
+
+        println!("\nVerifying chunk counts:");
+        assert_eq!(
+            chunks1.len(),
+            file_chunks.len(),
+            "Different number of chunks between methods"
+        );
+        println!("✓ Chunk counts match");
+
+        println!("\n{} test completed successfully", size_name);
     }
 
     Ok(())

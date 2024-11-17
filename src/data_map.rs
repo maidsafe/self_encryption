@@ -6,7 +6,6 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter, Write};
 use xor_name::XorName;
@@ -19,7 +18,7 @@ use xor_name::XorName;
 pub struct DataMap {
     /// List of chunk hashes
     pub chunk_identifiers: Vec<ChunkInfo>,
-    /// Child value, None means root data map and any other valuesignifies how 
+    /// Child value, None means root data map and any other valuesignifies how
     /// many levels of data map we have shrunk
     pub child: Option<usize>,
 }
@@ -80,7 +79,7 @@ impl DataMap {
 }
 
 impl Debug for DataMap {
-    fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(formatter, "DataMap:")?;
         if let Some(child) = self.child {
             writeln!(formatter, "    child: {}", child)?;
@@ -141,7 +140,7 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
 }
 
 impl Debug for ChunkInfo {
-    fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
             "ChunkInfo {{ index: {}, dst_hash: {}, src_hash: {}, src_size: {} }}",

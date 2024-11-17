@@ -34,7 +34,11 @@ pub(crate) fn get_n_1_n_2(chunk_index: usize, total_num_chunks: usize) -> (usize
     }
 }
 
-pub(crate) fn get_pki(src_hash: &XorName, n_1_src_hash: &XorName, n_2_src_hash: &XorName) -> (Pad, Key, Iv) {
+pub(crate) fn get_pki(
+    src_hash: &XorName,
+    n_1_src_hash: &XorName,
+    n_2_src_hash: &XorName,
+) -> (Pad, Key, Iv) {
     let mut pad = [0u8; PAD_SIZE];
     let mut key = [0u8; KEY_SIZE];
     let mut iv = [0u8; IV_SIZE];
@@ -126,6 +130,7 @@ pub(crate) fn get_start_position(file_size: usize, chunk_index: usize) -> usize 
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn get_chunk_index(file_size: usize, position: usize) -> usize {
     let num_chunks = get_num_chunks(file_size);
     if num_chunks == 0 {
@@ -143,4 +148,4 @@ pub(crate) fn get_chunk_index(file_size: usize, position: usize) -> usize {
     } else {
         num_chunks - 1
     }
-} 
+}

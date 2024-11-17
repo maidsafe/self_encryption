@@ -66,7 +66,8 @@ pub(crate) fn encrypt(batches: Vec<EncryptionBatch>) -> (DataMap, Vec<EncryptedC
         .flatten()
         .fold(
             || (vec![], vec![]),
-            |(mut keys, mut chunks), result: Result<_, Error>| {
+            |(mut keys, mut chunks),
+             result: std::result::Result<(ChunkInfo, EncryptedChunk), Error>| {
                 if let Ok((key, chunk)) = result {
                     keys.push(key);
                     chunks.push(chunk);
