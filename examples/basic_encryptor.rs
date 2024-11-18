@@ -41,9 +41,9 @@
 use bytes::Bytes;
 use docopt::Docopt;
 use rayon::prelude::*;
+use self_encryption::decrypt;
 use self_encryption::{
-    self, DataMap, EncryptedChunk, Error, Result, 
-    encrypt, serialize, deserialize
+    self, deserialize, encrypt, serialize, DataMap, EncryptedChunk, Error, Result,
 };
 use serde::Deserialize;
 use std::{
@@ -56,7 +56,6 @@ use std::{
     sync::Arc,
 };
 use xor_name::XorName;
-use self_encryption::decrypt;
 
 #[rustfmt::skip]
 static USAGE: &str = "

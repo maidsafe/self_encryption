@@ -1,11 +1,9 @@
 use crate::{
-    decrypt as rust_decrypt,
-    decrypt_from_storage as rust_decrypt_from_storage,
-    encrypt as rust_encrypt,
-    encrypt_from_file as rust_encrypt_from_file,
+    decrypt as rust_decrypt, decrypt_from_storage as rust_decrypt_from_storage,
+    encrypt as rust_encrypt, encrypt_from_file as rust_encrypt_from_file,
     shrink_data_map as rust_shrink_data_map,
-    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage,
-    ChunkInfo, DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
+    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage, ChunkInfo,
+    DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
@@ -140,24 +138,28 @@ fn encrypt(_py: Python<'_>, data: &PyBytes) -> PyResult<(PyDataMap, Vec<PyEncryp
     let bytes = Bytes::from(data.as_bytes().to_vec());
     let (data_map, chunks) = rust_encrypt(bytes)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-    
+
     Ok((
         PyDataMap { inner: data_map },
-        chunks.into_iter().map(|c| PyEncryptedChunk { inner: c }).collect(),
+        chunks
+            .into_iter()
+            .map(|c| PyEncryptedChunk { inner: c })
+            .collect(),
     ))
 }
 
 #[pyfunction]
 fn encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyDataMap, Vec<String>)> {
-    let (data_map, chunk_names) = rust_encrypt_from_file(
-        &PathBuf::from(input_path),
-        &PathBuf::from(output_dir),
-    )
-    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+    let (data_map, chunk_names) =
+        rust_encrypt_from_file(&PathBuf::from(input_path), &PathBuf::from(output_dir))
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
 
     Ok((
         PyDataMap { inner: data_map },
-        chunk_names.into_iter().map(|name| hex::encode(name.0)).collect(),
+        chunk_names
+            .into_iter()
+            .map(|name| hex::encode(name.0))
+            .collect(),
     ))
 }
 
@@ -166,7 +168,7 @@ fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Py<P
     let chunks: Vec<RustEncryptedChunk> = chunks.into_iter().map(|c| c.inner).collect();
     let result = rust_decrypt(&data_map.inner, &chunks)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-    
+
     Python::with_gil(|py| Ok(PyBytes::new(py, &result).into()))
 }
 
@@ -212,7 +214,10 @@ fn shrink_data_map(
 
     Ok((
         PyDataMap { inner: shrunk_map },
-        chunks.into_iter().map(|c| PyEncryptedChunk { inner: c }).collect(),
+        chunks
+            .into_iter()
+            .map(|c| PyEncryptedChunk { inner: c })
+            .collect(),
     ))
 }
 
@@ -234,15 +239,21 @@ fn streaming_decrypt_from_storage(
         Ok(chunk_data.into_iter().map(Bytes::from).collect())
     };
 
-    rust_streaming_decrypt_from_storage(&data_map.inner, &PathBuf::from(output_path), get_chunk_parallel)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    rust_streaming_decrypt_from_storage(
+        &data_map.inner,
+        &PathBuf::from(output_path),
+        get_chunk_parallel,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
 #[pyfunction]
 fn verify_chunk(name: &PyXorName, content: &PyBytes) -> PyResult<PyEncryptedChunk> {
     match crate::verify_chunk(name.inner, content.as_bytes()) {
         Ok(chunk) => Ok(PyEncryptedChunk { inner: chunk }),
-        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            e.to_string(),
+        )),
     }
 }
 

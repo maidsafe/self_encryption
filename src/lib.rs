@@ -105,7 +105,6 @@ pub use decrypt::decrypt_chunk;
 use utils::*;
 pub use xor_name::XorName;
 
-
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
@@ -218,10 +217,7 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
 /// # Returns
 ///
 /// * `Result<Bytes>` - The decrypted data or an error if chunks are missing/corrupted
-pub(crate) fn decrypt_full_set(
-    data_map: &DataMap,
-    chunks: &[EncryptedChunk],
-) -> Result<Bytes> {
+pub(crate) fn decrypt_full_set(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     let src_hashes = extract_hashes(data_map);
 
     // Create a mapping of chunk hashes to chunks for efficient lookup
@@ -505,7 +501,9 @@ where
 
     for (info, chunk) in root_map.infos().iter().zip(encrypted_chunks.iter()) {
         let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
-        output_file.write_all(&decrypted_chunk).map_err(Error::from)?;
+        output_file
+            .write_all(&decrypted_chunk)
+            .map_err(Error::from)?;
     }
 
     Ok(())
@@ -524,10 +522,7 @@ where
 /// # Returns
 ///
 /// * `Result<DataMap>` - The root data map or an error if retrieval or decryption fails.
-pub fn get_root_data_map_parallel<F>(
-    data_map: DataMap,
-    get_chunk_parallel: &F,
-) -> Result<DataMap>
+pub fn get_root_data_map_parallel<F>(data_map: DataMap, get_chunk_parallel: &F) -> Result<DataMap>
 where
     F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
 {
@@ -598,8 +593,7 @@ where
 ///
 /// * `Result<Vec<u8>>` - The serialized bytes or an error
 pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
-    bincode::serialize(data)
-        .map_err(|e| Error::Generic(format!("Serialization error: {}", e)))
+    bincode::serialize(data).map_err(|e| Error::Generic(format!("Serialization error: {}", e)))
 }
 
 /// Deserializes bytes into a data structure using bincode.
@@ -612,8 +606,7 @@ pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
 ///
 /// * `Result<T>` - The deserialized data structure or an error
 pub fn deserialize<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
-    bincode::deserialize(bytes)
-        .map_err(|e| Error::Generic(format!("Deserialization error: {}", e)))
+    bincode::deserialize(bytes).map_err(|e| Error::Generic(format!("Deserialization error: {}", e)))
 }
 
 /// Verifies and deserializes a chunk by checking its content hash matches the provided name.
@@ -632,10 +625,10 @@ pub fn verify_chunk(name: XorName, bytes: &[u8]) -> Result<EncryptedChunk> {
     let chunk = EncryptedChunk {
         content: Bytes::from(bytes.to_vec()),
     };
-    
+
     // Calculate the hash of the encrypted content directly
     let calculated_hash = XorName::from_content(chunk.content.as_ref());
-    
+
     // Verify the hash matches
     if calculated_hash != name {
         return Err(Error::Generic(format!(
@@ -643,7 +636,7 @@ pub fn verify_chunk(name: XorName, bytes: &[u8]) -> Result<EncryptedChunk> {
             name, calculated_hash
         )));
     }
-    
+
     Ok(chunk)
 }
 
