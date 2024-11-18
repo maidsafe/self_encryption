@@ -44,7 +44,7 @@
 #![allow(missing_copy_implementations, missing_debug_implementations)]
 
 use criterion::{BatchSize, Bencher, Criterion};
-use self_encryption::{decrypt_full_set, encrypt, test_helpers::random_bytes};
+use self_encryption::{decrypt, encrypt, test_helpers::random_bytes};
 use std::time::Duration;
 
 // sample size is _NOT_ the number of times the command is run...
@@ -75,7 +75,7 @@ fn read(b: &mut Bencher, bytes_len: usize) {
         || encrypt(random_bytes(bytes_len)).unwrap(),
         // actual benchmark
         |(data_map, encrypted_chunks)| {
-            let _raw_data = decrypt_full_set(&data_map, &encrypted_chunks).unwrap();
+            let _raw_data = decrypt(&data_map, &encrypted_chunks).unwrap();
         },
         BatchSize::SmallInput,
     );

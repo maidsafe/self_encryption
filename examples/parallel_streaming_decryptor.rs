@@ -1,13 +1,7 @@
 use bytes::Bytes;
-use self_encryption::{
-    streaming_decrypt_from_storage, DataMap, Error, Result, deserialize
-};
-use std::{
-    fs::File,
-    io::Read,
-    path::Path,
-};
 use rayon::prelude::*;
+use self_encryption::{deserialize, streaming_decrypt_from_storage, DataMap, Error, Result};
+use std::{fs::File, io::Read, path::Path};
 use xor_name::XorName;
 
 fn main() -> Result<()> {
@@ -31,21 +25,17 @@ fn main() -> Result<()> {
     };
 
     // Use the streaming decryption function
-    streaming_decrypt_from_storage(
-        &data_map,
-        Path::new("output_file.dat"),
-        get_chunk_parallel,
-    )?;
+    streaming_decrypt_from_storage(&data_map, Path::new("output_file.dat"), get_chunk_parallel)?;
 
     Ok(())
 }
 
 // Helper function to load data map from a file
 fn load_data_map(path: &str) -> Result<DataMap> {
-    let mut file = File::open(path)
-        .map_err(|e| Error::Generic(format!("Failed to open data map: {}", e)))?;
+    let mut file =
+        File::open(path).map_err(|e| Error::Generic(format!("Failed to open data map: {}", e)))?;
     let mut data = Vec::new();
     file.read_to_end(&mut data)
         .map_err(|e| Error::Generic(format!("Failed to read data map: {}", e)))?;
     deserialize(&data)
-} 
+}

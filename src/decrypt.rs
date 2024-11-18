@@ -29,11 +29,7 @@ pub fn decrypt_sorted_set(
 
 /// Decrypt a chunk, given the index of that chunk in the sequence of chunks,
 /// and the raw encrypted content.
-pub fn decrypt_chunk(
-    chunk_index: usize,
-    content: &Bytes,
-    src_hashes: &[XorName],
-) -> Result<Bytes> {
+pub fn decrypt_chunk(chunk_index: usize, content: &Bytes, src_hashes: &[XorName]) -> Result<Bytes> {
     let pki = get_pad_key_and_iv(chunk_index, src_hashes);
     let (pad, key, iv) = pki;
 
