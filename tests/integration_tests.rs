@@ -377,7 +377,7 @@ fn test_platform_specific_sizes() -> Result<()> {
         let original_data = random_bytes(size);
 
         // First encrypt the data directly to get ALL chunks
-        let (data_map, initial_chunks) = encrypt(Bytes::from(original_data.clone()))?;
+        let (data_map, initial_chunks) = encrypt(original_data.clone())?;
 
         println!("Initial data map has {} chunks", data_map.len());
         println!("Data map child level: {:?}", data_map.child());
@@ -425,7 +425,7 @@ fn test_encrypt_from_file_stores_all_chunks() -> Result<()> {
     File::create(&input_path)?.write_all(&original_data)?;
 
     // First encrypt directly to get the expected chunks
-    let (_, expected_chunks) = encrypt(Bytes::from(original_data.clone()))?;
+    let (_, expected_chunks) = encrypt(original_data.clone())?;
     let expected_chunk_count = expected_chunks.len();
 
     // Now encrypt from file
@@ -477,7 +477,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
 
         // 1. In-memory encryption (encrypt)
         println!("\n1. Testing in-memory encryption (encrypt):");
-        let (data_map1, chunks1) = encrypt(Bytes::from(original_data.clone()))?;
+        let (data_map1, chunks1) = encrypt(original_data.clone())?;
         println!("- Generated {} chunks", chunks1.len());
         println!("- Data map child level: {:?}", data_map1.child());
 
@@ -545,7 +545,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
                 .collect()
         };
 
-        streaming_decrypt_from_storage(&data_map1, &output_path1_stream, &get_chunk_parallel)?;
+        streaming_decrypt_from_storage(&data_map1, &output_path1_stream, get_chunk_parallel)?;
 
         let mut decrypted = Vec::new();
         File::open(&output_path1_stream)?.read_to_end(&mut decrypted)?;
@@ -595,7 +595,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
         let output_path2_stream = temp_dir
             .path()
             .join(format!("output2_stream_{}.dat", size_name));
-        streaming_decrypt_from_storage(&data_map2, &output_path2_stream, &get_chunk_parallel)?;
+        streaming_decrypt_from_storage(&data_map2, &output_path2_stream, get_chunk_parallel)?;
 
         let mut decrypted = Vec::new();
         File::open(&output_path2_stream)?.read_to_end(&mut decrypted)?;
@@ -631,12 +631,10 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
         println!("✓ Chunk counts match");
 
         // Verify all output files are identical
-        let outputs = vec![
-            output_path1,
+        let outputs = [output_path1,
             output_path1_stream,
             output_path2,
-            output_path2_stream,
-        ];
+            output_path2_stream];
         for (i, path1) in outputs.iter().enumerate() {
             for path2 in outputs.iter().skip(i + 1) {
                 let mut content1 = Vec::new();
@@ -690,7 +688,7 @@ fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
 
     // Use the streaming decryption function
     let output_path = temp_dir.path().join("output.dat");
-    streaming_decrypt_from_storage(&data_map, &output_path, &get_chunk_parallel)?;
+    streaming_decrypt_from_storage(&data_map, &output_path, get_chunk_parallel)?;
 
     // Verify the output file matches original data
     let mut decrypted_data = Vec::new();
