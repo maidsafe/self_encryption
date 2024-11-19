@@ -9,4 +9,12 @@ setup(
     zip_safe=False,
     include_package_data=True,
     python_requires=">=3.7",
-) 
+    install_requires=[
+        'click>=8.0.0',
+    ],
+    entry_points={
+        'console_scripts': [
+            'self-encryption=self_encryption.cli:cli',
+        ],
+    },
+)
