@@ -65,6 +65,8 @@ from ._self_encryption import (
     verify_chunk,
 )
 
+from .cli import cli
+
 __all__ = [
     "DataMap",
     "EncryptedChunk",
@@ -76,4 +78,5 @@ __all__ = [
     "shrink_data_map",
     "streaming_decrypt_from_storage",
     "verify_chunk",
-] 
+    "cli",
+]
