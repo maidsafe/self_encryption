@@ -28,6 +28,13 @@ File Operations:
     ...     return (Path("chunks") / hash_hex).read_bytes()
     >>> decrypt_from_storage(data_map, "output.dat", get_chunk)
 
+Streaming Operations:
+    >>> from self_encryption import streaming_encrypt_from_file
+    >>> def store_chunk(name, content):
+    ...     (Path("chunks") / name).write_bytes(content)
+    >>> data_map = streaming_encrypt_from_file("large_file.dat", store_chunk)
+    >>> print(f"Created {data_map.len()} chunks")
+
 Command Line Usage:
     The library includes a command-line interface for all operations:
 
@@ -77,6 +84,10 @@ Functions:
         Encrypt a file and store chunks to disk. Returns a data map and chunk names.
         The input file must be at least 3072 bytes.
 
+    streaming_encrypt_from_file(input_path: str, store_chunk: Callable[[str, bytes], None]) -> DataMap
+        Stream-encrypt a file and store chunks using a custom storage backend.
+        Memory efficient for large files. Returns only the data map.
+
     decrypt(data_map: DataMap, chunks: List[EncryptedChunk]) -> bytes
         Decrypt data using provided chunks in memory.
 
@@ -111,6 +122,7 @@ from ._self_encryption import (
     shrink_data_map,
     streaming_decrypt_from_storage,
     verify_chunk,
+    streaming_encrypt_from_file,
 )
 
 from .cli import cli
@@ -128,5 +140,6 @@ __all__ = [
     "shrink_data_map",
     "streaming_decrypt_from_storage",
     "verify_chunk",
+    "streaming_encrypt_from_file",
     "cli",
 ]

@@ -36,8 +36,9 @@ use crate::{
     decrypt as rust_decrypt, decrypt_from_storage as rust_decrypt_from_storage,
     encrypt as rust_encrypt, encrypt_from_file as rust_encrypt_from_file,
     shrink_data_map as rust_shrink_data_map,
-    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage, ChunkInfo,
-    DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
+    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage,
+    streaming_encrypt_from_file as rust_streaming_encrypt_from_file,
+    ChunkInfo, DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
@@ -459,6 +460,77 @@ fn streaming_decrypt_from_storage(
 }
 
 #[pyfunction]
+/// Stream-encrypt a file and store chunks using a custom storage backend.
+/// 
+/// This function reads and encrypts a file in chunks, using less memory than the standard
+/// encrypt_from_file function. It's ideal for large files and custom storage backends.
+/// 
+/// Key features:
+///   - Memory efficient streaming encryption
+///   - Custom storage backend support
+///   - Parallel processing where possible
+///   - Maintains encryption security properties
+/// 
+/// Args:
+///     input_path (str): Path to the input file to encrypt
+///     store_chunk (Callable[[str, bytes], None]): Function to store encrypted chunks.
+///         Takes two arguments:
+///         - chunk_name (str): The hex name (XorName) of the chunk
+///         - content (bytes): The encrypted chunk content
+/// 
+/// Returns:
+///     DataMap: Contains metadata about the encrypted chunks
+/// 
+/// Raises:
+///     ValueError: If the input file is too small or encryption fails
+///     OSError: If there are file system errors
+///     
+/// Example:
+///     ```python
+///     def store_chunk(name, content):
+///         chunk_path = Path("chunks") / name
+///         chunk_path.write_bytes(content)
+///     
+///     data_map = streaming_encrypt_from_file("large_file.dat", store_chunk)
+///     print(f"Created {data_map.len()} chunks")
+///     ```
+fn streaming_encrypt_from_file(
+    _py: Python<'_>,
+    input_path: String,
+    py_store_chunk: PyObject,
+) -> PyResult<PyDataMap> {
+    let input_path = PathBuf::from(input_path);
+    
+    // Create a closure that calls the Python store_chunk function
+    let mut store_chunk = |name: XorName, content: Bytes| -> Result<()> {
+        // Convert data outside of the Python context
+        let bytes: &[u8] = name.as_ref();
+        let name_hex = hex::encode(bytes);
+        let content_bytes = content.to_vec();
+        
+        // Acquire the GIL and call the Python function
+        let result: Result<()> = Python::with_gil(|py| {
+            let args = (name_hex, PyBytes::new(py, &content_bytes));
+            py_store_chunk
+                .call1(py, args)
+                .map(|_| ())
+                .map_err(|e| Error::Python(format!("Store chunk failed: {}", e)))?;
+            Ok(())
+        });
+        result
+    };
+    
+    // Call the Rust streaming encryption function
+    match rust_streaming_encrypt_from_file(&input_path, &mut store_chunk) {
+        Ok(data_map) => Ok(PyDataMap { inner: data_map }),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Streaming encryption failed: {}",
+            e
+        ))),
+    }
+}
+
+#[pyfunction]
 /// Verify the integrity of an encrypted chunk.
 /// 
 /// This function checks if an encrypted chunk's content matches its XorName,
@@ -539,6 +611,7 @@ fn _self_encryption(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decrypt_from_storage, m)?)?;
     m.add_function(wrap_pyfunction!(shrink_data_map, m)?)?;
     m.add_function(wrap_pyfunction!(streaming_decrypt_from_storage, m)?)?;
+    m.add_function(wrap_pyfunction!(streaming_encrypt_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(verify_chunk, m)?)?;
     Ok(())
 }

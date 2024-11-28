@@ -39,4 +39,6 @@ pub enum Error {
     Rng(#[from] rand::Error),
     #[error("Unable to obtain lock")]
     Poison,
+    #[error("Python error: {}", _0)]
+    Python(String),
 }
