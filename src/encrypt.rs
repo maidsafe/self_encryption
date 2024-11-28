@@ -8,17 +8,18 @@
 
 use crate::{
     chunk::{EncryptionBatch, RawChunk},
-    data_map::ChunkInfo,
+    data_map::DataMap,
     encryption::{self, Iv, Key, Pad},
-    error::{Error, Result},
-    get_pad_key_and_iv, xor, DataMap, EncryptedChunk, COMPRESSION_QUALITY,
+    error::Error,
+    utils::{get_pad_key_and_iv, xor},
+    ChunkInfo, EncryptedChunk, Result, COMPRESSION_QUALITY,
 };
+
 use brotli::enc::BrotliEncoderParams;
 use bytes::Bytes;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::io::Cursor;
-use std::sync::Arc;
+use std::{io::Cursor, sync::Arc};
 use xor_name::XorName;
 
 /// Encrypt the chunks
@@ -103,4 +104,92 @@ pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes
     .map_err(|_| Error::Compression)?;
     let encrypted = encryption::encrypt(Bytes::from(compressed), &key, &iv)?;
     Ok(xor(&encrypted, &pad))
+}
+
+/// Encrypt chunks in a streaming fashion, processing them in the correct order to satisfy the
+/// encryption requirements. Each chunk is encrypted using the hashes of two other chunks:
+/// - For chunk 0: Uses hashes of the last two chunks
+/// - For chunk 1: Uses hash of chunk 0 and the last chunk
+/// - For chunks 2+: Uses hashes of the previous two chunks
+pub(crate) fn encrypt_stream(
+    chunks: Vec<RawChunk>,
+) -> Result<(DataMap, Vec<EncryptedChunk>)> {
+    // Create a sorted vector of all hashes
+    let src_hashes: Vec<_> = chunks.iter().map(|c| c.hash).collect();
+    
+    // First, process chunks 2 onwards in parallel since they only need their previous two hashes
+    let later_chunks: Vec<_> = chunks.iter().skip(2).collect();
+    let (mut keys, mut encrypted_chunks): (Vec<ChunkInfo>, Vec<EncryptedChunk>) = later_chunks
+        .into_par_iter()
+        .map(|chunk| {
+            let RawChunk { index, data, hash } = chunk;
+            let src_size = data.len();
+            
+            let pki = get_pad_key_and_iv(*index, &src_hashes);
+            let encrypted_content = encrypt_chunk(data.clone(), pki)?;
+            let dst_hash = XorName::from_content(encrypted_content.as_ref());
+            
+            Ok((
+                ChunkInfo {
+                    index: *index,
+                    dst_hash,
+                    src_hash: *hash,
+                    src_size,
+                },
+                EncryptedChunk {
+                    content: encrypted_content,
+                },
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .unzip();
+    
+    // Process chunk 1 (needs hash 0 and last hash)
+    let chunk = &chunks[1];
+    let pki = get_pad_key_and_iv(1, &src_hashes);
+    let encrypted_content = encrypt_chunk(chunk.data.clone(), pki)?;
+    let dst_hash = XorName::from_content(encrypted_content.as_ref());
+    
+    // Insert at beginning since this is chunk 1
+    keys.insert(
+        0,
+        ChunkInfo {
+            index: 1,
+            dst_hash,
+            src_hash: chunk.hash,
+            src_size: chunk.data.len(),
+        },
+    );
+    encrypted_chunks.insert(
+        0,
+        EncryptedChunk {
+            content: encrypted_content,
+        },
+    );
+    
+    // Process chunk 0 (needs last two hashes)
+    let chunk = &chunks[0];
+    let pki = get_pad_key_and_iv(0, &src_hashes);
+    let encrypted_content = encrypt_chunk(chunk.data.clone(), pki)?;
+    let dst_hash = XorName::from_content(encrypted_content.as_ref());
+    
+    // Insert at beginning since this is chunk 0
+    keys.insert(
+        0,
+        ChunkInfo {
+            index: 0,
+            dst_hash,
+            src_hash: chunk.hash,
+            src_size: chunk.data.len(),
+        },
+    );
+    encrypted_chunks.insert(
+        0,
+        EncryptedChunk {
+            content: encrypted_content,
+        },
+    );
+    
+    Ok((DataMap::new(keys), encrypted_chunks))
 }
