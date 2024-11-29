@@ -99,9 +99,15 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
           before-script-linux: |
+            yum install -y gcc gcc-c++ make
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source $HOME/.cargo/env
             rustup component add rustfmt
+            rustup target add x86_64-unknown-linux-gnu
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: 1
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
