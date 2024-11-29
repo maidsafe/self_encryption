@@ -69,7 +69,6 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
-    # Add permissions to job
     permissions:
       id-token: write
       contents: read
@@ -91,12 +90,13 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: auto
-          args: --release --out dist
+          args: --release --out dist --target-dir target/wheels
           sccache: 'true'
         env:
-          RUSTFLAGS: "-C target-feature=+crt-static --cfg pyo3_no_local_impl"
-          PYO3_CROSS_LIB_DIR: "/opt/python/cp${{ matrix.python-version }}/lib"
-          CARGO_TERM_COLOR: always
+          CARGO_BUILD_TARGET: "x86_64-unknown-linux-gnu"
+          RUSTFLAGS: "--cfg pyo3_no_local_impl"
+          PYO3_CROSS_INCLUDE_DIR: "/opt/python/cp${{ matrix.python-version }}/include"
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "x86_64-linux-gnu-gcc"
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
