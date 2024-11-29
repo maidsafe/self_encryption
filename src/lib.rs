@@ -937,4 +937,69 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_encryption_algorithm_consistency() -> Result<()> {
+        // Create deterministic test data
+        let test_data = vec![42u8; MIN_ENCRYPTABLE_BYTES * 2]; // Repeating value for predictability
+        
+        // First encryption
+        let storage1 = Arc::new(Mutex::new(HashMap::new()));
+        let storage1_clone = storage1.clone();
+        
+        let store1 = move |hash: XorName, content: Bytes| -> Result<()> {
+            let _ = storage1_clone.lock().unwrap().insert(hash, content.to_vec());
+            Ok(())
+        };
+
+        // Second encryption
+        let storage2 = Arc::new(Mutex::new(HashMap::new()));
+        let storage2_clone = storage2.clone();
+        
+        let store2 = move |hash: XorName, content: Bytes| -> Result<()> {
+            let _ = storage2_clone.lock().unwrap().insert(hash, content.to_vec());
+            Ok(())
+        };
+
+        // Create temporary files with same content
+        let temp_dir = tempfile::TempDir::new()?;
+        let file_path1 = temp_dir.path().join("test1.bin");
+        let file_path2 = temp_dir.path().join("test2.bin");
+        
+        std::fs::write(&file_path1, &test_data)?;
+        std::fs::write(&file_path2, &test_data)?;
+
+        // Encrypt same data twice
+        let data_map1 = streaming_encrypt_from_file(&file_path1, store1)?;
+        let data_map2 = streaming_encrypt_from_file(&file_path2, store2)?;
+
+        // Compare data maps
+        assert_eq!(
+            data_map1.chunk_identifiers.len(),
+            data_map2.chunk_identifiers.len(),
+            "Data maps should have same number of chunks"
+        );
+
+        // Compare stored chunks
+        let stored1 = storage1.lock().unwrap();
+        let stored2 = storage2.lock().unwrap();
+        
+        assert_eq!(
+            stored1.len(),
+            stored2.len(),
+            "Should have same number of stored chunks"
+        );
+
+        // Compare each chunk's content
+        for (hash, content1) in stored1.iter() {
+            let content2 = stored2.get(hash).expect("Chunk should exist in both storages");
+            assert_eq!(
+                content1,
+                content2,
+                "Encrypted chunks should be identical for same input"
+            );
+        }
+
+        Ok(())
+    }
 }
