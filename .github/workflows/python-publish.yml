@@ -81,10 +81,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
       - name: Install Python dependencies
         run: |
           python -m pip install --user cffi
@@ -95,14 +91,14 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          manylinux: auto
+          manylinux: "2014"
+          container: "quay.io/pypa/manylinux2014_x86_64"
           args: --release --out dist --target-dir target/wheels
           sccache: 'true'
         env:
           CARGO_BUILD_TARGET: "x86_64-unknown-linux-gnu"
           RUSTFLAGS: "--cfg pyo3_no_local_impl"
           PYO3_CROSS_INCLUDE_DIR: "/opt/python/cp${{ matrix.python-version }}/include"
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "gcc"
           CARGO_TARGET_DIR: "target/wheels"
       - name: Upload wheels
         uses: actions/upload-artifact@v3
