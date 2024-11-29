@@ -27,7 +27,7 @@ num_cpus = "1.13.0"
 itertools = "~0.10.0"
 tempfile = "3.6.0"
 xor_name = "5.0.0"
-pyo3 = { version = "0.19", optional = true, features = ["extension-module"] }
+pyo3 = { version = "=0.20.3", optional = true, features = ["extension-module"] }
 
 [dependencies.brotli]
 version = "~3.3.0"
