@@ -85,6 +85,8 @@ jobs:
         run: |
           python -m pip install --user cffi
           python -m pip install --user patchelf
+      - name: Install Rust target
+        run: rustup target add x86_64-unknown-linux-gnu
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -97,6 +99,7 @@ jobs:
           RUSTFLAGS: "--cfg pyo3_no_local_impl"
           PYO3_CROSS_INCLUDE_DIR: "/opt/python/cp${{ matrix.python-version }}/include"
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: "x86_64-linux-gnu-gcc"
+          CARGO_TARGET_DIR: "target/wheels"
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
