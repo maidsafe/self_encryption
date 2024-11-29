@@ -91,6 +91,11 @@ jobs:
           python -m pip install --user cffi
           python -m pip install --user patchelf
           rustup component add rustfmt
+      - name: Configure Cargo
+        run: |
+          mkdir -p .cargo
+          echo '[target.x86_64-unknown-linux-gnu]' > .cargo/config.toml
+          echo 'linker = "gcc"' >> .cargo/config.toml
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -100,7 +105,6 @@ jobs:
           sccache: 'true'
           before-script-linux: |
             yum install -y gcc gcc-c++ make
-            ln -s /usr/bin/gcc /usr/bin/x86_64-linux-gnu-gcc
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source $HOME/.cargo/env
             rustup component add rustfmt
@@ -109,7 +113,6 @@ jobs:
           CARGO_NET_GIT_FETCH_WITH_CLI: true
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: 1
-          RUSTFLAGS: "-C linker=gcc"
           CC: gcc
           CXX: g++
       - name: Upload wheels
