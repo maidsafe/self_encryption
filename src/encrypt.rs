@@ -113,13 +113,14 @@ pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes
 /// - For chunks 2+: Uses hashes of the previous two chunks
 pub(crate) fn encrypt_stream(
     chunks: Vec<RawChunk>,
-) -> Result<(DataMap, Vec<EncryptedChunk>)> {
-    // Create a sorted vector of all hashes
+) -> Result<DataMap> {
+    // Create a sorted vector of all hashes - we still need this for encryption
     let src_hashes: Vec<_> = chunks.iter().map(|c| c.hash).collect();
+    let mut keys = Vec::with_capacity(chunks.len());
     
     // First, process chunks 2 onwards in parallel since they only need their previous two hashes
     let later_chunks: Vec<_> = chunks.iter().skip(2).collect();
-    let (mut keys, mut encrypted_chunks): (Vec<ChunkInfo>, Vec<EncryptedChunk>) = later_chunks
+    let later_chunk_infos: Vec<ChunkInfo> = later_chunks
         .into_par_iter()
         .map(|chunk| {
             let RawChunk { index, data, hash } = chunk;
@@ -129,21 +130,16 @@ pub(crate) fn encrypt_stream(
             let encrypted_content = encrypt_chunk(data.clone(), pki)?;
             let dst_hash = XorName::from_content(encrypted_content.as_ref());
             
-            Ok((
-                ChunkInfo {
-                    index: *index,
-                    dst_hash,
-                    src_hash: *hash,
-                    src_size,
-                },
-                EncryptedChunk {
-                    content: encrypted_content,
-                },
-            ))
+            Ok(ChunkInfo {
+                index: *index,
+                dst_hash,
+                src_hash: *hash,
+                src_size,
+            })
         })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .unzip();
+        .collect::<Result<Vec<_>>>()?;
+    
+    keys.extend(later_chunk_infos);
     
     // Process chunk 1 (needs hash 0 and last hash)
     let chunk = &chunks[1];
@@ -159,12 +155,6 @@ pub(crate) fn encrypt_stream(
             dst_hash,
             src_hash: chunk.hash,
             src_size: chunk.data.len(),
-        },
-    );
-    encrypted_chunks.insert(
-        0,
-        EncryptedChunk {
-            content: encrypted_content,
         },
     );
     
@@ -184,12 +174,6 @@ pub(crate) fn encrypt_stream(
             src_size: chunk.data.len(),
         },
     );
-    encrypted_chunks.insert(
-        0,
-        EncryptedChunk {
-            content: encrypted_content,
-        },
-    );
     
-    Ok((DataMap::new(keys), encrypted_chunks))
+    Ok(DataMap::new(keys))
 }

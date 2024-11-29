@@ -549,12 +549,17 @@ where
         });
     }
     
-    // Process chunks in the correct order
-    let (data_map, encrypted_chunks) = encrypt::encrypt_stream(chunks)?;
+    // Process chunks and store them immediately
+    let data_map = encrypt::encrypt_stream(chunks.clone())?;
     
-    // Store all encrypted chunks
-    for chunk in encrypted_chunks {
-        chunk_store(XorName::from_content(&chunk.content), chunk.content)?;
+    // Now encrypt and store each chunk
+    let src_hashes: Vec<_> = chunks.iter().map(|c| c.hash).collect();
+    
+    for chunk in chunks {
+        let pki = get_pad_key_and_iv(chunk.index, &src_hashes);
+        let encrypted_content = encrypt::encrypt_chunk(chunk.data, pki)?;
+        let hash = XorName::from_content(&encrypted_content);
+        chunk_store(hash, encrypted_content)?;
     }
     
     // Shrink the data map and store additional chunks if needed
