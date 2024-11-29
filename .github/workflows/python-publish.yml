@@ -69,44 +69,40 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
         platform: [
-          { target: "x86_64-unknown-linux-musl", image_tag: "x86_64-musl" }
+          { target: "x86_64-unknown-linux-musl", image_tag: "x86_64-musl" },
+          { target: "i686-unknown-linux-musl", image_tag: "i686-musl" },
+          { target: "aarch64-unknown-linux-musl", image_tag: "aarch64-musl" },
+          { target: "armv7-unknown-linux-musleabihf", image_tag: "armv7-musleabihf" },
+          { target: "powerpc64le-unknown-linux-musl", image_tag: "powerpc64le-musl" },
         ]
     container:
-      image: "docker://messense/rust-musl-cross:${{ matrix.platform.image_tag }}"
+      image: docker://messense/rust-musl-cross:${{ matrix.platform.image_tag }}
+      env:
+        CFLAGS_armv7_unknown_linux_musleabihf: '-mfpu=vfpv3-d16'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Build Wheels - manylinux
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
           manylinux: auto
           container: off
-          args: --release --out dist
-          sccache: 'true'
+          args: --release -o dist
       - name: Build Wheels - musllinux
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
           manylinux: musllinux_1_1
           container: off
-          args: --release --out dist
-          sccache: 'true'
+          args: --release -o dist
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
           name: wheels
-          path: dist/*.whl
-          if-no-files-found: error
+          path: dist
 
   sdist:
     runs-on: ubuntu-latest
