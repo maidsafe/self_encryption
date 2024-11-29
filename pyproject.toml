@@ -2,28 +2,40 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
+[tool.maturin]
+features = ["python"]
+module-name = "_self_encryption"
+bindings = "pyo3"
+develop = true
+manifest-path = "Cargo.toml"
+python-packages = ["self_encryption"]
+compatibility = "manylinux2014"
+
 [project]
 name = "self_encryption"
+version = "0.32.4"
+description = "Self encrypting files (convergent encryption plus obfuscation)"
 requires-python = ">=3.7"
+license = {text = "GPL-3.0"}
+authors = [{name = "MaidSafe Developers", email = "dev@maidsafe.net"}]
+dependencies = [
+    "click>=8.0.0",
+    "pip>=24.0",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Rust",
     "Operating System :: OS Independent",
 ]
-dependencies = [
+
+[project.optional-dependencies]
+test = [
     "pip>=24.0",
     "pytest>=7.4.4",
-    "click>=8.0.0",
 ]
 
 [project.scripts]
 self-encryption = "self_encryption.cli:cli"
-
-[tool.maturin]
-features = ["python"]
-module-name = "self_encryption._self_encryption"
-bindings = "pyo3"
-develop = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
