@@ -83,16 +83,16 @@ jobs:
       env:
         CFLAGS_armv7_unknown_linux_musleabihf: '-mfpu=vfpv3-d16'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Build Wheels - manylinux
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@main
         with:
           target: ${{ matrix.platform.target }}
           manylinux: auto
           container: off
           args: --release -o dist
       - name: Build Wheels - musllinux
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@main
         with:
           target: ${{ matrix.platform.target }}
           manylinux: musllinux_1_1
@@ -103,6 +103,12 @@ jobs:
         with:
           name: wheels
           path: dist
+      - name: Archive binary
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          tar czvf auditwheel-symbols.tar.gz auditwheel-symbols
+          cd -
+
 
   sdist:
     runs-on: ubuntu-latest
