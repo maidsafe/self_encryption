@@ -1,9 +1,9 @@
 use bytes::Bytes;
+use clap::Parser;
 use rayon::prelude::*;
 use self_encryption::{deserialize, streaming_decrypt_from_storage, DataMap, Error, Result};
 use std::{fs::File, io::Read, path::Path};
 use xor_name::XorName;
-use clap::{Parser, error::ErrorKind};
 
 /// Parallel streaming decryptor for self-encrypted files
 #[derive(Parser, Debug)]
@@ -56,7 +56,8 @@ fn validate_paths(args: &Args) -> Result<()> {
             )));
         }
         // Try to verify write permissions
-        if !parent.metadata()
+        if !parent
+            .metadata()
             .map(|m| m.permissions().readonly())
             .unwrap_or(true)
         {
