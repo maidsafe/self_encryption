@@ -1,10 +1,10 @@
 /// Python bindings for self-encryption functionality.
-/// 
+///
 /// This module provides Python bindings for the self-encryption library, which implements
 /// convergent encryption with content deduplication and obfuscation. The library splits
 /// data into chunks, encrypts them independently, and creates a data map that describes
 /// how to reassemble the original data.
-/// 
+///
 /// Key Features:
 ///   - Content-based chunking for deduplication
 ///   - Convergent encryption with obfuscation
@@ -37,8 +37,8 @@ use crate::{
     encrypt as rust_encrypt, encrypt_from_file as rust_encrypt_from_file,
     shrink_data_map as rust_shrink_data_map,
     streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage,
-    streaming_encrypt_from_file as rust_streaming_encrypt_from_file,
-    ChunkInfo, DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
+    streaming_encrypt_from_file as rust_streaming_encrypt_from_file, ChunkInfo,
+    DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
@@ -48,14 +48,14 @@ use xor_name::XorName;
 
 #[pyclass(name = "DataMap")]
 /// A data map containing information about encrypted chunks.
-/// 
+///
 /// The DataMap contains metadata about how a file was split and encrypted into chunks,
 /// including the hashes needed to verify and decrypt the chunks.
-/// 
+///
 /// Attributes:
 ///     child (Optional[int]): The child level of this data map, if it's part of a hierarchy
 ///     len (int): The number of chunks in this data map
-/// 
+///
 /// Methods:
 ///     is_child() -> bool: Check if this is a child data map
 ///     infos() -> List[Tuple[int, bytes, bytes, int]]: Get chunk information
@@ -66,9 +66,9 @@ struct PyDataMap {
 
 #[pyclass(name = "EncryptedChunk")]
 /// An encrypted chunk of data.
-/// 
+///
 /// Represents a single encrypted chunk of data that was created during the encryption process.
-/// 
+///
 /// Methods:
 ///     content() -> bytes: Get the encrypted content of this chunk
 ///     from_bytes(content: bytes) -> EncryptedChunk: Create a new chunk from bytes
@@ -87,10 +87,10 @@ struct PyXorName {
 impl PyDataMap {
     #[new]
     /// Create a new DataMap from chunk information.
-    /// 
+    ///
     /// Args:
     ///     chunk_infos: List of tuples containing (index, dst_hash, src_hash, src_size)
-    /// 
+    ///
     /// Returns:
     ///     DataMap: A new data map instance
     fn new(chunk_infos: Vec<(usize, Vec<u8>, Vec<u8>, usize)>) -> Self {
@@ -110,11 +110,11 @@ impl PyDataMap {
 
     #[staticmethod]
     /// Create a new DataMap with a child level.
-    /// 
+    ///
     /// Args:
     ///     chunk_infos: List of tuples containing (index, dst_hash, src_hash, src_size)
     ///     child: The child level for this data map
-    /// 
+    ///
     /// Returns:
     ///     DataMap: A new data map instance with the specified child level
     fn with_child(chunk_infos: Vec<(usize, Vec<u8>, Vec<u8>, usize)>, child: usize) -> Self {
@@ -133,7 +133,7 @@ impl PyDataMap {
     }
 
     /// Get the child level of this data map.
-    /// 
+    ///
     /// Returns:
     ///     Optional[int]: The child level if this is a child data map, None otherwise
     fn child(&self) -> Option<usize> {
@@ -141,7 +141,7 @@ impl PyDataMap {
     }
 
     /// Check if this is a child data map.
-    /// 
+    ///
     /// Returns:
     ///     bool: True if this is a child data map, False otherwise
     fn is_child(&self) -> bool {
@@ -149,7 +149,7 @@ impl PyDataMap {
     }
 
     /// Get the number of chunks in this data map.
-    /// 
+    ///
     /// Returns:
     ///     int: The number of chunks
     fn len(&self) -> usize {
@@ -157,7 +157,7 @@ impl PyDataMap {
     }
 
     /// Get information about all chunks in this data map.
-    /// 
+    ///
     /// Returns:
     ///     List[Tuple[int, bytes, bytes, int]]: List of tuples containing
     ///         (index, dst_hash, src_hash, src_size) for each chunk
@@ -181,10 +181,10 @@ impl PyDataMap {
 impl PyEncryptedChunk {
     #[new]
     /// Create a new EncryptedChunk from bytes.
-    /// 
+    ///
     /// Args:
     ///     content (bytes): The encrypted content
-    /// 
+    ///
     /// Returns:
     ///     EncryptedChunk: A new encrypted chunk instance
     fn new(content: Vec<u8>) -> Self {
@@ -196,7 +196,7 @@ impl PyEncryptedChunk {
     }
 
     /// Get the content of this chunk.
-    /// 
+    ///
     /// Returns:
     ///     bytes: The encrypted content
     fn content(&self) -> &[u8] {
@@ -205,10 +205,10 @@ impl PyEncryptedChunk {
 
     #[classmethod]
     /// Create a new EncryptedChunk from Python bytes.
-    /// 
+    ///
     /// Args:
     ///     content (bytes): The encrypted content
-    /// 
+    ///
     /// Returns:
     ///     EncryptedChunk: A new encrypted chunk instance
     fn from_bytes(_cls: &PyType, content: &PyBytes) -> PyResult<Self> {
@@ -239,22 +239,22 @@ impl PyXorName {
 
 #[pyfunction]
 /// Encrypt data in memory.
-/// 
+///
 /// This function takes raw bytes, splits them into chunks, and encrypts each chunk
 /// independently. It returns both the data map (which describes how to reassemble
 /// the chunks) and the encrypted chunks themselves.
-/// 
+///
 /// The minimum input size is 3072 bytes, as this is required for the chunking
 /// algorithm to work effectively.
-/// 
+///
 /// Args:
 ///     data (bytes): The data to encrypt (must be at least 3072 bytes)
-/// 
+///
 /// Returns:
 ///     Tuple[DataMap, List[EncryptedChunk]]: A tuple containing:
 ///         - DataMap: Contains metadata about the encrypted chunks
 ///         - List[EncryptedChunk]: The list of encrypted chunks
-/// 
+///
 /// Raises:
 ///     ValueError: If the input data is too small or encryption fails
 ///     
@@ -279,22 +279,22 @@ fn encrypt(_py: Python<'_>, data: &PyBytes) -> PyResult<(PyDataMap, Vec<PyEncryp
 
 #[pyfunction]
 /// Encrypt a file and store chunks to disk.
-/// 
+///
 /// This function reads a file, splits it into chunks, encrypts each chunk, and
 /// stores the encrypted chunks in the specified output directory. The chunks are
 /// named using their content hash (XorName) in hexadecimal format.
-/// 
+///
 /// The input file must be at least 3072 bytes in size.
-/// 
+///
 /// Args:
 ///     input_path (str): Path to the input file to encrypt
 ///     output_dir (str): Directory where encrypted chunks will be stored
-/// 
+///
 /// Returns:
 ///     Tuple[DataMap, List[str]]: A tuple containing:
 ///         - DataMap: Contains metadata about the encrypted chunks
 ///         - List[str]: List of chunk filenames (hex format of their XorNames)
-/// 
+///
 /// Raises:
 ///     ValueError: If the input file is too small or encryption fails
 ///     OSError: If there are file system errors
@@ -320,17 +320,17 @@ fn encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyData
 
 #[pyfunction]
 /// Decrypt data using provided chunks in memory.
-/// 
+///
 /// This function takes a data map and its corresponding encrypted chunks and
 /// reassembles the original data. All operations are performed in memory.
-/// 
+///
 /// Args:
 ///     data_map (DataMap): The data map containing chunk metadata
 ///     chunks (List[EncryptedChunk]): The encrypted chunks to decrypt
-/// 
+///
 /// Returns:
 ///     bytes: The decrypted original data
-/// 
+///
 /// Raises:
 ///     ValueError: If decryption fails or chunks are invalid
 ///     
@@ -350,17 +350,17 @@ fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Py<P
 
 #[pyfunction]
 /// Decrypt data using chunks from storage, writing directly to a file.
-/// 
+///
 /// This function decrypts data by retrieving chunks from a storage backend using
 /// the provided callback function. It writes the decrypted data directly to the
 /// specified output file, making it suitable for large files that shouldn't be
 /// held entirely in memory.
-/// 
+///
 /// Args:
 ///     data_map (DataMap): The data map containing chunk metadata
 ///     output_path (str): Path where the decrypted file will be written
 ///     get_chunk (Callable[[str], bytes]): Function that retrieves chunks by their hex name
-/// 
+///
 /// Raises:
 ///     ValueError: If decryption fails or chunks are invalid
 ///     OSError: If there are file system errors
@@ -396,24 +396,24 @@ fn decrypt_from_storage(
 
 #[pyfunction]
 /// Decrypt data with parallel chunk retrieval for improved performance.
-/// 
+///
 /// This function is optimized for performance when working with large files and
 /// remote storage backends. It retrieves multiple chunks in parallel and writes
 /// the decrypted data directly to a file.
-/// 
+///
 /// Key features:
 ///   - Parallel chunk retrieval for better throughput
 ///   - Streaming write to output file
 ///   - Memory efficient for large files
 ///   - Optimized for remote storage backends
-/// 
+///
 /// Args:
 ///     data_map (DataMap): The data map containing chunk metadata
 ///     output_path (str): Path where the decrypted file will be written
 ///     get_chunks (Callable[[List[str]], List[bytes]]): Function that retrieves multiple
 ///         chunks in parallel, given their hex names. Should accept a list of hex names
 ///         and return a list of chunk contents in the same order.
-/// 
+///
 /// Raises:
 ///     ValueError: If decryption fails or chunks are invalid
 ///     OSError: If there are file system errors
@@ -461,26 +461,26 @@ fn streaming_decrypt_from_storage(
 
 #[pyfunction]
 /// Stream-encrypt a file and store chunks using a custom storage backend.
-/// 
+///
 /// This function reads and encrypts a file in chunks, using less memory than the standard
 /// encrypt_from_file function. It's ideal for large files and custom storage backends.
-/// 
+///
 /// Key features:
 ///   - Memory efficient streaming encryption
 ///   - Custom storage backend support
 ///   - Parallel processing where possible
 ///   - Maintains encryption security properties
-/// 
+///
 /// Args:
 ///     input_path (str): Path to the input file to encrypt
 ///     store_chunk (Callable[[str, bytes], None]): Function to store encrypted chunks.
 ///         Takes two arguments:
 ///         - chunk_name (str): The hex name (XorName) of the chunk
 ///         - content (bytes): The encrypted chunk content
-/// 
+///
 /// Returns:
 ///     DataMap: Contains metadata about the encrypted chunks
-/// 
+///
 /// Raises:
 ///     ValueError: If the input file is too small or encryption fails
 ///     OSError: If there are file system errors
@@ -500,14 +500,14 @@ fn streaming_encrypt_from_file(
     py_store_chunk: PyObject,
 ) -> PyResult<PyDataMap> {
     let input_path = PathBuf::from(input_path);
-    
+
     // Create a closure that calls the Python store_chunk function
     let mut store_chunk = |name: XorName, content: Bytes| -> Result<()> {
         // Convert data outside of the Python context
         let bytes: &[u8] = name.as_ref();
         let name_hex = hex::encode(bytes);
         let content_bytes = content.to_vec();
-        
+
         // Acquire the GIL and call the Python function
         let result: Result<()> = Python::with_gil(|py| {
             let args = (name_hex, PyBytes::new(py, &content_bytes));
@@ -519,7 +519,7 @@ fn streaming_encrypt_from_file(
         });
         result
     };
-    
+
     // Call the Rust streaming encryption function
     match rust_streaming_encrypt_from_file(&input_path, &mut store_chunk) {
         Ok(data_map) => Ok(PyDataMap { inner: data_map }),
@@ -532,17 +532,17 @@ fn streaming_encrypt_from_file(
 
 #[pyfunction]
 /// Verify the integrity of an encrypted chunk.
-/// 
+///
 /// This function checks if an encrypted chunk's content matches its XorName,
 /// ensuring the chunk hasn't been corrupted or tampered with.
-/// 
+///
 /// Args:
 ///     name (XorName): The expected XorName of the chunk
 ///     content (bytes): The chunk's content to verify
-/// 
+///
 /// Returns:
 ///     EncryptedChunk: A verified encrypted chunk object
-/// 
+///
 /// Raises:
 ///     ValueError: If the chunk's content doesn't match its name
 ///     
@@ -562,16 +562,16 @@ fn verify_chunk(name: &PyXorName, content: &PyBytes) -> PyResult<PyEncryptedChun
 
 #[pyfunction]
 /// Shrink a data map by recursively encrypting it.
-/// 
+///
 /// This is useful for handling large files that produce large data maps.
-/// 
+///
 /// Args:
 ///     data_map (DataMap): The data map to shrink
 ///     store_chunk (Callable[[str, bytes], None]): Function to store new chunks
-/// 
+///
 /// Returns:
 ///     Tuple[DataMap, List[EncryptedChunk]]: The shrunk data map and new chunks
-/// 
+///
 /// Raises:
 ///     ValueError: If shrinking fails
 fn shrink_data_map(

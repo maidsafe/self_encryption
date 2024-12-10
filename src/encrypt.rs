@@ -111,13 +111,11 @@ pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes
 /// - For chunk 0: Uses hashes of the last two chunks
 /// - For chunk 1: Uses hash of chunk 0 and the last chunk
 /// - For chunks 2+: Uses hashes of the previous two chunks
-pub(crate) fn encrypt_stream(
-    chunks: Vec<RawChunk>,
-) -> Result<DataMap> {
+pub(crate) fn encrypt_stream(chunks: Vec<RawChunk>) -> Result<DataMap> {
     // Create a sorted vector of all hashes - we still need this for encryption
     let src_hashes: Vec<_> = chunks.iter().map(|c| c.hash).collect();
     let mut keys = Vec::with_capacity(chunks.len());
-    
+
     // First, process chunks 2 onwards in parallel since they only need their previous two hashes
     let later_chunks: Vec<_> = chunks.iter().skip(2).collect();
     let later_chunk_infos: Vec<ChunkInfo> = later_chunks
@@ -125,11 +123,11 @@ pub(crate) fn encrypt_stream(
         .map(|chunk| {
             let RawChunk { index, data, hash } = chunk;
             let src_size = data.len();
-            
+
             let pki = get_pad_key_and_iv(*index, &src_hashes);
             let encrypted_content = encrypt_chunk(data.clone(), pki)?;
             let dst_hash = XorName::from_content(encrypted_content.as_ref());
-            
+
             Ok(ChunkInfo {
                 index: *index,
                 dst_hash,
@@ -138,15 +136,15 @@ pub(crate) fn encrypt_stream(
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    
+
     keys.extend(later_chunk_infos);
-    
+
     // Process chunk 1 (needs hash 0 and last hash)
     let chunk = &chunks[1];
     let pki = get_pad_key_and_iv(1, &src_hashes);
     let encrypted_content = encrypt_chunk(chunk.data.clone(), pki)?;
     let dst_hash = XorName::from_content(encrypted_content.as_ref());
-    
+
     // Insert at beginning since this is chunk 1
     keys.insert(
         0,
@@ -157,13 +155,13 @@ pub(crate) fn encrypt_stream(
             src_size: chunk.data.len(),
         },
     );
-    
+
     // Process chunk 0 (needs last two hashes)
     let chunk = &chunks[0];
     let pki = get_pad_key_and_iv(0, &src_hashes);
     let encrypted_content = encrypt_chunk(chunk.data.clone(), pki)?;
     let dst_hash = XorName::from_content(encrypted_content.as_ref());
-    
+
     // Insert at beginning since this is chunk 0
     keys.insert(
         0,
@@ -174,6 +172,6 @@ pub(crate) fn encrypt_stream(
             src_size: chunk.data.len(),
         },
     );
-    
+
     Ok(DataMap::new(keys))
 }

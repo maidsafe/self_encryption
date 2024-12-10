@@ -631,10 +631,12 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
         println!("✓ Chunk counts match");
 
         // Verify all output files are identical
-        let outputs = [output_path1,
+        let outputs = [
+            output_path1,
             output_path1_stream,
             output_path2,
-            output_path2_stream];
+            output_path2_stream,
+        ];
         for (i, path1) in outputs.iter().enumerate() {
             for path2 in outputs.iter().skip(i + 1) {
                 let mut content1 = Vec::new();
