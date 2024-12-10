@@ -92,7 +92,7 @@ mod chunk;
 mod data_map;
 mod decrypt;
 mod encrypt;
-mod encryption;
+mod aes;
 mod error;
 #[cfg(feature = "python")]
 mod python;
@@ -952,10 +952,7 @@ mod tests {
         let storage1_clone = storage1.clone();
 
         let store1 = move |hash: XorName, content: Bytes| -> Result<()> {
-            let _ = storage1_clone
-                .lock()
-                .unwrap()
-                .insert(hash, content.to_vec());
+            let _ = storage1_clone.lock().unwrap().insert(hash, content.to_vec());
             Ok(())
         };
 
@@ -964,10 +961,7 @@ mod tests {
         let storage2_clone = storage2.clone();
 
         let store2 = move |hash: XorName, content: Bytes| -> Result<()> {
-            let _ = storage2_clone
-                .lock()
-                .unwrap()
-                .insert(hash, content.to_vec());
+            let _ = storage2_clone.lock().unwrap().insert(hash, content.to_vec());
             Ok(())
         };
 
