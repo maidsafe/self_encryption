@@ -1,4 +1,4 @@
-use crate::encryption::{Iv, Key, Pad, IV_SIZE, KEY_SIZE, PAD_SIZE};
+use crate::aes::{Iv, Key, Pad, IV_SIZE, KEY_SIZE, PAD_SIZE};
 use bytes::Bytes;
 use xor_name::XorName;
 

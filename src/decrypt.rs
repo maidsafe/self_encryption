@@ -6,7 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::{encryption, get_pad_key_and_iv, xor, EncryptedChunk, Error, Result};
+use crate::{aes, get_pad_key_and_iv, xor, EncryptedChunk, Error, Result};
 use bytes::Bytes;
 use std::io::Cursor;
 use xor_name::XorName;
@@ -37,7 +37,7 @@ pub fn decrypt_chunk(chunk_index: usize, content: &Bytes, src_hashes: &[XorName]
     let xored = xor(content, &pad);
 
     // Then decrypt the content
-    let decrypted = encryption::decrypt(xored, &key, &iv)?;
+    let decrypted = aes::decrypt(xored, &key, &iv)?;
 
     // Finally decompress
     let mut decompressed = Vec::new();

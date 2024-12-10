@@ -9,7 +9,7 @@
 use crate::{
     chunk::{EncryptionBatch, RawChunk},
     data_map::DataMap,
-    encryption::{self, Iv, Key, Pad},
+    aes::{self, Iv, Key, Pad},
     error::Error,
     utils::{get_pad_key_and_iv, xor},
     ChunkInfo, EncryptedChunk, Result, COMPRESSION_QUALITY,
@@ -102,7 +102,7 @@ pub(crate) fn encrypt_chunk(content: Bytes, pki: (Pad, Key, Iv)) -> Result<Bytes
         &enc_params,
     )
     .map_err(|_| Error::Compression)?;
-    let encrypted = encryption::encrypt(Bytes::from(compressed), &key, &iv)?;
+    let encrypted = aes::encrypt(Bytes::from(compressed), &key, &iv)?;
     Ok(xor(&encrypted, &pad))
 }
 
