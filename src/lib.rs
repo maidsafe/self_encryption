@@ -98,6 +98,8 @@ mod error;
 mod python;
 pub mod test_helpers;
 mod utils;
+/// Stream encryption and decryption
+pub mod stream;
 
 pub use chunk::EncryptedChunk;
 pub use decrypt::decrypt_chunk;
@@ -107,6 +109,7 @@ pub use xor_name::XorName;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
+    stream::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
 use lazy_static::lazy_static;
