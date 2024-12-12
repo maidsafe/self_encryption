@@ -14,3 +14,12 @@ pub struct EncryptedChunk {
     /// The encrypted content of the chunk
     pub content: Bytes,
 }
+
+/// Calculate (start_position, end_position) for each chunk for the input file size
+pub(crate) fn batch_positions(data_size: usize) -> Vec<(usize, usize)> {
+    let num_chunks = crate::get_num_chunks(data_size);
+
+    (0..num_chunks)
+        .map(|index| crate::get_start_end_positions(data_size, index))
+        .collect()
+}
