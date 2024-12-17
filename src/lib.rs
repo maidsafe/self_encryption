@@ -96,10 +96,10 @@ mod encrypt;
 mod error;
 #[cfg(feature = "python")]
 mod python;
-pub mod test_helpers;
-mod utils;
 /// Stream encryption and decryption
 mod stream;
+pub mod test_helpers;
+mod utils;
 
 pub use chunk::EncryptedChunk;
 pub use decrypt::decrypt_chunk;
