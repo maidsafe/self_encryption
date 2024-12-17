@@ -9,9 +9,9 @@ use bytes::Bytes;
 use std::{
     collections::BTreeMap,
     fs::{File, OpenOptions},
+    io::{Error as IoError, ErrorKind},
     io::{Read, Seek, SeekFrom, Write},
     path::PathBuf,
-    io::{Error as IoError, ErrorKind},
 };
 use tempfile::{tempdir, TempDir};
 use xor_name::XorName;
@@ -118,16 +118,19 @@ impl StreamSelfEncryptor {
         let mut file = File::open(&self.file_path)?;
         let _ = file.seek(SeekFrom::Start(start_pos as u64))?;
         file.read_exact(&mut buffer)?;
-        
+
         let content = Bytes::from(buffer);
         let src_hash = XorName::from_content(content.as_ref());
-        
+
         let _ = self.src_hashes.insert(chunk_index, src_hash);
-        
+
         Ok((src_hash, content))
     }
 
-    fn get_pad_key_and_iv(&mut self, src_hash: XorName) -> Result<(crate::aes::Pad, crate::aes::Key, crate::aes::Iv)> {
+    fn get_pad_key_and_iv(
+        &mut self,
+        src_hash: XorName,
+    ) -> Result<(crate::aes::Pad, crate::aes::Key, crate::aes::Iv)> {
         let (n_1, n_2) = crate::utils::get_n_1_n_2(self.chunk_index, self.batch_positions.len());
 
         let n_1_src_hash = self.get_src_chunk_name(n_1)?;
@@ -169,7 +172,7 @@ impl StreamSelfDecryptor {
     pub fn decrypt_to_file(file_path: PathBuf, data_map: &DataMap) -> Result<Self> {
         // Create a new temporary directory for processing
         let temp_dir = tempdir()?;
-        
+
         // Create parent directory for output file
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -231,15 +234,13 @@ impl StreamSelfDecryptor {
                 let mut output_file = File::create(&file_path).map_err(|e| {
                     Error::Io(IoError::new(
                         ErrorKind::Other,
-                        format!(
-                            "Failed to create file {:?}: {}",
-                            file_path.display(),
-                            e
-                        ),
+                        format!("Failed to create file {:?}: {}", file_path.display(), e),
                     ))
                 })?;
                 output_file.write_all(&encrypted_chunk.content)?;
-                let _ = self.encrypted_chunks.insert(chunk_hash, encrypted_chunk.content);
+                let _ = self
+                    .encrypted_chunks
+                    .insert(chunk_hash, encrypted_chunk.content);
             }
         }
 
@@ -321,7 +322,7 @@ mod tests {
     use std::fs;
 
     struct TestEnvironment {
-        _temp_dir: TempDir,  // Keep TempDir alive by storing it in the struct
+        _temp_dir: TempDir, // Keep TempDir alive by storing it in the struct
         input_path: PathBuf,
         output_path: PathBuf,
         chunk_dir: PathBuf,
@@ -331,20 +332,20 @@ mod tests {
         fn new() -> Result<Self> {
             let _temp_dir = TempDir::new()?;
             let base_path = _temp_dir.path().to_path_buf();
-            
+
             // Create all necessary directories
             let input_dir = base_path.join("input");
             let output_dir = base_path.join("output");
             let chunk_dir = base_path.join("chunks");
-            
+
             // Create all directories
             std::fs::create_dir_all(&input_dir)?;
             std::fs::create_dir_all(&output_dir)?;
             std::fs::create_dir_all(&chunk_dir)?;
-            
+
             let input_path = input_dir.join("input_file");
             let output_path = output_dir.join("output_file");
-            
+
             Ok(TestEnvironment {
                 _temp_dir,
                 input_path,
@@ -374,10 +375,8 @@ mod tests {
         let test_data = random_bytes(5 * crate::MIN_ENCRYPTABLE_BYTES);
         fs::write(&env.input_path, &test_data)?;
 
-        let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir.clone()),
-        )?;
+        let mut encryptor =
+            StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir.clone()))?;
 
         let mut encrypted_chunks = Vec::new();
         let data_map = loop {
@@ -391,7 +390,8 @@ mod tests {
         };
 
         // Now decrypt the data
-        let mut decryptor = StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
+        let mut decryptor =
+            StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
 
         // Feed chunks in order
         for chunk in encrypted_chunks {
@@ -416,10 +416,8 @@ mod tests {
         let test_data = random_bytes(5 * crate::MIN_ENCRYPTABLE_BYTES);
         fs::write(&env.input_path, &test_data)?;
 
-        let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir.clone()),
-        )?;
+        let mut encryptor =
+            StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir.clone()))?;
 
         let mut encrypted_chunks = Vec::new();
         let data_map = loop {
@@ -433,7 +431,8 @@ mod tests {
         };
 
         // Now decrypt the data
-        let mut decryptor = StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
+        let mut decryptor =
+            StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
 
         // Feed chunks in order
         for chunk in encrypted_chunks {
@@ -458,10 +457,8 @@ mod tests {
         let test_data = random_bytes(5 * crate::MIN_ENCRYPTABLE_BYTES);
         fs::write(&env.input_path, &test_data)?;
 
-        let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir.clone()),
-        )?;
+        let mut encryptor =
+            StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir.clone()))?;
 
         let mut encrypted_chunks = Vec::new();
         let data_map = loop {
@@ -475,7 +472,8 @@ mod tests {
         };
 
         // Now decrypt the data, but feed chunks in reverse order
-        let mut decryptor = StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
+        let mut decryptor =
+            StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
 
         for chunk in encrypted_chunks.into_iter().rev() {
             let done = decryptor.next_encrypted(chunk)?;
@@ -499,10 +497,7 @@ mod tests {
         fs::write(&env.input_path, b"")?;
 
         // Attempt to encrypt empty file
-        let result = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir),
-        );
+        let result = StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir));
 
         // Should fail because file is too small
         assert!(result.is_err());
@@ -518,10 +513,7 @@ mod tests {
         let small_data = random_bytes(crate::MIN_ENCRYPTABLE_BYTES - 1);
         fs::write(&env.input_path, &small_data)?;
 
-        let result = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir),
-        );
+        let result = StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir));
 
         assert!(result.is_err());
         Ok(())
@@ -536,10 +528,8 @@ mod tests {
         fs::write(&env.input_path, &test_data)?;
 
         // First encrypt the data
-        let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir.clone()),
-        )?;
+        let mut encryptor =
+            StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir.clone()))?;
 
         let mut encrypted_chunks = Vec::new();
         let data_map = loop {
@@ -553,7 +543,8 @@ mod tests {
         };
 
         // Create decryptor
-        let mut decryptor = StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
+        let mut decryptor =
+            StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
 
         // Create an invalid chunk with random content
         let invalid_chunk = EncryptedChunk {
@@ -578,10 +569,8 @@ mod tests {
         fs::write(&env.input_path, &test_data)?;
 
         // First encrypt the data
-        let mut encryptor = StreamSelfEncryptor::encrypt_from_file(
-            env.input_path,
-            Some(env.chunk_dir.clone()),
-        )?;
+        let mut encryptor =
+            StreamSelfEncryptor::encrypt_from_file(env.input_path, Some(env.chunk_dir.clone()))?;
 
         let mut encrypted_chunks = Vec::new();
         let data_map = loop {
@@ -595,7 +584,8 @@ mod tests {
         };
 
         // Create decryptor
-        let mut decryptor = StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
+        let mut decryptor =
+            StreamSelfDecryptor::decrypt_to_file(env.output_path.clone(), &data_map)?;
 
         // Only feed half of the chunks
         let chunk_count = encrypted_chunks.len();
@@ -608,4 +598,4 @@ mod tests {
 
         Ok(())
     }
-} 
+}
