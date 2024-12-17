@@ -99,7 +99,7 @@ mod python;
 pub mod test_helpers;
 mod utils;
 /// Stream encryption and decryption
-pub mod stream;
+mod stream;
 
 pub use chunk::EncryptedChunk;
 pub use decrypt::decrypt_chunk;
