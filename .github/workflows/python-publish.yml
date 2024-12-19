@@ -5,6 +5,7 @@ on:
     tags:
       - 'v*'
 
+# Add top-level permissions block
 permissions:
   id-token: write
   contents: read
@@ -12,6 +13,7 @@ permissions:
 jobs:
   macos:
     runs-on: macos-latest
+    # Add permissions to job
     permissions:
       id-token: write
       contents: read
@@ -33,12 +35,13 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-macos-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
 
   windows:
     runs-on: windows-latest
+    # Add permissions to job
     permissions:
       id-token: write
       contents: read
@@ -91,7 +94,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
 
@@ -125,12 +128,13 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-musllinux-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
 
   sdist:
     runs-on: ubuntu-latest
+    # Add permissions to job
     permissions:
       id-token: write
       contents: read
@@ -152,6 +156,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: [macos, windows, linux, musllinux, sdist]
+    # Keep existing permissions
     permissions:
       id-token: write
       contents: read
