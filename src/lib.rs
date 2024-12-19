@@ -68,7 +68,7 @@
     unused_comparisons,
     unused_features,
     unused_parens,
-    while_true,
+    while_true
 )]
 #![cfg_attr(not(feature = "python"), deny(warnings))]
 #![warn(

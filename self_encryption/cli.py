@@ -1,43 +1,56 @@
 #!/usr/bin/env python3
 """
-self-encryption - Command line interface for self_encryption library
+self-encryption-cli - Command line interface for self_encryption library.
 
-This CLI provides access to all functionality of the self_encryption library,
-including encryption, decryption, and advanced features like streaming operations.
+This module provides a command-line interface to the self_encryption library,
+offering easy access to encryption, decryption, and advanced features through
+simple commands.
 
-The self-encryption algorithm provides:
-- Convergent encryption: Same data produces same encrypted chunks
-- Obfuscation: Data is split into chunks and interdependent
-- Deduplication: Identical chunks are stored only once
-- Streaming: Large files can be processed efficiently
+The CLI is built using Click and provides the following commands:
+    - encrypt-file: Encrypt a file and store its chunks
+    - decrypt-file: Decrypt a file using stored chunks
+    - verify: Verify the integrity of an encrypted chunk
+    - shrink: Optimize a data map by consolidating chunks
 
-Example usage:
+Each command provides detailed help information accessible via --help.
+
+Example Usage:
     # Encrypt a file
-    $ self_encryption encrypt-file input.dat chunks/
+    $ self-encryption encrypt-file input.dat chunks/
 
     # Decrypt a file
-    $ self_encryption decrypt-file data_map.json chunks/ output.dat
+    $ self-encryption decrypt-file data_map.json chunks/ output.dat
 
-    # Decrypt a large file using streaming
-    $ self_encryption decrypt-file data_map.json chunks/ output.dat --streaming
+    # Use streaming decryption for large files
+    $ self-encryption decrypt-file --streaming data_map.json chunks/ output.dat
+
+    # Verify a chunk's integrity
+    $ self-encryption verify chunks/abc123.dat
+
+    # Optimize a data map
+    $ self-encryption shrink data_map.json chunks/ optimized_map.json
 """
 
 import click
 from pathlib import Path
+from typing import Optional, Callable, List, Dict, Any
 import sys
+import json
 
-from . import (
-    PyDataMap,
+from ._self_encryption import (
+    PyDataMap as DataMap,
+    PyXorName as XorName,
     encrypt_from_file,
     decrypt_from_storage,
     streaming_decrypt_from_storage,
 )
 
 def print_error(message: str) -> None:
-    """Print error message in red.
-    
+    """
+    Print an error message in red to stderr.
+
     Args:
-        message (str): The error message to print.
+        message (str): The error message to display.
     """
     click.secho(f"Error: {message}", fg='red', err=True)
 
@@ -45,16 +58,16 @@ def print_error(message: str) -> None:
 @click.version_option()
 def cli() -> None:
     """
-    self-encryption - A convergent encryption tool with obfuscation
-    
+    self-encryption - A convergent encryption tool with obfuscation.
+
     This tool provides secure data encryption that supports deduplication while
     maintaining strong security through content obfuscation and chunk interdependencies.
 
-    The self-encryption algorithm works by:
-    1. Splitting data into chunks
-    2. Encrypting each chunk using its own content as the key
-    3. Creating interdependencies between chunks for added security
-    4. Storing metadata in a DataMap for later reconstruction
+    Key Features:
+        - Content-based chunking for efficient storage
+        - Convergent encryption for deduplication
+        - Chunk obfuscation for enhanced security
+        - Streaming support for large files
     """
     pass
 
@@ -66,21 +79,21 @@ def encrypt_file(input_file: str, output_dir: str, json: bool) -> None:
     """
     Encrypt a file and store its chunks.
 
-    The encrypted chunks will be stored in OUTPUT-DIR, and the data map will be
-    printed to stdout. The data map is required for later decryption.
+    This command takes an input file, encrypts it using self-encryption,
+    and stores the resulting chunks in the specified output directory.
+    The data map required for later decryption is printed to stdout.
 
-    The encryption process:
-    1. Reads the input file
-    2. Splits it into chunks
-    3. Encrypts each chunk
-    4. Stores chunks in OUTPUT-DIR
-    5. Outputs the DataMap to stdout
+    Args:
+        input_file (str): Path to the file to encrypt.
+        output_dir (str): Directory where encrypted chunks will be stored.
+        json (bool): Whether to format output as JSON.
 
     Example:
-        $ self_encryption encrypt-file input.dat chunks/
+        $ self-encryption encrypt-file input.dat chunks/
     """
     try:
-        data_map, chunk_names = encrypt_from_file(input_file, output_dir)
+        result = encrypt_from_file(input_file, output_dir)
+        data_map, chunk_names = result
         click.echo(data_map.to_json())
     except Exception as e:
         print_error(str(e))
@@ -90,52 +103,115 @@ def encrypt_file(input_file: str, output_dir: str, json: bool) -> None:
 @click.argument('data-map-file', type=click.Path(exists=True, dir_okay=False))
 @click.argument('chunks-dir', type=click.Path(exists=True, file_okay=False))
 @click.argument('output-file', type=click.Path(dir_okay=False))
-@click.option('--streaming', is_flag=True, help='Use streaming decryption')
+@click.option('--streaming', is_flag=True, help='Use streaming decryption for large files')
 def decrypt_file(data_map_file: str, chunks_dir: str, output_file: str, streaming: bool) -> None:
     """
-    Decrypt a file using its data map and stored chunks.
+    Decrypt a file using stored chunks.
 
-    Reads the data map from DATA-MAP-FILE, retrieves chunks from CHUNKS-DIR,
-    and writes the decrypted data to OUTPUT-FILE.
+    This command reads a data map from a file, retrieves the necessary chunks
+    from the specified directory, and reconstructs the original file. For large
+    files, the --streaming option can be used to reduce memory usage.
 
-    The decryption process:
-    1. Reads the DataMap from DATA-MAP-FILE
-    2. Retrieves encrypted chunks from CHUNKS-DIR
-    3. Decrypts chunks in the correct order
-    4. Writes decrypted data to OUTPUT-FILE
-
-    With --streaming:
-    - Chunks are retrieved and processed in parallel
-    - Memory usage is optimized for large files
-    - Decryption is generally faster
+    Args:
+        data_map_file (str): Path to the JSON file containing the data map.
+        chunks_dir (str): Directory containing the encrypted chunks.
+        output_file (str): Path where the decrypted file will be written.
+        streaming (bool): Whether to use streaming decryption.
 
     Example:
-        $ self_encryption decrypt-file data_map.json chunks/ output.dat
-        $ self_encryption decrypt-file data_map.json chunks/ output.dat --streaming
+        $ self-encryption decrypt-file data_map.json chunks/ output.dat
     """
     try:
         # Read data map from file
-        data_map_str = Path(data_map_file).read_text()
-        try:
-            data_map = PyDataMap.from_json(data_map_str)
-        except Exception as e:
-            print_error(f"Failed to parse data map: {e}")
-            sys.exit(1)
+        with open(data_map_file, 'r') as f:
+            data_map = DataMap.from_json(f.read())
+
+        # Create chunk getter function
+        def get_chunk(chunk_name: str) -> bytes:
+            """Retrieve a single chunk by name."""
+            chunk_path = Path(chunks_dir) / chunk_name
+            return chunk_path.read_bytes()
+
+        # Create chunk getter function for streaming
+        def get_chunks(chunk_names: List[str]) -> List[bytes]:
+            """Retrieve multiple chunks by name."""
+            return [
+                (Path(chunks_dir) / chunk_name).read_bytes()
+                for chunk_name in chunk_names
+            ]
+
+        # Decrypt using appropriate method
+        if streaming:
+            streaming_decrypt_from_storage(data_map, output_file, get_chunks)
+        else:
+            decrypt_from_storage(data_map, output_file, get_chunk)
+
+    except Exception as e:
+        print_error(str(e))
+        sys.exit(1)
+
+@cli.command()
+@click.argument('chunk-file', type=click.Path(exists=True, dir_okay=False))
+def verify(chunk_file: str) -> None:
+    """
+    Verify the integrity of an encrypted chunk.
+
+    This command checks if a chunk's content matches its XorName identifier.
+    The chunk filename should be its XorName in hexadecimal format.
+
+    Args:
+        chunk_file (str): Path to the chunk file to verify.
+
+    Example:
+        $ self-encryption verify chunk_abc123.dat
+    """
+    try:
+        chunk_path = Path(chunk_file)
+        content = chunk_path.read_bytes()
+        name = XorName.from_hex(chunk_path.stem)
+        chunk = verify_chunk(name, content)
+        click.echo(f"Chunk {chunk_path.name} verified successfully")
+    except Exception as e:
+        print_error(str(e))
+        sys.exit(1)
+
+@cli.command()
+@click.argument('data-map-file', type=click.Path(exists=True, dir_okay=False))
+@click.argument('chunks-dir', type=click.Path(exists=True, file_okay=False))
+@click.argument('output-map-file', type=click.Path())
+def shrink(data_map_file: str, chunks_dir: str, output_map_file: str) -> None:
+    """
+    Shrink a data map by consolidating its chunks.
+
+    This command optimizes storage by identifying and consolidating duplicate
+    chunks. It reads the original data map, processes the chunks, and creates
+    a new optimized data map.
+
+    Args:
+        data_map_file (str): Path to the input data map JSON file.
+        chunks_dir (str): Directory containing the encrypted chunks.
+        output_map_file (str): Path where the optimized data map will be written.
+
+    Example:
+        $ self-encryption shrink data_map.json chunks/ optimized_map.json
+    """
+    try:
+        # Read data map from file
+        with open(data_map_file, 'r') as f:
+            data_map = DataMap.from_json(f.read())
         
         chunks_path = Path(chunks_dir)
         
-        if streaming:
-            def get_chunks(chunk_names: list) -> list:
-                return [
-                    (chunks_path / chunk_name).read_bytes()
-                    for chunk_name in chunk_names
-                ]
-            streaming_decrypt_from_storage(data_map, output_file, get_chunks)
-        else:
-            def get_chunk(chunk_name: str) -> bytes:
-                chunk_path = chunks_path / chunk_name
-                return chunk_path.read_bytes()
-            decrypt_from_storage(data_map, output_file, get_chunk)
+        def store_chunk(chunk: EncryptedChunk) -> None:
+            """Store a chunk to disk."""
+            chunk_path = chunks_path / chunk.name.hex()
+            chunk_path.write_bytes(chunk.content)
+        
+        new_data_map, _ = shrink_data_map(data_map, store_chunk)
+        
+        # Write new data map to file
+        with open(output_map_file, 'w') as f:
+            f.write(new_data_map.to_json())
             
     except Exception as e:
         print_error(str(e))

@@ -1,28 +1,54 @@
 [build-system]
-# requires = ["maturin>=1.0,<2.0"] # TODO: remove this once twine can handle metadata 2.4
-requires = ["maturin>=1.7.5"]
+requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "self_encryption"
-version = "0.1.0"
-description = "Self-encryption library with convergent encryption and obfuscation"
-authors = [
-    { name = "Your Name", email = "your.email@example.com" }
-]
-dependencies = [
-    "click>=8.1.7",
-]
+dynamic = ["version"]
+description = "Self encrypting files (convergent encryption plus obfuscation)"
+authors = [{ name = "MaidSafe Developers", email = "dev@maidsafe.net" }]
+dependencies = ["click>=8.1.7", "maturin>=1.7.8", "pip>=24.0"]
 readme = "README.md"
 requires-python = ">=3.7"
+license = { text = "GPL-3.0" }
+keywords = [
+    "encryption",
+    "convergent-encryption",
+    "self-encryption",
+    "obfuscation",
+    "security",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://maidsafe.net"
+Documentation = "https://docs.rs/self_encryption"
+Repository = "https://github.com/maidsafe/self_encryption"
 
 [project.scripts]
-self_encryption = "self_encryption.cli:cli"
+self-encryption = "self_encryption:cli"
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
-python-source = "python"
-module-name = "self_encryption"
+features = ["python"]
+module-name = "self_encryption._self_encryption"
+python-source = "."
+bindings = "pyo3"
+include = ["Cargo.toml"]
+cargo-manifest = "Cargo.toml"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
