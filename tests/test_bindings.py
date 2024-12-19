@@ -5,6 +5,7 @@ import pytest
 from self_encryption import (
     PyDataMap,
     PyEncryptedChunk,
+    PyChunkInfo,
     encrypt,
     encrypt_from_file,
     decrypt,
@@ -37,7 +38,8 @@ def test_file_encryption_decryption():
         chunk_dir.mkdir()
         
         # Encrypt file
-        data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
+        result = encrypt_from_file(str(input_path), str(chunk_dir))
+        data_map, chunk_names = result
         
         # Define chunk getter
         def get_chunk(chunk_name: str) -> bytes:
@@ -63,7 +65,8 @@ def test_streaming_decryption():
         chunk_dir.mkdir()
         
         # Encrypt file
-        data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
+        result = encrypt_from_file(str(input_path), str(chunk_dir))
+        data_map, chunk_names = result
         
         # Define chunk getter
         def get_chunks(chunk_names: list) -> list:
@@ -80,8 +83,9 @@ def test_streaming_decryption():
         assert input_path.read_bytes() == output_path.read_bytes()
 
 def test_data_map_json():
-    # Create a DataMap
-    data_map = PyDataMap()
+    # Create a DataMap with empty chunk infos
+    chunk_infos = []
+    data_map = PyDataMap(chunk_infos)
     
     # Convert to JSON
     json_str = data_map.to_json()

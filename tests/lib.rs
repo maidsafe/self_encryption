@@ -33,7 +33,7 @@
     unused_comparisons,
     unused_features,
     unused_parens,
-    while_true,
+    while_true
 )]
 #![warn(
     trivial_casts,
@@ -204,4 +204,3 @@ fn test_data_map_len_and_is_child() {
     assert_eq!(empty_data_map.len(), 0);
     assert!(!empty_data_map.is_child());
 }
-
