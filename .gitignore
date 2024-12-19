@@ -22,6 +22,11 @@ target/
 *.whl
 *.so 
 *pyc*
+venv/
+.venv/
+.cursorrules
+.windsurfrules
+test_chunks/
 
 
 
