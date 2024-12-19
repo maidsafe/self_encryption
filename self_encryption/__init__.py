@@ -1,145 +1,109 @@
 """
-self_encryption - A convergent encryption library with obfuscation
+Self-encryption library with convergent encryption and obfuscation.
 
-This library provides a secure way to encrypt data that supports deduplication while
-maintaining strong security through content obfuscation and chunk interdependencies.
+This library provides tools for self-encrypting data into chunks that can be
+stored and retrieved independently. It uses convergent encryption to ensure
+that identical data produces identical chunks.
 
 Key Features:
-    - Content-based chunking for deduplication
-    - Convergent encryption with obfuscation
-    - Self-validating chunks through content hashing
-    - Streaming operations for large files
-    - Parallel chunk processing
-    - Both in-memory and file-based operations
-    - Command-line interface for all operations
-
-Basic Usage:
-    >>> from self_encryption import encrypt, decrypt
-    >>> data = b"Hello, World!" * 1000  # Must be at least 3072 bytes
-    >>> data_map, chunks = encrypt(data)
-    >>> decrypted = decrypt(data_map, chunks)
-    >>> assert data == decrypted
-
-File Operations:
-    >>> from pathlib import Path
-    >>> from self_encryption import encrypt_from_file, decrypt_from_storage
-    >>> data_map, chunk_names = encrypt_from_file("input.dat", "chunks/")
-    >>> def get_chunk(hash_hex):
-    ...     return (Path("chunks") / hash_hex).read_bytes()
-    >>> decrypt_from_storage(data_map, "output.dat", get_chunk)
-
-Streaming Operations:
-    >>> from self_encryption import streaming_encrypt_from_file
-    >>> def store_chunk(name, content):
-    ...     (Path("chunks") / name).write_bytes(content)
-    >>> data_map = streaming_encrypt_from_file("large_file.dat", store_chunk)
-    >>> print(f"Created {data_map.len()} chunks")
-
-Command Line Usage:
-    The library includes a command-line interface for all operations:
-
-    # Encrypt a file
-    $ self-encryption encrypt-file input.dat chunks/
-
-    # Decrypt a file
-    $ self-encryption decrypt-file data_map.json chunks/ output.dat
-
-    # Verify a chunk
-    $ self-encryption verify chunks/abc123.dat
-
-    # Shrink a data map
-    $ self-encryption shrink data_map.json chunks/ optimized_map.json
-
-    For more information about CLI commands:
-    $ self-encryption --help
+    - Content-based chunking for efficient storage
+    - Convergent encryption for deduplication
+    - Chunk obfuscation for enhanced security
+    - Streaming support for large files
+    - CLI interface for easy access
 
 Classes:
-    DataMap - Contains metadata about encrypted chunks
-        Methods:
-            new(chunk_infos) -> DataMap
-            with_child(chunk_infos, child) -> DataMap
-            child() -> Optional[int]
-            is_child() -> bool
-            len() -> int
-            infos() -> List[Tuple[int, bytes, bytes, int]]
-
-    EncryptedChunk - Represents an encrypted chunk of data
-        Methods:
-            new(content: bytes) -> EncryptedChunk
-            content() -> bytes
-            from_bytes(content: bytes) -> EncryptedChunk
-
-    XorName - Content-addressed names for chunks
-        Methods:
-            new(bytes) -> XorName
-            from_content(content) -> XorName
-            as_bytes() -> bytes
+    DataMap: Contains metadata about encrypted chunks and their relationships.
+        Tracks chunk identifiers, sizes, and relationships for reconstruction.
+        
+    EncryptedChunk: Represents an encrypted piece of data.
+        Contains the encrypted content and metadata for verification.
+        
+    XorName: Content-addressed identifier for chunks.
+        Provides deterministic naming based on chunk content.
+        
+    ChunkInfo: Metadata about a single chunk in a DataMap.
+        Stores source and destination hashes, sizes, and indices.
 
 Functions:
-    encrypt(data: bytes) -> Tuple[DataMap, List[EncryptedChunk]]
-        Encrypt data in memory, returning a data map and encrypted chunks.
-        The input data must be at least 3072 bytes.
+    encrypt(data: bytes) -> Tuple[DataMap, List[EncryptedChunk]]:
+        Encrypt raw data into chunks. Returns a data map and list of chunks.
+        
+    decrypt(data_map: DataMap, chunks: List[EncryptedChunk]) -> bytes:
+        Decrypt data using a data map and list of chunks.
+        
+    encrypt_from_file(input_path: str, output_dir: str) -> Tuple[DataMap, List[str]]:
+        Encrypt a file and store its chunks. Returns a data map and chunk names.
+        
+    decrypt_from_storage(data_map: DataMap, output_path: str, get_chunk: Callable) -> None:
+        Decrypt data using stored chunks and a chunk retrieval function.
+        
+    streaming_decrypt_from_storage(data_map: DataMap, output_path: str, get_chunks: Callable) -> None:
+        Stream-based decryption for large files using batched chunk retrieval.
 
-    encrypt_from_file(input_path: str, output_dir: str) -> Tuple[DataMap, List[str]]
-        Encrypt a file and store chunks to disk. Returns a data map and chunk names.
-        The input file must be at least 3072 bytes.
+CLI Commands:
+    encrypt-file: Encrypt a file and store its chunks
+    decrypt-file: Decrypt a file using stored chunks
+    verify: Verify the integrity of an encrypted chunk
+    shrink: Optimize a data map by consolidating chunks
 
-    streaming_encrypt_from_file(input_path: str, store_chunk: Callable[[str, bytes], None]) -> DataMap
-        Stream-encrypt a file and store chunks using a custom storage backend.
-        Memory efficient for large files. Returns only the data map.
-
-    decrypt(data_map: DataMap, chunks: List[EncryptedChunk]) -> bytes
-        Decrypt data using provided chunks in memory.
-
-    decrypt_from_storage(data_map: DataMap, output_path: str, get_chunk: Callable) -> None
-        Decrypt data using chunks from storage, writing directly to a file.
-        Suitable for files that can fit in memory.
-
-    streaming_decrypt_from_storage(data_map: DataMap, output_path: str, get_chunks: Callable) -> None
-        Decrypt data using parallel chunk retrieval for improved performance.
-        Optimized for large files and remote storage backends.
-        Retrieves multiple chunks in parallel for better throughput.
-
-    shrink_data_map(data_map: DataMap, store_chunk: Callable) -> Tuple[DataMap, List[EncryptedChunk]]
-        Shrink a data map by recursively encrypting it. Useful for large files.
-
-    verify_chunk(name: XorName, content: bytes) -> EncryptedChunk
-        Verify the integrity of an encrypted chunk.
-
-For more detailed documentation about specific functions or classes:
-    >>> help(self_encryption.DataMap)
-    >>> help(self_encryption.encrypt)
+Example:
+    >>> from self_encryption import encrypt, decrypt
+    >>> data = b"Hello, World!"
+    >>> data_map, chunks = encrypt(data)
+    >>> decrypted = decrypt(data_map, chunks)
+    >>> assert data == bytes(decrypted)
 """
 
-from ._self_encryption import (
-    DataMap,
-    EncryptedChunk,
-    XorName,
-    encrypt,
-    encrypt_from_file,
-    decrypt,
-    decrypt_from_storage,
-    shrink_data_map,
-    streaming_decrypt_from_storage,
-    verify_chunk,
-    streaming_encrypt_from_file,
-)
+try:
+    from importlib.metadata import version
+    __version__ = version("self_encryption")
+except ImportError:
+    from importlib_metadata import version  # type: ignore
+    __version__ = version("self_encryption")
+except Exception:
+    __version__ = "unknown"
+
+try:
+    from ._self_encryption import (
+        PyDataMap,
+        PyEncryptedChunk,
+        PyXorName,
+        PyChunkInfo,
+        encrypt,
+        decrypt,
+        encrypt_from_file,
+        decrypt_from_storage,
+        streaming_decrypt_from_storage,
+    )
+    DataMap = PyDataMap
+    EncryptedChunk = PyEncryptedChunk
+    XorName = PyXorName
+    ChunkInfo = PyChunkInfo
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Failed to import Rust module: {e}")
+    DataMap = None
+    EncryptedChunk = None
+    XorName = None
+    ChunkInfo = None
+    encrypt = None
+    decrypt = None
+    encrypt_from_file = None
+    decrypt_from_storage = None
+    streaming_decrypt_from_storage = None
 
 from .cli import cli
-
-__version__ = "0.32.2"
 
 __all__ = [
     "DataMap",
     "EncryptedChunk",
     "XorName",
+    "ChunkInfo",
     "encrypt",
-    "encrypt_from_file",
     "decrypt",
+    "encrypt_from_file",
     "decrypt_from_storage",
-    "shrink_data_map",
     "streaming_decrypt_from_storage",
-    "verify_chunk",
-    "streaming_encrypt_from_file",
     "cli",
 ]

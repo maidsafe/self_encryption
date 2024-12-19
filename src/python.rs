@@ -1,617 +1,433 @@
-/// Python bindings for self-encryption functionality.
-///
-/// This module provides Python bindings for the self-encryption library, which implements
-/// convergent encryption with content deduplication and obfuscation. The library splits
-/// data into chunks, encrypts them independently, and creates a data map that describes
-/// how to reassemble the original data.
-///
-/// Key Features:
-///   - Content-based chunking for deduplication
-///   - Convergent encryption with obfuscation
-///   - Self-validating chunks through content hashing
-///   - Streaming operations for large files
-///   - Parallel chunk processing
-///   - Both in-memory and file-based operations
-///
-/// Basic Usage:
-///   ```python
-///   from self_encryption import encrypt, decrypt
-///   
-///   # In-memory encryption
-///   data = b"Hello, World!" * 1000  # Must be at least 3072 bytes
-///   data_map, chunks = encrypt(data)
-///   decrypted = decrypt(data_map, chunks)
-///   assert data == decrypted
-///   
-///   # File-based encryption
-///   from pathlib import Path
-///   data_map, chunk_names = encrypt_from_file("input.dat", "chunks/")
-///   
-///   # Custom storage backend
-///   def get_chunk(hash_hex):
-///       return (Path("chunks") / hash_hex).read_bytes()
-///   decrypt_from_storage(data_map, "output.dat", get_chunk)
-///   ```
 use crate::{
-    decrypt as rust_decrypt, decrypt_from_storage as rust_decrypt_from_storage,
-    encrypt as rust_encrypt, encrypt_from_file as rust_encrypt_from_file,
-    shrink_data_map as rust_shrink_data_map,
-    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage,
-    streaming_encrypt_from_file as rust_streaming_encrypt_from_file, ChunkInfo,
-    DataMap as RustDataMap, EncryptedChunk as RustEncryptedChunk, Error, Result,
+    decrypt_from_storage as rust_decrypt_from_storage, encrypt_from_file as rust_encrypt_from_file,
+    streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage, ChunkInfo, DataMap,
+    EncryptedChunk, XorName,
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyType};
-use std::path::PathBuf;
-use xor_name::XorName;
+use pyo3::types::PyBytes;
+use std::path::Path;
 
-#[pyclass(name = "DataMap")]
-/// A data map containing information about encrypted chunks.
+/// A Python wrapper for the XorName struct.
 ///
-/// The DataMap contains metadata about how a file was split and encrypted into chunks,
-/// including the hashes needed to verify and decrypt the chunks.
+/// XorName is a 32-byte array used for content addressing and chunk identification.
+/// It is used to uniquely identify chunks based on their content.
 ///
-/// Attributes:
-///     child (Optional[int]): The child level of this data map, if it's part of a hierarchy
-///     len (int): The number of chunks in this data map
+/// Example:
+///     # Create a XorName from bytes
+///     name = PyXorName.from_content(b"some data")
 ///
-/// Methods:
-///     is_child() -> bool: Check if this is a child data map
-///     infos() -> List[Tuple[int, bytes, bytes, int]]: Get chunk information
+///     # Get the underlying bytes
+///     bytes = name.as_bytes()
+#[pyclass]
 #[derive(Clone)]
-struct PyDataMap {
-    inner: RustDataMap,
-}
-
-#[pyclass(name = "EncryptedChunk")]
-/// An encrypted chunk of data.
-///
-/// Represents a single encrypted chunk of data that was created during the encryption process.
-///
-/// Methods:
-///     content() -> bytes: Get the encrypted content of this chunk
-///     from_bytes(content: bytes) -> EncryptedChunk: Create a new chunk from bytes
-#[derive(Clone)]
-struct PyEncryptedChunk {
-    inner: RustEncryptedChunk,
-}
-
-#[pyclass(name = "XorName")]
-#[derive(Clone)]
-struct PyXorName {
+pub struct PyXorName {
     inner: XorName,
 }
 
 #[pymethods]
-impl PyDataMap {
-    #[new]
-    /// Create a new DataMap from chunk information.
-    ///
-    /// Args:
-    ///     chunk_infos: List of tuples containing (index, dst_hash, src_hash, src_size)
-    ///
-    /// Returns:
-    ///     DataMap: A new data map instance
-    fn new(chunk_infos: Vec<(usize, Vec<u8>, Vec<u8>, usize)>) -> Self {
-        let infos = chunk_infos
-            .into_iter()
-            .map(|(index, dst_hash, src_hash, src_size)| ChunkInfo {
-                index,
-                dst_hash: XorName::from_content(&dst_hash),
-                src_hash: XorName::from_content(&src_hash),
-                src_size,
-            })
-            .collect();
-        Self {
-            inner: RustDataMap::new(infos),
-        }
-    }
-
-    #[staticmethod]
-    /// Create a new DataMap with a child level.
-    ///
-    /// Args:
-    ///     chunk_infos: List of tuples containing (index, dst_hash, src_hash, src_size)
-    ///     child: The child level for this data map
-    ///
-    /// Returns:
-    ///     DataMap: A new data map instance with the specified child level
-    fn with_child(chunk_infos: Vec<(usize, Vec<u8>, Vec<u8>, usize)>, child: usize) -> Self {
-        let infos = chunk_infos
-            .into_iter()
-            .map(|(index, dst_hash, src_hash, src_size)| ChunkInfo {
-                index,
-                dst_hash: XorName::from_content(&dst_hash),
-                src_hash: XorName::from_content(&src_hash),
-                src_size,
-            })
-            .collect();
-        Self {
-            inner: RustDataMap::with_child(infos, child),
-        }
-    }
-
-    /// Get the child level of this data map.
-    ///
-    /// Returns:
-    ///     Optional[int]: The child level if this is a child data map, None otherwise
-    fn child(&self) -> Option<usize> {
-        self.inner.child()
-    }
-
-    /// Check if this is a child data map.
-    ///
-    /// Returns:
-    ///     bool: True if this is a child data map, False otherwise
-    fn is_child(&self) -> bool {
-        self.inner.is_child()
-    }
-
-    /// Get the number of chunks in this data map.
-    ///
-    /// Returns:
-    ///     int: The number of chunks
-    fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// Get information about all chunks in this data map.
-    ///
-    /// Returns:
-    ///     List[Tuple[int, bytes, bytes, int]]: List of tuples containing
-    ///         (index, dst_hash, src_hash, src_size) for each chunk
-    fn infos(&self) -> Vec<(usize, Vec<u8>, Vec<u8>, usize)> {
-        self.inner
-            .infos()
-            .into_iter()
-            .map(|info| {
-                (
-                    info.index,
-                    info.dst_hash.0.to_vec(),
-                    info.src_hash.0.to_vec(),
-                    info.src_size,
-                )
-            })
-            .collect()
-    }
-}
-
-#[pymethods]
-impl PyEncryptedChunk {
-    #[new]
-    /// Create a new EncryptedChunk from bytes.
-    ///
-    /// Args:
-    ///     content (bytes): The encrypted content
-    ///
-    /// Returns:
-    ///     EncryptedChunk: A new encrypted chunk instance
-    fn new(content: Vec<u8>) -> Self {
-        Self {
-            inner: RustEncryptedChunk {
-                content: Bytes::from(content),
-            },
-        }
-    }
-
-    /// Get the content of this chunk.
-    ///
-    /// Returns:
-    ///     bytes: The encrypted content
-    fn content(&self) -> &[u8] {
-        &self.inner.content
-    }
-
-    #[classmethod]
-    /// Create a new EncryptedChunk from Python bytes.
-    ///
-    /// Args:
-    ///     content (bytes): The encrypted content
-    ///
-    /// Returns:
-    ///     EncryptedChunk: A new encrypted chunk instance
-    fn from_bytes(_cls: &PyType, content: &PyBytes) -> PyResult<Self> {
-        Ok(Self::new(content.as_bytes().to_vec()))
-    }
-}
-
-#[pymethods]
 impl PyXorName {
-    #[new]
-    fn new(bytes: &PyBytes) -> Self {
-        Self {
-            inner: XorName::from_content(bytes.as_bytes()),
-        }
-    }
-
+    /// Create a new XorName from content bytes.
+    ///
+    /// Args:
+    ///     content (bytes): The content to hash into a XorName.
+    ///
+    /// Returns:
+    ///     PyXorName: A new XorName instance.
     #[staticmethod]
-    fn from_content(content: &PyBytes) -> Self {
+    pub fn from_content(content: &[u8]) -> Self {
         Self {
-            inner: XorName::from_content(content.as_bytes()),
+            inner: XorName::from_content(content),
         }
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
+    /// Get the underlying bytes of the XorName.
+    ///
+    /// Returns:
+    ///     bytes: The 32-byte array.
+    pub fn as_bytes(&self) -> Vec<u8> {
         self.inner.0.to_vec()
     }
 }
 
-#[pyfunction]
-/// Encrypt data in memory.
+/// A Python wrapper for the ChunkInfo struct.
 ///
-/// This function takes raw bytes, splits them into chunks, and encrypts each chunk
-/// independently. It returns both the data map (which describes how to reassemble
-/// the chunks) and the encrypted chunks themselves.
+/// ChunkInfo contains metadata about a single chunk in a DataMap,
+/// including its index, size, and hashes.
 ///
-/// The minimum input size is 3072 bytes, as this is required for the chunking
-/// algorithm to work effectively.
-///
-/// Args:
-///     data (bytes): The data to encrypt (must be at least 3072 bytes)
-///
-/// Returns:
-///     Tuple[DataMap, List[EncryptedChunk]]: A tuple containing:
-///         - DataMap: Contains metadata about the encrypted chunks
-///         - List[EncryptedChunk]: The list of encrypted chunks
-///
-/// Raises:
-///     ValueError: If the input data is too small or encryption fails
-///     
 /// Example:
-///     ```python
-///     data = b"Hello, World!" * 1000
-///     data_map, chunks = encrypt(data)
-///     ```
-fn encrypt(_py: Python<'_>, data: &PyBytes) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
-    let bytes = Bytes::from(data.as_bytes().to_vec());
-    let (data_map, chunks) = rust_encrypt(bytes)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-
-    Ok((
-        PyDataMap { inner: data_map },
-        chunks
-            .into_iter()
-            .map(|c| PyEncryptedChunk { inner: c })
-            .collect(),
-    ))
+///     # Create a ChunkInfo
+///     info = PyChunkInfo(index=0, dst_hash=dst, src_hash=src, src_size=1024)
+#[pyclass]
+#[derive(Clone)]
+pub struct PyChunkInfo {
+    inner: ChunkInfo,
 }
 
-#[pyfunction]
-/// Encrypt a file and store chunks to disk.
-///
-/// This function reads a file, splits it into chunks, encrypts each chunk, and
-/// stores the encrypted chunks in the specified output directory. The chunks are
-/// named using their content hash (XorName) in hexadecimal format.
-///
-/// The input file must be at least 3072 bytes in size.
-///
-/// Args:
-///     input_path (str): Path to the input file to encrypt
-///     output_dir (str): Directory where encrypted chunks will be stored
-///
-/// Returns:
-///     Tuple[DataMap, List[str]]: A tuple containing:
-///         - DataMap: Contains metadata about the encrypted chunks
-///         - List[str]: List of chunk filenames (hex format of their XorNames)
-///
-/// Raises:
-///     ValueError: If the input file is too small or encryption fails
-///     OSError: If there are file system errors
-///     
-/// Example:
-///     ```python
-///     data_map, chunk_names = encrypt_from_file("input.dat", "chunks/")
-///     print(f"Created {len(chunk_names)} chunks")
-///     ```
-fn encrypt_from_file(input_path: String, output_dir: String) -> PyResult<(PyDataMap, Vec<String>)> {
-    let (data_map, chunk_names) =
-        rust_encrypt_from_file(&PathBuf::from(input_path), &PathBuf::from(output_dir))
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+#[pymethods]
+impl PyChunkInfo {
+    #[new]
+    pub fn new(index: usize, dst_hash: PyXorName, src_hash: PyXorName, src_size: usize) -> Self {
+        Self {
+            inner: ChunkInfo {
+                index,
+                dst_hash: dst_hash.inner,
+                src_hash: src_hash.inner,
+                src_size,
+            },
+        }
+    }
 
-    Ok((
-        PyDataMap { inner: data_map },
-        chunk_names
-            .into_iter()
-            .map(|name| hex::encode(name.0))
-            .collect(),
-    ))
+    #[getter]
+    pub fn index(&self) -> usize {
+        self.inner.index
+    }
+
+    #[getter]
+    pub fn dst_hash(&self) -> PyXorName {
+        PyXorName {
+            inner: self.inner.dst_hash,
+        }
+    }
+
+    #[getter]
+    pub fn src_hash(&self) -> PyXorName {
+        PyXorName {
+            inner: self.inner.src_hash,
+        }
+    }
+
+    #[getter]
+    pub fn src_size(&self) -> usize {
+        self.inner.src_size
+    }
 }
 
-#[pyfunction]
-/// Decrypt data using provided chunks in memory.
+/// A Python wrapper for the DataMap struct.
 ///
-/// This function takes a data map and its corresponding encrypted chunks and
-/// reassembles the original data. All operations are performed in memory.
+/// DataMap contains metadata about encrypted chunks, including their order,
+/// sizes, and interdependencies. It is required for decryption.
 ///
-/// Args:
-///     data_map (DataMap): The data map containing chunk metadata
-///     chunks (List[EncryptedChunk]): The encrypted chunks to decrypt
-///
-/// Returns:
-///     bytes: The decrypted original data
-///
-/// Raises:
-///     ValueError: If decryption fails or chunks are invalid
-///     
 /// Example:
-///     ```python
-///     decrypted = decrypt(data_map, chunks)
-///     with open("output.dat", "wb") as f:
-///         f.write(decrypted)
-///     ```
-fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Py<PyBytes>> {
-    let chunks: Vec<RustEncryptedChunk> = chunks.into_iter().map(|c| c.inner).collect();
-    let result = rust_decrypt(&data_map.inner, &chunks)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-
-    Python::with_gil(|py| Ok(PyBytes::new(py, &result).into()))
+///     # Create a DataMap from JSON
+///     data_map = PyDataMap.from_json(json_str)
+///
+///     # Convert DataMap to JSON for storage
+///     json_str = data_map.to_json()
+#[pyclass]
+#[derive(Clone)]
+pub struct PyDataMap {
+    inner: DataMap,
 }
 
-#[pyfunction]
-/// Decrypt data using chunks from storage, writing directly to a file.
+#[pymethods]
+impl PyDataMap {
+    /// Create a new DataMap from a JSON string.
+    ///
+    /// Args:
+    ///     json_str (str): A JSON string containing the DataMap data.
+    ///
+    /// Returns:
+    ///     PyDataMap: A new DataMap instance.
+    ///
+    /// Raises:
+    ///     ValueError: If the JSON string is invalid or missing required fields.
+    #[staticmethod]
+    pub fn from_json(json_str: &str) -> PyResult<Self> {
+        let inner = serde_json::from_str(json_str)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {}", e)))?;
+        Ok(Self { inner })
+    }
+
+    /// Convert the DataMap to a JSON string.
+    ///
+    /// Returns:
+    ///     str: A JSON string representation of the DataMap.
+    pub fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e))
+        })
+    }
+
+    /// Create a new DataMap from a list of chunk infos.
+    ///
+    /// Args:
+    ///     chunk_infos (list[PyChunkInfo]): List of chunk metadata.
+    ///
+    /// Returns:
+    ///     PyDataMap: A new DataMap instance.
+    #[new]
+    pub fn new(chunk_infos: Vec<PyChunkInfo>) -> Self {
+        let inner_infos = chunk_infos.into_iter().map(|info| info.inner).collect();
+        Self {
+            inner: DataMap::new(inner_infos),
+        }
+    }
+
+    /// Create a new DataMap with a child level.
+    ///
+    /// Args:
+    ///     chunk_infos (list[PyChunkInfo]): List of chunk metadata.
+    ///     child (int): The child level value.
+    ///
+    /// Returns:
+    ///     PyDataMap: A new DataMap instance with the specified child level.
+    #[staticmethod]
+    pub fn with_child(chunk_infos: Vec<PyChunkInfo>, child: usize) -> Self {
+        let inner_infos = chunk_infos.into_iter().map(|info| info.inner).collect();
+        Self {
+            inner: DataMap::with_child(inner_infos, child),
+        }
+    }
+
+    /// Get the child level of the DataMap.
+    ///
+    /// Returns:
+    ///     Optional[int]: The child level if present, None otherwise.
+    pub fn child(&self) -> Option<usize> {
+        self.inner.child()
+    }
+
+    /// Get the list of chunk infos.
+    ///
+    /// Returns:
+    ///     list[PyChunkInfo]: The list of chunk metadata.
+    pub fn infos(&self) -> Vec<PyChunkInfo> {
+        self.inner
+            .infos()
+            .iter()
+            .map(|info| PyChunkInfo {
+                inner: info.clone(),
+            })
+            .collect()
+    }
+
+    /// Get the number of chunks in the DataMap.
+    ///
+    /// Returns:
+    ///     int: The number of chunks.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Check if this is a child DataMap.
+    ///
+    /// Returns:
+    ///     bool: True if this is a child DataMap, False otherwise.
+    pub fn is_child(&self) -> bool {
+        self.inner.is_child()
+    }
+}
+
+/// A Python wrapper for the EncryptedChunk struct.
 ///
-/// This function decrypts data by retrieving chunks from a storage backend using
-/// the provided callback function. It writes the decrypted data directly to the
-/// specified output file, making it suitable for large files that shouldn't be
-/// held entirely in memory.
+/// EncryptedChunk represents an encrypted piece of data along with its
+/// metadata like size and hash. Chunks are stored separately and
+/// referenced by the DataMap.
+///
+/// Example:
+///     # Access chunk metadata
+///     chunk = PyEncryptedChunk(...)
+///     size = chunk.content_size()
+///     hash = chunk.hash()
+#[pyclass]
+#[derive(Clone)]
+pub struct PyEncryptedChunk {
+    inner: EncryptedChunk,
+}
+
+#[pymethods]
+impl PyEncryptedChunk {
+    /// Get the size of the original content before encryption.
+    ///
+    /// Returns:
+    ///     int: The size in bytes of the original content.
+    pub fn content_size(&self) -> usize {
+        self.inner.content.len()
+    }
+
+    /// Get the hash of the encrypted chunk.
+    ///
+    /// Returns:
+    ///     bytes: The SHA256 hash of the encrypted chunk.
+    pub fn hash(&self) -> Vec<u8> {
+        XorName::from_content(&self.inner.content).0.to_vec()
+    }
+}
+
+/// Encrypt raw data into chunks.
+///
+/// This function takes raw data, splits it into chunks, encrypts them,
+/// and returns a DataMap and list of encrypted chunks.
 ///
 /// Args:
-///     data_map (DataMap): The data map containing chunk metadata
-///     output_path (str): Path where the decrypted file will be written
-///     get_chunk (Callable[[str], bytes]): Function that retrieves chunks by their hex name
+///     data (bytes): The data to encrypt.
+///
+/// Returns:
+///     tuple: A tuple containing:
+///         - PyDataMap: The data map required for decryption
+///         - list[PyEncryptedChunk]: The list of encrypted chunks
 ///
 /// Raises:
-///     ValueError: If decryption fails or chunks are invalid
-///     OSError: If there are file system errors
-///     
-/// Example:
-///     ```python
-///     def get_chunk(hex_name):
-///         chunk_path = Path("chunks") / hex_name
-///         return chunk_path.read_bytes()
-///     
-///     decrypt_from_storage(data_map, "output.dat", get_chunk)
-///     ```
-fn decrypt_from_storage(
-    py: Python<'_>,
-    data_map: &PyDataMap,
-    output_path: String,
-    py_get_chunk: PyObject,
+///     ValueError: If the data is too small (less than MIN_ENCRYPTABLE_BYTES).
+#[pyfunction]
+pub fn encrypt(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
+    let bytes = Bytes::copy_from_slice(data);
+    let (data_map, chunks) = crate::encrypt(bytes).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Encryption failed: {}", e))
+    })?;
+    let py_chunks = chunks
+        .into_iter()
+        .map(|chunk| PyEncryptedChunk { inner: chunk })
+        .collect();
+    Ok((PyDataMap { inner: data_map }, py_chunks))
+}
+
+/// Decrypt data using a DataMap and chunks.
+///
+/// This function takes a DataMap and list of encrypted chunks,
+/// decrypts them, and returns the original data.
+///
+/// Args:
+///     data_map (PyDataMap): The data map containing chunk metadata.
+///     chunks (list[PyEncryptedChunk]): The list of encrypted chunks.
+///
+/// Returns:
+///     bytes: The decrypted data.
+///
+/// Raises:
+///     ValueError: If decryption fails or chunks are missing/corrupted.
+#[pyfunction]
+pub fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Vec<u8>> {
+    let inner_chunks = chunks
+        .into_iter()
+        .map(|chunk| chunk.inner)
+        .collect::<Vec<_>>();
+    let bytes = crate::decrypt(&data_map.inner, &inner_chunks).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {}", e))
+    })?;
+    Ok(bytes.to_vec())
+}
+
+/// Encrypt a file and store its chunks.
+///
+/// This function reads a file, splits it into chunks, encrypts them,
+/// and stores them in the specified directory.
+///
+/// Args:
+///     input_file (str): Path to the file to encrypt.
+///     output_dir (str): Directory to store the encrypted chunks.
+///
+/// Returns:
+///     tuple: A tuple containing:
+///         - PyDataMap: The data map required for decryption
+///         - list: List of chunk filenames that were created
+///
+/// Raises:
+///     OSError: If the input file cannot be read or chunks cannot be written.
+///     ValueError: If the input parameters are invalid.
+#[pyfunction]
+pub fn encrypt_from_file(input_file: &str, output_dir: &str) -> PyResult<(PyDataMap, Vec<String>)> {
+    let input_path = Path::new(input_file);
+    let output_path = Path::new(output_dir);
+    let (data_map, chunk_names) = rust_encrypt_from_file(input_path, output_path).map_err(|e| {
+        pyo3::exceptions::PyOSError::new_err(format!("Failed to encrypt file: {}", e))
+    })?;
+    let chunk_names = chunk_names.iter().map(|name| hex::encode(name.0)).collect();
+    Ok((PyDataMap { inner: data_map }, chunk_names))
+}
+
+/// Decrypt data using a DataMap and stored chunks.
+///
+/// This function retrieves encrypted chunks using the provided callback,
+/// decrypts them according to the DataMap, and writes the result to a file.
+///
+/// Args:
+///     data_map (PyDataMap): The data map containing chunk metadata.
+///     output_file (str): Path where the decrypted data will be written.
+///     get_chunk (callable): Function that takes a chunk name and returns its bytes.
+///
+/// Raises:
+///     OSError: If chunks cannot be retrieved or output cannot be written.
+///     ValueError: If the data map is invalid or chunks are corrupted.
+#[pyfunction]
+pub fn decrypt_from_storage(
+    data_map: PyDataMap,
+    output_file: &str,
+    get_chunk: &PyAny,
 ) -> PyResult<()> {
-    let mut get_chunk = |hash: XorName| -> Result<Bytes> {
-        let hash_hex = hex::encode(hash.0);
-        let result = py_get_chunk
-            .call1(py, (hash_hex,))
-            .map_err(|e| Error::Generic(format!("Python callback error: {}", e)))?;
-        let chunk_data: Vec<u8> = result
-            .extract(py)
-            .map_err(|e| Error::Generic(format!("Python data extraction error: {}", e)))?;
-        Ok(Bytes::from(chunk_data))
+    let output_path = Path::new(output_file);
+    let get_chunk_wrapper = |name: XorName| -> crate::Result<Bytes> {
+        let name_str = hex::encode(name.0);
+        let chunk = get_chunk
+            .call1((name_str,))
+            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunk: {}", e)))?;
+        let bytes = chunk
+            .downcast::<PyBytes>()
+            .map_err(|e| crate::Error::Python(format!("get_chunk must return bytes: {}", e)))?;
+        Ok(Bytes::copy_from_slice(bytes.as_bytes()))
     };
 
-    rust_decrypt_from_storage(&data_map.inner, &PathBuf::from(output_path), &mut get_chunk)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    rust_decrypt_from_storage(&data_map.inner, output_path, get_chunk_wrapper)
+        .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("Decryption failed: {}", e)))
 }
 
-#[pyfunction]
-/// Decrypt data with parallel chunk retrieval for improved performance.
+/// Decrypt data using streaming for better performance with large files.
 ///
-/// This function is optimized for performance when working with large files and
-/// remote storage backends. It retrieves multiple chunks in parallel and writes
-/// the decrypted data directly to a file.
-///
-/// Key features:
-///   - Parallel chunk retrieval for better throughput
-///   - Streaming write to output file
-///   - Memory efficient for large files
-///   - Optimized for remote storage backends
+/// This function uses parallel processing and streaming to efficiently
+/// decrypt large files while minimizing memory usage.
 ///
 /// Args:
-///     data_map (DataMap): The data map containing chunk metadata
-///     output_path (str): Path where the decrypted file will be written
-///     get_chunks (Callable[[List[str]], List[bytes]]): Function that retrieves multiple
-///         chunks in parallel, given their hex names. Should accept a list of hex names
-///         and return a list of chunk contents in the same order.
+///     data_map (PyDataMap): The data map containing chunk metadata.
+///     output_file (str): Path where the decrypted data will be written.
+///     get_chunks (callable): Function that takes a list of chunk names and returns their bytes.
 ///
 /// Raises:
-///     ValueError: If decryption fails or chunks are invalid
-///     OSError: If there are file system errors
-///     
-/// Example:
-///     ```python
-///     from concurrent.futures import ThreadPoolExecutor
-///     from pathlib import Path
-///     
-///     def get_chunks(hex_names):
-///         # Parallel chunk retrieval using thread pool
-///         def get_one(name):
-///             chunk_path = Path("chunks") / name
-///             return chunk_path.read_bytes()
-///             
-///         with ThreadPoolExecutor(max_workers=4) as executor:
-///             return list(executor.map(get_one, hex_names))
-///     
-///     streaming_decrypt_from_storage(data_map, "output.dat", get_chunks)
-///     ```
-fn streaming_decrypt_from_storage(
-    py: Python<'_>,
-    data_map: &PyDataMap,
-    output_path: String,
-    py_get_chunks: PyObject,
+///     OSError: If chunks cannot be retrieved or output cannot be written.
+///     ValueError: If the data map is invalid or chunks are corrupted.
+#[pyfunction]
+pub fn streaming_decrypt_from_storage(
+    data_map: PyDataMap,
+    output_file: &str,
+    get_chunks: &PyAny,
 ) -> PyResult<()> {
-    let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
-        let hash_hexes: Vec<String> = hashes.iter().map(|h| hex::encode(h.0)).collect();
-        let chunks = py_get_chunks
-            .call1(py, (hash_hexes,))
-            .map_err(|e| Error::Generic(format!("Python callback error: {}", e)))?;
-        let chunk_data: Vec<Vec<u8>> = chunks
-            .extract(py)
-            .map_err(|e| Error::Generic(format!("Python data extraction error: {}", e)))?;
-        Ok(chunk_data.into_iter().map(Bytes::from).collect())
+    let output_path = Path::new(output_file);
+    let get_chunks_wrapper = |names: &[XorName]| -> crate::Result<Vec<Bytes>> {
+        let name_strs: Vec<String> = names.iter().map(|x| hex::encode(x.0)).collect();
+        let chunks = get_chunks
+            .call1((name_strs,))
+            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunks: {}", e)))?;
+        let chunks = chunks
+            .iter()
+            .map_err(|e| crate::Error::Python(format!("get_chunks must return a list: {}", e)))?;
+        let mut result = Vec::new();
+        for chunk in chunks {
+            let chunk = chunk
+                .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {}", e)))?;
+            let bytes = chunk.downcast::<PyBytes>().map_err(|e| {
+                crate::Error::Python(format!("get_chunks must return bytes: {}", e))
+            })?;
+            result.push(Bytes::copy_from_slice(bytes.as_bytes()));
+        }
+        Ok(result)
     };
 
-    rust_streaming_decrypt_from_storage(
-        &data_map.inner,
-        &PathBuf::from(output_path),
-        get_chunk_parallel,
+    rust_streaming_decrypt_from_storage(&data_map.inner, output_path, get_chunks_wrapper).map_err(
+        |e| pyo3::exceptions::PyOSError::new_err(format!("Streaming decryption failed: {}", e)),
     )
-    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
-#[pyfunction]
-/// Stream-encrypt a file and store chunks using a custom storage backend.
-///
-/// This function reads and encrypts a file in chunks, using less memory than the standard
-/// encrypt_from_file function. It's ideal for large files and custom storage backends.
-///
-/// Key features:
-///   - Memory efficient streaming encryption
-///   - Custom storage backend support
-///   - Parallel processing where possible
-///   - Maintains encryption security properties
-///
-/// Args:
-///     input_path (str): Path to the input file to encrypt
-///     store_chunk (Callable[[str, bytes], None]): Function to store encrypted chunks.
-///         Takes two arguments:
-///         - chunk_name (str): The hex name (XorName) of the chunk
-///         - content (bytes): The encrypted chunk content
-///
-/// Returns:
-///     DataMap: Contains metadata about the encrypted chunks
-///
-/// Raises:
-///     ValueError: If the input file is too small or encryption fails
-///     OSError: If there are file system errors
-///     
-/// Example:
-///     ```python
-///     def store_chunk(name, content):
-///         chunk_path = Path("chunks") / name
-///         chunk_path.write_bytes(content)
-///     
-///     data_map = streaming_encrypt_from_file("large_file.dat", store_chunk)
-///     print(f"Created {data_map.len()} chunks")
-///     ```
-fn streaming_encrypt_from_file(
-    _py: Python<'_>,
-    input_path: String,
-    py_store_chunk: PyObject,
-) -> PyResult<PyDataMap> {
-    let input_path = PathBuf::from(input_path);
-
-    // Create a closure that calls the Python store_chunk function
-    let mut store_chunk = |name: XorName, content: Bytes| -> Result<()> {
-        // Convert data outside of the Python context
-        let bytes: &[u8] = name.as_ref();
-        let name_hex = hex::encode(bytes);
-        let content_bytes = content.to_vec();
-
-        // Acquire the GIL and call the Python function
-        let result: Result<()> = Python::with_gil(|py| {
-            let args = (name_hex, PyBytes::new(py, &content_bytes));
-            py_store_chunk
-                .call1(py, args)
-                .map(|_| ())
-                .map_err(|e| Error::Python(format!("Store chunk failed: {}", e)))?;
-            Ok(())
-        });
-        result
-    };
-
-    // Call the Rust streaming encryption function
-    match rust_streaming_encrypt_from_file(&input_path, &mut store_chunk) {
-        Ok(data_map) => Ok(PyDataMap { inner: data_map }),
-        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-            "Streaming encryption failed: {}",
-            e
-        ))),
-    }
-}
-
-#[pyfunction]
-/// Verify the integrity of an encrypted chunk.
-///
-/// This function checks if an encrypted chunk's content matches its XorName,
-/// ensuring the chunk hasn't been corrupted or tampered with.
-///
-/// Args:
-///     name (XorName): The expected XorName of the chunk
-///     content (bytes): The chunk's content to verify
-///
-/// Returns:
-///     EncryptedChunk: A verified encrypted chunk object
-///
-/// Raises:
-///     ValueError: If the chunk's content doesn't match its name
-///     
-/// Example:
-///     ```python
-///     chunk = verify_chunk(name, content)
-///     assert chunk.content() == content
-///     ```
-fn verify_chunk(name: &PyXorName, content: &PyBytes) -> PyResult<PyEncryptedChunk> {
-    match crate::verify_chunk(name.inner, content.as_bytes()) {
-        Ok(chunk) => Ok(PyEncryptedChunk { inner: chunk }),
-        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            e.to_string(),
-        )),
-    }
-}
-
-#[pyfunction]
-/// Shrink a data map by recursively encrypting it.
-///
-/// This is useful for handling large files that produce large data maps.
-///
-/// Args:
-///     data_map (DataMap): The data map to shrink
-///     store_chunk (Callable[[str, bytes], None]): Function to store new chunks
-///
-/// Returns:
-///     Tuple[DataMap, List[EncryptedChunk]]: The shrunk data map and new chunks
-///
-/// Raises:
-///     ValueError: If shrinking fails
-fn shrink_data_map(
-    py: Python<'_>,
-    data_map: &PyDataMap,
-    py_store_chunk: PyObject,
-) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
-    let mut store_chunk = |hash: XorName, content: Bytes| -> Result<()> {
-        let hash_hex = hex::encode(hash.0);
-        let content_vec = content.to_vec();
-        let _ = py_store_chunk
-            .call1(py, (hash_hex, content_vec))
-            .map_err(|e| Error::Generic(format!("Python callback error: {}", e)))?;
-        Ok(())
-    };
-
-    let (shrunk_map, chunks) = rust_shrink_data_map(data_map.inner.clone(), &mut store_chunk)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-
-    Ok((
-        PyDataMap { inner: shrunk_map },
-        chunks
-            .into_iter()
-            .map(|c| PyEncryptedChunk { inner: c })
-            .collect(),
-    ))
-}
-
+/// Initialize the Python module.
 #[pymodule]
-fn _self_encryption(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn _self_encryption(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyDataMap>()?;
     m.add_class::<PyEncryptedChunk>()?;
     m.add_class::<PyXorName>()?;
+    m.add_class::<PyChunkInfo>()?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
-    m.add_function(wrap_pyfunction!(encrypt_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(encrypt_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt_from_storage, m)?)?;
-    m.add_function(wrap_pyfunction!(shrink_data_map, m)?)?;
     m.add_function(wrap_pyfunction!(streaming_decrypt_from_storage, m)?)?;
-    m.add_function(wrap_pyfunction!(streaming_encrypt_from_file, m)?)?;
-    m.add_function(wrap_pyfunction!(verify_chunk, m)?)?;
     Ok(())
 }

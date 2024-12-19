@@ -2,40 +2,53 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
-[tool.maturin]
-features = ["python"]
-module-name = "_self_encryption"
-bindings = "pyo3"
-develop = true
-manifest-path = "Cargo.toml"
-python-packages = ["self_encryption"]
-compatibility = "manylinux2014"
-
 [project]
 name = "self_encryption"
-version = "0.32.4"
+dynamic = ["version"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
+authors = [{ name = "MaidSafe Developers", email = "dev@maidsafe.net" }]
+dependencies = ["click>=8.1.7", "maturin>=1.7.8", "pip>=24.0"]
+readme = "README.md"
 requires-python = ">=3.7"
-license = {text = "GPL-3.0"}
-authors = [{name = "MaidSafe Developers", email = "dev@maidsafe.net"}]
-dependencies = [
-    "click>=8.0.0",
-    "pip>=24.0",
+license = { text = "GPL-3.0" }
+keywords = [
+    "encryption",
+    "convergent-encryption",
+    "self-encryption",
+    "obfuscation",
+    "security",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Rust",
-    "Operating System :: OS Independent",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-[project.optional-dependencies]
-test = [
-    "pip>=24.0",
-    "pytest>=7.4.4",
-]
+[project.urls]
+Homepage = "https://maidsafe.net"
+Documentation = "https://docs.rs/self_encryption"
+Repository = "https://github.com/maidsafe/self_encryption"
 
 [project.scripts]
-self-encryption = "self_encryption.cli:cli"
+self-encryption = "self_encryption:cli"
+
+[tool.maturin]
+features = ["python"]
+module-name = "self_encryption._self_encryption"
+python-source = "."
+bindings = "pyo3"
+include = ["Cargo.toml"]
+cargo-manifest = "Cargo.toml"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
