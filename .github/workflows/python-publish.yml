@@ -108,6 +108,8 @@ jobs:
         target:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+          - armv7-unknown-linux-musleabihf
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
@@ -174,4 +176,3 @@ jobs:
           packages-dir: dist/
           verbose: true
           print-hash: true
-  
