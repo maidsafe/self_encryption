@@ -34,7 +34,7 @@ pub struct StreamSelfEncryptor {
 }
 
 impl StreamSelfEncryptor {
-    /// For encryption, return with an intialized streaming encryptor.
+    /// For encryption, return with an initialized streaming encryptor.
     /// If a `chunk_dir` is provided, the encrypted_chunks will be written into the specified dir as well.
     pub fn encrypt_from_file(file_path: PathBuf, chunk_dir: Option<PathBuf>) -> Result<Self> {
         // First check if file exists
@@ -168,7 +168,7 @@ pub struct StreamSelfDecryptor {
 }
 
 impl StreamSelfDecryptor {
-    /// For decryption, return with an intialized streaming decryptor
+    /// For decryption, return with an initialized streaming decryptor
     pub fn decrypt_to_file(file_path: PathBuf, data_map: &DataMap) -> Result<Self> {
         // Create a new temporary directory for processing
         let temp_dir = tempdir()?;
