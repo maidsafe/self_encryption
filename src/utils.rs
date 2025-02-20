@@ -62,13 +62,13 @@ pub(crate) fn get_num_chunks(file_size: usize) -> usize {
     if file_size < (3 * crate::MIN_CHUNK_SIZE) {
         return 0;
     }
-    if file_size < (3 * *crate::MAX_CHUNK_SIZE) {
+    if file_size < (3 * crate::MAX_CHUNK_SIZE) {
         return 3;
     }
-    if file_size % *crate::MAX_CHUNK_SIZE == 0 {
-        file_size / *crate::MAX_CHUNK_SIZE
+    if file_size % crate::MAX_CHUNK_SIZE == 0 {
+        file_size / crate::MAX_CHUNK_SIZE
     } else {
-        (file_size / *crate::MAX_CHUNK_SIZE) + 1
+        (file_size / crate::MAX_CHUNK_SIZE) + 1
     }
 }
 
@@ -77,7 +77,7 @@ pub(crate) fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
     if file_size < 3 * crate::MIN_CHUNK_SIZE {
         return 0;
     }
-    if file_size < 3 * *crate::MAX_CHUNK_SIZE {
+    if file_size < 3 * crate::MAX_CHUNK_SIZE {
         if chunk_index < 2 {
             return file_size / 3;
         } else {
@@ -87,21 +87,21 @@ pub(crate) fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
     }
     let total_chunks = get_num_chunks(file_size);
     if chunk_index < total_chunks - 2 {
-        return *crate::MAX_CHUNK_SIZE;
+        return crate::MAX_CHUNK_SIZE;
     }
-    let remainder = file_size % *crate::MAX_CHUNK_SIZE;
+    let remainder = file_size % crate::MAX_CHUNK_SIZE;
     let penultimate = (total_chunks - 2) == chunk_index;
     if remainder == 0 {
-        return *crate::MAX_CHUNK_SIZE;
+        return crate::MAX_CHUNK_SIZE;
     }
     if remainder < crate::MIN_CHUNK_SIZE {
         if penultimate {
-            *crate::MAX_CHUNK_SIZE - crate::MIN_CHUNK_SIZE
+            crate::MAX_CHUNK_SIZE - crate::MIN_CHUNK_SIZE
         } else {
             crate::MIN_CHUNK_SIZE + remainder
         }
     } else if penultimate {
-        *crate::MAX_CHUNK_SIZE
+        crate::MAX_CHUNK_SIZE
     } else {
         remainder
     }
