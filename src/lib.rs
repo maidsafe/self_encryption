@@ -125,7 +125,7 @@ pub use xor_name;
 /// The minimum size (before compression) of data to be self-encrypted, defined as 3B.
 pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
 /// The maximum size (before compression) of an individual chunk of a file, defined as 4MiB.
-const MAX_CHUNK_SIZE:usize = 4 * 1024 * 1024;
+const MAX_CHUNK_SIZE: usize = 4 * 1024 * 1024;
 
 /// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
 pub const MIN_CHUNK_SIZE: usize = 1;

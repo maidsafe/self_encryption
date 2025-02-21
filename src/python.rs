@@ -1,3 +1,4 @@
+#![allow(non_local_definitions)]
 use crate::{
     decrypt_from_storage as rust_decrypt_from_storage, encrypt_from_file as rust_encrypt_from_file,
     streaming_decrypt_from_storage as rust_streaming_decrypt_from_storage, ChunkInfo, DataMap,
