@@ -28,5 +28,5 @@ venv/
 .windsurfrules
 test_chunks/
 
-
+.vscode/settings.json
 
