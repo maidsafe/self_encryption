@@ -13,7 +13,7 @@ version = "0.31.0"
 [features]
 default = []
 python = [
-    "pyo3/extension-module",
+    "pyo3",
     "serde_json"
 ]
 
