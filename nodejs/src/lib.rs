@@ -8,13 +8,18 @@
 //! Storage of the encrypted chunks or DataMap is outside the scope of this library
 //! and must be implemented by the user.
 
+use napi::JsBuffer;
+use napi::JsObject;
 use napi::NapiRaw;
 use napi::Result;
 use napi::Status;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use self_encryption::bytes::Bytes;
+use self_encryption::xor_name::XOR_NAME_LEN;
 use std::path::Path;
+
+pub mod util;
 
 // Convert Rust errors to JavaScript errors
 fn map_error<E>(err: E) -> napi::Error
@@ -65,27 +70,22 @@ pub struct XorName(self_encryption::XorName);
 impl XorName {
     /// Create a new XorName from content bytes.
     #[napi(factory)]
-    pub fn from_content(content: Buffer) -> Self {
+    pub fn from_content(content: Uint8Array) -> Self {
         Self(self_encryption::XorName::from_content(content.as_ref()))
     }
 
     /// Get the underlying bytes of the XorName.
     #[napi]
-    pub fn as_bytes(&self) -> Buffer {
-        Buffer::from(self.0.0.to_vec())
+    pub fn as_bytes(&self) -> Uint8Array {
+        Uint8Array::from(self.0.0.to_vec())
     }
 
     #[napi]
     pub fn from_hex(hex: String) -> Result<Self> {
-        let bytes =
-            hex::decode(hex).map_err(|e| napi::Error::new(Status::InvalidArg, e.to_string()))?;
-        if bytes.len() != 32 {
-            return Err(napi::Error::new(
-                Status::InvalidArg,
-                "XorName must be 32 bytes long",
-            ));
-        }
-        Ok(Self(self_encryption::XorName(&bytes)))
+        let mut bytes = [0u8; XOR_NAME_LEN];
+        hex::decode_to_slice(hex, &mut bytes)
+            .map_err(|e| napi::Error::new(Status::InvalidArg, e.to_string()))?;
+        Ok(Self(self_encryption::XorName(bytes)))
     }
 }
 
@@ -215,8 +215,8 @@ impl EncryptedChunk {
 
     /// Get the hash of the encrypted chunk.
     #[napi]
-    pub fn hash(&self) -> Buffer {
-        Buffer::from(
+    pub fn hash(&self) -> Uint8Array {
+        Uint8Array::from(
             self_encryption::XorName::from_content(&self.0.content)
                 .0
                 .to_vec(),
@@ -225,8 +225,8 @@ impl EncryptedChunk {
 
     /// Get the content of the encrypted chunk.
     #[napi]
-    pub fn content(&self) -> Buffer {
-        Buffer::from(self.0.content.to_vec())
+    pub fn content(&self) -> Uint8Array {
+        Uint8Array::from(self.0.content.to_vec())
     }
 }
 
@@ -244,7 +244,7 @@ pub fn encrypt(data: Uint8Array) -> Result<EncryptResult> {
 
 /// Decrypts data using chunks retrieved from any storage backend via the provided retrieval function.
 #[napi]
-pub fn decrypt(data_map: &DataMap, chunks: Vec<&EncryptedChunk>) -> Result<Buffer> {
+pub fn decrypt(data_map: &DataMap, chunks: Vec<&EncryptedChunk>) -> Result<Uint8Array> {
     let inner_chunks = chunks
         .into_iter()
         .map(|chunk| chunk.0.clone())
@@ -252,7 +252,7 @@ pub fn decrypt(data_map: &DataMap, chunks: Vec<&EncryptedChunk>) -> Result<Buffe
 
     let bytes = self_encryption::decrypt(&data_map.0, &inner_chunks).map_err(map_error)?;
 
-    Ok(Buffer::from(bytes.to_vec()))
+    Ok(Uint8Array::from(bytes.to_vec()))
 }
 
 /// Decrypts data using a DataMap and stored chunks.
@@ -266,7 +266,6 @@ pub fn decrypt_from_storage(
     output_file: String,
     get_chunk: JsFunction,
 ) -> Result<()> {
-    println!("====> A");
     let output_path = Path::new(&output_file);
 
     let get_chunk_wrapper = |xor_name: self_encryption::XorName| -> self_encryption::Result<Bytes> {
@@ -279,20 +278,18 @@ pub fn decrypt_from_storage(
                 &[env
                     .create_string(&xor_name)
                     .map_err(|e| {
-                        self_encryption::Error::Generic(format!("Could not create string - {e}\n"))
+                        self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
                     })?
                     .into_unknown()],
             )
             .map_err(|e| {
-                self_encryption::Error::Generic(format!(
-                    "`getChunk` call resulted in error - {e}\n"
-                ))
+                self_encryption::Error::Generic(format!("`getChunk` call resulted in error: {e}\n"))
             })?;
 
         let data =
             unsafe { Uint8Array::from_napi_value(env.raw(), result.raw()) }.map_err(|e| {
                 self_encryption::Error::Generic(format!(
-                    "Could not convert getChunk result to Uint8Array - {e}\n"
+                    "Could not convert getChunk result to Uint8Array: {e}\n"
                 ))
             })?;
 
@@ -303,60 +300,86 @@ pub fn decrypt_from_storage(
         .map_err(map_error)
 }
 
-// /// Decrypt data using streaming for better performance with large files.
-// ///
-// /// This function uses parallel processing and streaming to efficiently
-// /// decrypt large files while minimizing memory usage.
-// #[napi]
-// pub fn streaming_decrypt_from_storage(
-//     data_map: &DataMap,
-//     output_file: String,
-//     get_chunks: JsFunction,
-// ) -> Result<()> {
-//     let output_path = Path::new(&output_file);
-//     let env = get_chunks.env;
+/// Decrypts data from storage in a streaming fashion using parallel chunk retrieval.
+///
+/// This function retrieves the encrypted chunks in parallel using the provided `getChunkParallel` function,
+/// decrypts them, and writes the decrypted data directly to the specified output file path.
+#[napi]
+pub fn streaming_decrypt_from_storage(
+    env: Env,
+    data_map: &DataMap,
+    output_file: String,
+    get_chunk_parallel: JsFunction,
+) -> Result<()> {
+    let output_path = Path::new(&output_file);
 
-//     let get_chunks_wrapper =
-//         |names: &[self_encryption::XorName]| -> self_encryption::Result<Vec<Bytes>> {
-//             let name_strs: Vec<String> = names.iter().map(|x| hex::encode(x.0)).collect();
+    let get_chunk_parallel_wrapper =
+        |xor_name: &[self_encryption::XorName]| -> self_encryption::Result<Vec<Bytes>> {
+            // Map `XorName` to hex strings
+            let xor_names = xor_name
+                .iter()
+                .map(|x| env.create_string(&hex::encode(x.0)))
+                .collect::<Result<Vec<_>>>()
+                .map_err(|e| {
+                    self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
+                })?;
 
-//             // Create a JavaScript array of chunk names
-//             let js_array = env.create_array(name_strs.len() as u32)?;
-//             for (i, name) in name_strs.iter().enumerate() {
-//                 let js_name = env.create_string(name)?;
-//                 js_array.set_element(i as u32, js_name)?;
-//             }
+            // Map the `Vec<XorName>` to a `Vec<JsString>`
+            let xor_names = Array::from_vec(&env, xor_names)
+                .map_err(|e| {
+                    self_encryption::Error::Generic(format!("Could not create array: {e}\n"))
+                })?
+                // Map JS `Array` to `JsObject` (as `Array` can not be converted to `JsUnknown`)
+                .coerce_to_object()
+                .map_err(|e| {
+                    self_encryption::Error::Generic(format!("Could not create array: {e}\n"))
+                })?
+                .into_unknown();
 
-//             // Call the JavaScript function with the array of chunk names
-//             let result = get_chunks
-//                 .call(None, &[js_array.into_unknown()])
-//                 .map_err(|e| {
-//                     self_encryption::Error::Generic(format!("Failed to call get_chunks: {}", e))
-//                 })?;
+            // Call the JavaScript function with the chunk name
+            let result = get_chunk_parallel.call(None, &[xor_names]).map_err(|e| {
+                self_encryption::Error::Generic(format!(
+                    "`getChunkParallel` call resulted in error: {e}\n"
+                ))
+            })?;
 
-//             // Convert the result to an array of Buffers
-//             let js_array = result.coerce_to_object()?.into_array().map_err(|e| {
-//                 self_encryption::Error::Generic(format!("get_chunks must return an array: {}", e))
-//             })?;
+            let data =
+                unsafe { JsObject::from_napi_value(env.raw(), result.raw()) }.map_err(|e| {
+                    self_encryption::Error::Generic(format!(
+                        "Could not convert getChunkParallel result to Array: {e}\n"
+                    ))
+                })?;
 
-//             let length = js_array.get_array_length()?;
-//             let mut chunks = Vec::with_capacity(length as usize);
+            let mut data_vec = vec![];
+            for i in 0..data.get_array_length().map_err(|e| {
+                self_encryption::Error::Generic(format!(
+                    "Expect getChunkParallel to return array: {e}\n"
+                ))
+            })? {
+                let item = data.get_element::<JsBuffer>(i).map_err(|e| {
+                    self_encryption::Error::Generic(format!(
+                        "Could not get element from getChunkParallel result: {e}\n"
+                    ))
+                })?;
+                let item = item.into_ref().map_err(|e| {
+                    self_encryption::Error::Generic(format!(
+                        "Could not get element from getChunkParallel result: {e}\n"
+                    ))
+                })?;
 
-//             for i in 0..length {
-//                 let item = js_array.get_element(i)?;
-//                 let buffer = item.coerce_to_object()?.into_buffer().map_err(|e| {
-//                     self_encryption::Error::Generic(format!("Array item must be a Buffer: {}", e))
-//                 })?;
+                data_vec.push(Bytes::copy_from_slice(item.as_ref()));
+            }
 
-//                 chunks.push(Bytes::copy_from_slice(buffer.as_ref()));
-//             }
+            Ok(data_vec)
+        };
 
-//             Ok(chunks)
-//         };
-
-//     self_encryption::streaming_decrypt_from_storage(&data_map.0, output_path, get_chunks_wrapper)
-//         .map_err(map_error)
-// }
+    self_encryption::streaming_decrypt_from_storage(
+        &data_map.0,
+        output_path,
+        get_chunk_parallel_wrapper,
+    )
+    .map_err(map_error)
+}
 
 /// Encrypt a file and store its chunks.
 ///
