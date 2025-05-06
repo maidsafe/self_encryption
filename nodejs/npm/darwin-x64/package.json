@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maidsafe/autonomi.git",
+    "url": "git+https://github.com/maidsafe/self_encryption.git",
     "directory": "nodejs/npm/darwin-x64"
   },
   "os": [
@@ -12,9 +12,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "autonomi.darwin-x64.node",
+  "main": "self-encryption.darwin-x64.node",
   "files": [
-    "autonomi.darwin-x64.node"
+    "self-encryption.darwin-x64.node"
   ],
   "license": "MIT",
   "engines": {
