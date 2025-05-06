@@ -6,7 +6,7 @@
   "types": "index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maidsafe/autonomi.git",
+    "url": "git+https://github.com/maidsafe/self_encryption.git",
     "directory": "nodejs"
   },
   "napi": {
@@ -50,7 +50,7 @@
     "vault",
     "encryption"
   ],
-  "packageManager": "yarn@4.7.0",
+  "packageManager": "yarn@4.9.1",
   "typedocOptions": {
     "entryPoints": [
       "./index.d.ts"

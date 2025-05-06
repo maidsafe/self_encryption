@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maidsafe/autonomi.git",
+    "url": "git+https://github.com/maidsafe/self_encryption.git",
     "directory": "nodejs/npm/linux-x64-gnu"
   },
   "os": [
@@ -12,9 +12,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "autonomi.linux-x64-gnu.node",
+  "main": "self-encryption.linux-x64-gnu.node",
   "files": [
-    "autonomi.linux-x64-gnu.node"
+    "self-encryption.linux-x64-gnu.node"
   ],
   "license": "MIT",
   "engines": {

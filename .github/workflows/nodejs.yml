@@ -1,7 +1,7 @@
 name: JS tests
 env:
   DEBUG: napi:*
-  APP_NAME: autonomi
+  APP_NAME: self-encryption
   MACOSX_DEPLOYMENT_TARGET: '10.13'
 permissions:
   contents: write
@@ -25,33 +25,42 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-latest
-            target: x86_64-apple-darwin
-            build: yarn build --target x86_64-apple-darwin
-          - host: windows-latest
-            build: yarn build --target x86_64-pc-windows-msvc
-            target: x86_64-pc-windows-msvc
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             build: yarn build --target x86_64-unknown-linux-gnu
-          - host: macos-latest
+          - host: windows-latest
+            build: yarn build --target x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-msvc
+          - host: macos-15 # arm64
             target: aarch64-apple-darwin
             build: yarn build --target aarch64-apple-darwin
+          - host: macos-13 # Intel
+            target: x86_64-apple-darwin
+            build: yarn build --target x86_64-apple-darwin
     name: Build (${{ matrix.settings.target }})
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup node
         uses: actions/setup-node@v4
-        if: ${{ !matrix.settings.docker }}
         with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: 'nodejs/yarn.lock'
-      - run: corepack enable && yarn set version berry && yarn --version
+          node-version: 23
+      - run: corepack enable
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: bash
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
       - name: Install
         uses: dtolnay/rust-toolchain@stable
-        if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
@@ -87,16 +96,8 @@ jobs:
           cache: yarn
           cache-dependency-path: 'nodejs/yarn.lock'
           architecture: x86
-      - name: Build in docker
-        uses: addnab/docker-run-action@v3
-        if: ${{ matrix.settings.docker }}
-        with:
-          image: ${{ matrix.settings.docker }}
-          options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build'
-          run: ${{ matrix.settings.build }}
       - name: Build
         run: ${{ matrix.settings.build }}
-        if: ${{ !matrix.settings.docker }}
         shell: bash
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -104,7 +105,7 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           path: nodejs/${{ env.APP_NAME }}.*.node
           if-no-files-found: error
-  test-macOS-windows-binding:
+  test:
     name: Tests (${{ matrix.settings.target }})
     needs:
       - build
@@ -112,25 +113,37 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-latest
-            target: x86_64-apple-darwin
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
           - host: windows-latest
             target: x86_64-pc-windows-msvc
+          - host: macos-15 # arm64
+            target: aarch64-apple-darwin
+          - host: macos-13 # Intel
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: 'nodejs/yarn.lock'
-          architecture: x64
+          node-version: 23
+      - run: corepack enable
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: bash
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
       - name: Install dependencies
         run: yarn install
-      - name: Build node
-        run: cd ../ && cargo build --release --bin antnode
-        timeout-minutes: 30
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -141,33 +154,4 @@ jobs:
         shell: bash
       - name: Test bindings
         run: yarn test
-  test-linux-x64-gnu-binding:
-    name: Tests (linux-x64-gnu)
-    needs:
-      - build
-    strategy:
-      fail-fast: false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: 'nodejs/yarn.lock'
-      - name: Install dependencies
-        run: yarn install
-      - name: Build node
-        run: cd ../ && cargo build --release --bin antnode
-        timeout-minutes: 30
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bindings-x86_64-unknown-linux-gnu
-          path: nodejs/.
-      - name: List packages
-        run: ls -R .
-        shell: bash
-      - name: Test bindings
-        run: yarn test
+        
