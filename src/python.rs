@@ -354,7 +354,7 @@ pub fn encrypt_from_file(input_file: &str, output_dir: &str) -> PyResult<(PyData
 pub fn decrypt_from_storage(
     data_map: PyDataMap,
     output_file: &str,
-    get_chunk: &PyAny,
+    get_chunk: Bound<'_, PyAny>,
 ) -> PyResult<()> {
     let output_path = Path::new(output_file);
     let get_chunk_wrapper = |name: XorName| -> crate::Result<Bytes> {
@@ -389,7 +389,7 @@ pub fn decrypt_from_storage(
 pub fn streaming_decrypt_from_storage(
     data_map: PyDataMap,
     output_file: &str,
-    get_chunks: &PyAny,
+    get_chunks: Bound<'_, PyAny>,
 ) -> PyResult<()> {
     let output_path = Path::new(output_file);
     let get_chunks_wrapper = |names: &[XorName]| -> crate::Result<Vec<Bytes>> {
@@ -398,7 +398,7 @@ pub fn streaming_decrypt_from_storage(
             .call1((name_strs,))
             .map_err(|e| crate::Error::Python(format!("Failed to call get_chunks: {}", e)))?;
         let chunks = chunks
-            .iter()
+            .try_iter()
             .map_err(|e| crate::Error::Python(format!("get_chunks must return a list: {}", e)))?;
         let mut result = Vec::new();
         for chunk in chunks {
@@ -419,7 +419,8 @@ pub fn streaming_decrypt_from_storage(
 
 /// Initialize the Python module.
 #[pymodule]
-fn _self_encryption(_py: Python, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "self_encryption")]
+fn self_encryption_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDataMap>()?;
     m.add_class::<PyEncryptedChunk>()?;
     m.add_class::<PyXorName>()?;
