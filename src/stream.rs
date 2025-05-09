@@ -548,7 +548,7 @@ mod tests {
 
         // Create an invalid chunk with random content
         let invalid_chunk = EncryptedChunk {
-            content: Bytes::from(random_bytes(1024)),
+            content: random_bytes(1024),
         };
 
         // Try to decrypt with invalid chunk
