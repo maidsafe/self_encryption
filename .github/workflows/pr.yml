@@ -29,14 +29,15 @@ jobs:
           components: rustfmt, clippy
 
       # Cache.
-      - name: Cargo cache registry, index and build
-        uses: actions/cache@v2.1.4
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Check if the code is formatted correctly.
       - name: Check formatting
@@ -72,14 +73,15 @@ jobs:
           override: true
 
       # Cache.
-      - name: Cargo cache registry, index and build
-        uses: actions/cache@v2.1.4
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Generate code coverage & push result to coveralls.io
       - name: Install cargo-llvm-cov
@@ -142,14 +144,15 @@ jobs:
           override: true
 
       # Cache.
-      - name: Cargo cache registry, index and build
-        uses: actions/cache@v2.1.4
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Run tests.
       - name: Cargo test
@@ -172,15 +175,17 @@ jobs:
         run: rustup target install i686-unknown-linux-gnu
       - name: Install GCC Multilib
         run: sudo apt install gcc-multilib
+
       # Cache.
-      - name: Cargo cache registry, index and build
-        uses: actions/cache@v2.1.4
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Run tests.
       - name: Cargo test
