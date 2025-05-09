@@ -128,7 +128,7 @@ jobs:
       - shell: bash
         run: wget https://raw.githubusercontent.com/maidsafe/QA/master/misc-scripts/deny.toml
 
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: EmbarkStudios/cargo-deny-action@v2
 
   tests:
     if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
