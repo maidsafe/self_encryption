@@ -1,6 +1,6 @@
 {
   "name": "@withautonomi/self-encryption",
-  "version": "0.4.5",
+  "version": "0.1.0",
   "description": "NodeJS bindings for Autonomi client",
   "main": "index.js",
   "types": "index.d.ts",

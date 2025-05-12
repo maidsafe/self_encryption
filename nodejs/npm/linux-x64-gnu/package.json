@@ -1,6 +1,6 @@
 {
   "name": "@withautonomi/self-encryption-linux-x64-gnu",
-  "version": "0.4.5",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maidsafe/self_encryption.git",
