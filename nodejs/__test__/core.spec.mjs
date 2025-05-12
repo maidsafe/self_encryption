@@ -9,7 +9,6 @@ test('encrypt and decrypt', async (t) => {
     t.deepEqual(Buffer.from(dataDecrypted), data)
 })
 
-
 test('verify chunk', async (t) => {
     t.plan(0) // Expect no assertions in this test
 
