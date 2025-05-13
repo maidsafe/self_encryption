@@ -124,10 +124,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # wget the shared deny.toml file from the QA repo
-      - shell: bash
-        run: wget https://raw.githubusercontent.com/maidsafe/QA/master/misc-scripts/deny.toml
-
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   tests:
