@@ -27,27 +27,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-      - run: corepack enable
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
+      - name: Get npm cache directory
+        id: npm-cache-dir
         shell: bash
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-node-
           
       - name: Install dependencies
-        run: yarn install
+        run: npm install
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./nodejs/artifacts
       - name: Move artifacts
-        run: yarn artifacts
+        run: npm run artifacts
       - name: List packages
         run: ls -R ./npm
         shell: bash
@@ -59,40 +58,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  # docs:
-  #   name: Build docs
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Setup node
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20
-  #         cache: yarn
-  #         cache-dependency-path: 'nodejs/yarn.lock'
-  #     - name: Install dependencies
-  #       run: yarn install
-  #     - name: Build docs
-  #       run: yarn docs --out docs/$(npm pkg get version | xargs)
-
-  #     - name: Upload static files as artifact
-  #       id: deployment
-  #       uses: actions/upload-pages-artifact@v3
-  #       with:
-  #         path: ./nodejs/docs
-
-  # docs-deploy:
-  #   name: Deploy docs on GitHub Pages
-  #   needs: docs
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pages: write
-  #     id-token: write
-  #   environment:
-  #     name: github-pages
-  #     url: ${{ steps.deployment.outputs.page_url }}
-  #   steps:
-  #     - name: Deploy to GitHub Pages
-  #       id: deployment
-  #       uses: actions/deploy-pages@v4

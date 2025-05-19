@@ -35,10 +35,7 @@ For example usage, see the [`__test__`](./__test__) directory. Replace `import {
 
 To contribute or develop on the source code directly, we need a few requirements.
 
-- Yarn
-  - `npm install --global yarn`
-- We need the NAPI RS CLI tool
-  - `yarn global add @napi-rs/cli`
+- Node.js ([installation instructions](https://nodejs.org/en/download))
 
 Change the working directory to `nodejs/`:
 ```console
@@ -47,14 +44,14 @@ $ cd ./nodejs/
 
 Then install the dependencies for the project:
 ```console
-$ yarn install
+$ npm install
 ```
 
 ## Build
 
 Then build using the build script (which calls the `napi` CLI):
 ```console
-$ yarn build
+$ npm run build
 ```
 
 ## Running tests
@@ -62,9 +59,9 @@ $ yarn build
 Run the `test` script:
 
 ```console
-yarn test
+npm test
 # Or run a specific test
-yarn test __test__/core.spec.mjs -m 'encrypt and decrypt'
+npm test __test__/core.spec.mjs -m 'encrypt and decrypt'
 ```
 
 ## Publishing
