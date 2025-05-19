@@ -232,10 +232,11 @@ impl StreamSelfDecryptor {
                 // Store for later processing
                 let file_path = self.temp_dir.path().join(hex::encode(chunk_hash));
                 let mut output_file = File::create(&file_path).map_err(|e| {
-                    Error::Io(IoError::new(
-                        ErrorKind::Other,
-                        format!("Failed to create file {:?}: {}", file_path.display(), e),
-                    ))
+                    Error::Io(IoError::other(format!(
+                        "Failed to create file {:?}: {}",
+                        file_path.display(),
+                        e
+                    )))
                 })?;
                 output_file.write_all(&encrypted_chunk.content)?;
                 let _ = self
@@ -291,19 +292,17 @@ impl StreamSelfDecryptor {
             // Ensure the parent directory of the final output path exists
             if let Some(parent) = self.file_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
-                    Error::Io(IoError::new(
-                        ErrorKind::Other,
-                        format!("Failed to create output directory: {}", e),
-                    ))
+                    Error::Io(IoError::other(format!(
+                        "Failed to create output directory: {e}"
+                    )))
                 })?;
             }
 
             // Move the partial output to the final output path
             std::fs::rename(&partial_output_path, &self.file_path).map_err(|e| {
-                Error::Io(IoError::new(
-                    ErrorKind::Other,
-                    format!("Failed to move decrypted file: {}", e),
-                ))
+                Error::Io(IoError::other(format!(
+                    "Failed to move decrypted file: {e}"
+                )))
             })?;
         } else {
             return Err(Error::Io(IoError::new(
