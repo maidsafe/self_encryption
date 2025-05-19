@@ -27,16 +27,16 @@ jobs:
         settings:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            build: yarn build --target x86_64-unknown-linux-gnu
+            build: npm run build -- --target x86_64-unknown-linux-gnu
           - host: windows-latest
-            build: yarn build --target x86_64-pc-windows-msvc
+            build: npm run build -- --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           - host: macos-15 # arm64
             target: aarch64-apple-darwin
-            build: yarn build --target aarch64-apple-darwin
+            build: npm run build -- --target aarch64-apple-darwin
           - host: macos-13 # Intel
             target: x86_64-apple-darwin
-            build: yarn build --target x86_64-apple-darwin
+            build: npm run build -- --target x86_64-apple-darwin
     name: Build (${{ matrix.settings.target }})
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -46,19 +46,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-      - run: corepack enable
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
+      - name: Get npm cache directory
+        id: npm-cache-dir
         shell: bash
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
-
+            ${{ runner.os }}-node-
+    
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -82,20 +81,8 @@ jobs:
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
         shell: bash
-      - name: Setup node x86
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        run: yarn config set supportedArchitectures.cpu "ia32"
-        shell: bash
       - name: Install dependencies
-        run: yarn install
-      - name: Setup node x86
-        uses: actions/setup-node@v4
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: 'nodejs/yarn.lock'
-          architecture: x86
+        run: npm install
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
@@ -131,19 +118,19 @@ jobs:
           node-version: 23
       - run: corepack enable
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
+      - name: Get npm cache directory
+        id: npm-cache-dir
         shell: bash
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
-        run: yarn install
+        run: npm install
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -153,5 +140,5 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: yarn test
+        run: npm test
         

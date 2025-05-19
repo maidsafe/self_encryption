@@ -50,7 +50,6 @@
     "vault",
     "encryption"
   ],
-  "packageManager": "yarn@4.9.1",
   "typedocOptions": {
     "entryPoints": [
       "./index.d.ts"
