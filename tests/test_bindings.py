@@ -1,11 +1,8 @@
-import os
 import tempfile
 from pathlib import Path
 import pytest
 from self_encryption import (
     PyDataMap,
-    PyEncryptedChunk,
-    PyChunkInfo,
     encrypt,
     encrypt_from_file,
     decrypt,
@@ -24,7 +21,7 @@ def test_direct_encryption_decryption():
     decrypted = decrypt(data_map, chunks)
     
     # Verify
-    assert data == bytes(decrypted)
+    assert data == decrypted
 
 def test_file_encryption_decryption():
     with tempfile.TemporaryDirectory() as temp_dir:
