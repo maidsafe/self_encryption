@@ -112,7 +112,6 @@ pub use self::{
     stream::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
-use lazy_static::lazy_static;
 use std::{
     fs::File,
     io::{Read, Write},
@@ -125,16 +124,16 @@ pub use xor_name;
 
 /// The minimum size (before compression) of data to be self-encrypted, defined as 3B.
 pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
-/// The default maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
-const DEFAULT_MAX_CHUNK_SIZE: usize = 1024 * 1024;
 
-lazy_static! {
-    /// The maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
-    pub static ref MAX_CHUNK_SIZE: usize = std::option_env!("MAX_CHUNK_SIZE")
-        .unwrap_or("1048576")
-        .parse::<usize>()
-        .unwrap_or(DEFAULT_MAX_CHUNK_SIZE);
-}
+/// The maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
+pub const MAX_CHUNK_SIZE: usize = match std::option_env!("MAX_CHUNK_SIZE") {
+    Some(v) => match usize::from_str_radix(v, 10) {
+        Ok(v) => v,
+        Err(_err) => panic!("`MAX_CHUNK_SIZE` failed to parse as usize"),
+    },
+    // Default to 1MiB
+    None => 1024 * 1024,
+};
 
 /// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
 pub const MIN_CHUNK_SIZE: usize = 1;
@@ -601,7 +600,7 @@ where
         ));
     }
 
-    let mut reader = BufReader::with_capacity(*MAX_CHUNK_SIZE, file);
+    let mut reader = BufReader::with_capacity(MAX_CHUNK_SIZE, file);
     let mut chunk_infos = Vec::with_capacity(num_chunks);
 
     // Ring buffer to hold all source hashes
