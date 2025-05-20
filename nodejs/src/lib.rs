@@ -54,6 +54,19 @@ fn try_from_big_int<T: TryFrom<u64>>(value: BigInt, arg: &str) -> Result<T> {
     ))
 }
 
+/// The minimum size (before compression) of an individual chunk of a file, defined as 1B.
+#[napi]
+pub const MIN_CHUNK_SIZE: usize = self_encryption::MIN_CHUNK_SIZE;
+/// The maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB.
+#[napi]
+pub const MAX_CHUNK_SIZE: usize = self_encryption::MAX_CHUNK_SIZE;
+/// Controls the compression-speed vs compression-density tradeoffs. The higher the quality, the slower the compression. Range is 0 to 11.
+#[napi]
+pub const COMPRESSION_QUALITY: i32 = self_encryption::COMPRESSION_QUALITY;
+/// The minimum size (before compression) of data to be self-encrypted, defined as 3B.
+#[napi]
+pub const MIN_ENCRYPTABLE_BYTES: usize = self_encryption::MIN_ENCRYPTABLE_BYTES;
+
 /// A 256-bit number, viewed as a point in XOR space.
 ///
 /// This wraps an array of 32 bytes, i. e. a number between 0 and 2<sup>256</sup> - 1.
