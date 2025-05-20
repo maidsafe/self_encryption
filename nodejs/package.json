@@ -1,6 +1,6 @@
 {
   "name": "@withautonomi/self-encryption",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "NodeJS bindings for Autonomi client",
   "main": "index.js",
   "types": "index.d.ts",
@@ -50,7 +50,6 @@
     "vault",
     "encryption"
   ],
-  "packageManager": "yarn@4.9.1",
   "typedocOptions": {
     "entryPoints": [
       "./index.d.ts"
