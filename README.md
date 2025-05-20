@@ -166,65 +166,6 @@ def basic_example():
     assert data == decrypted
 ```
 
-#### File Operations
-
-```python
-from pathlib import Path
-from self_encryption import encrypt_from_file, decrypt_from_storage, streaming_encrypt_from_file
-
-def file_example():
-    # Setup paths
-    input_path = Path("large_file.dat")
-    chunk_dir = Path("chunks")
-    output_path = Path("decrypted_file.dat")
-    
-    # Ensure chunk directory exists
-    chunk_dir.mkdir(exist_ok=True)
-    
-    # Regular file encryption - stores all chunks at once
-    data_map, chunk_names = encrypt_from_file(str(input_path), str(chunk_dir))
-    print(f"File encrypted into {len(chunk_names)} chunks")
-    
-    # Streaming encryption - memory efficient for large files
-    def store_chunk(name_hex: str, content: bytes) -> None:
-        chunk_path = chunk_dir / name_hex
-        chunk_path.write_bytes(content)
-    
-    data_map = streaming_encrypt_from_file(str(input_path), store_chunk)
-    print(f"File encrypted with streaming method")
-    
-    # Create chunk retrieval function
-    def get_chunk(hash_hex: str) -> bytes:
-        chunk_path = chunk_dir / hash_hex
-        return chunk_path.read_bytes()
-    
-    # Decrypt file
-    decrypt_from_storage(data_map, str(output_path), get_chunk)
-```
-
-#### Advanced Features
-
-```python
-from self_encryption import shrink_data_map, get_root_data_map
-
-def advanced_example():
-    # Create custom storage backend
-    chunk_store = {}
-    
-    def store_chunk(name_hex: str, content: bytes) -> None:
-        chunk_store[name_hex] = content
-    
-    def get_chunk(name_hex: str) -> bytes:
-        return chunk_store[name_hex]
-    
-    # Use streaming encryption with custom storage
-    data_map = streaming_encrypt_from_file("large_file.dat", store_chunk)
-    
-    # Get root data map for hierarchical storage
-    root_map = get_root_data_map(data_map, get_chunk)
-    print(f"Root data map level: {root_map.child()}")
-```
-
 ## Implementation Details
 
 ### Core Process
