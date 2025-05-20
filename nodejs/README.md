@@ -33,11 +33,9 @@ For example usage, see the [`__test__`](./__test__) directory. Replace `import {
 
 # Contributing, compilation and publishing
 
-To contribute or develop on the source code directly, we need a few requirements.
+To contribute or develop on the source code directly, Node.js must be installed (installation instructions [here](https://nodejs.org/en/download)).
 
-- Node.js ([installation instructions](https://nodejs.org/en/download))
-
-Change the working directory to `nodejs/`:
+With Node.js installed, change the working directory to `nodejs/`:
 ```console
 $ cd ./nodejs/
 ```
@@ -77,4 +75,4 @@ It's a good practice to have an unreleased version number ready to go. So if `0.
 
 ### Workflow
 
-Use the 'JS publish to NPM' workflow (`nodejs-publish.yml`) to publish the package from `main` or a tag. This workflow has to be manually dispatched through GitHub.
+Use the 'JS publish to NPM' workflow (`nodejs-publish.yml`) to publish the package from `master` or a tag. This workflow has to be manually dispatched through GitHub.
