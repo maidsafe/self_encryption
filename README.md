@@ -74,7 +74,7 @@ fn basic_example() -> Result<()> {
     let (data_map, encrypted_chunks) = encrypt(data.clone())?;
     
     // Decrypt data
-    let decrypted = decrypt_full_set(&data_map, &encrypted_chunks)?;
+    let decrypted = decrypt(&data_map, &encrypted_chunks)?;
     assert_eq!(data, decrypted);
     
     Ok(())
