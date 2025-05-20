@@ -53,3 +53,8 @@ cargo-manifest = "Cargo.toml"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.4",
+]

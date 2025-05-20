@@ -6,6 +6,7 @@ use crate::{
 use bytes::Bytes;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use std::borrow::Cow;
 use std::path::Path;
 
 /// A Python wrapper for the XorName struct.
@@ -45,8 +46,8 @@ impl PyXorName {
     ///
     /// Returns:
     ///     bytes: The 32-byte array.
-    pub fn as_bytes(&self) -> Vec<u8> {
-        self.inner.0.to_vec()
+    pub fn as_bytes(&self) -> Cow<[u8]> {
+        self.inner.0.to_vec().into()
     }
 }
 
@@ -250,8 +251,8 @@ impl PyEncryptedChunk {
     ///
     /// Returns:
     ///     bytes: The SHA256 hash of the encrypted chunk.
-    pub fn hash(&self) -> Vec<u8> {
-        XorName::from_content(&self.inner.content).0.to_vec()
+    pub fn hash(&self) -> Cow<[u8]> {
+        XorName::from_content(&self.inner.content).0.to_vec().into()
     }
 }
 
@@ -298,7 +299,10 @@ pub fn encrypt(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
 /// Raises:
 ///     ValueError: If decryption fails or chunks are missing/corrupted.
 #[pyfunction]
-pub fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<Vec<u8>> {
+pub fn decrypt(
+    data_map: &PyDataMap,
+    chunks: Vec<PyEncryptedChunk>,
+) -> PyResult<std::borrow::Cow<[u8]>> {
     let inner_chunks = chunks
         .into_iter()
         .map(|chunk| chunk.inner)
@@ -306,7 +310,7 @@ pub fn decrypt(data_map: &PyDataMap, chunks: Vec<PyEncryptedChunk>) -> PyResult<
     let bytes = crate::decrypt(&data_map.inner, &inner_chunks).map_err(|e| {
         pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {}", e))
     })?;
-    Ok(bytes.to_vec())
+    Ok(bytes.to_vec().into())
 }
 
 /// Encrypt a file and store its chunks.
@@ -419,7 +423,7 @@ pub fn streaming_decrypt_from_storage(
 
 /// Initialize the Python module.
 #[pymodule]
-#[pyo3(name = "self_encryption")]
+#[pyo3(name = "_self_encryption")]
 fn self_encryption_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDataMap>()?;
     m.add_class::<PyEncryptedChunk>()?;
