@@ -33,28 +33,23 @@ For example usage, see the [`__test__`](./__test__) directory. Replace `import {
 
 # Contributing, compilation and publishing
 
-To contribute or develop on the source code directly, we need a few requirements.
+To contribute or develop on the source code directly, Node.js must be installed (installation instructions [here](https://nodejs.org/en/download)).
 
-- Yarn
-  - `npm install --global yarn`
-- We need the NAPI RS CLI tool
-  - `yarn global add @napi-rs/cli`
-
-Change the working directory to `nodejs/`:
+With Node.js installed, change the working directory to `nodejs/`:
 ```console
 $ cd ./nodejs/
 ```
 
 Then install the dependencies for the project:
 ```console
-$ yarn install
+$ npm install
 ```
 
 ## Build
 
 Then build using the build script (which calls the `napi` CLI):
 ```console
-$ yarn build
+$ npm run build
 ```
 
 ## Running tests
@@ -62,9 +57,9 @@ $ yarn build
 Run the `test` script:
 
 ```console
-yarn test
+npm test
 # Or run a specific test
-yarn test __test__/core.spec.mjs -m 'encrypt and decrypt'
+npm test __test__/core.spec.mjs -m 'encrypt and decrypt'
 ```
 
 ## Publishing
@@ -80,4 +75,4 @@ It's a good practice to have an unreleased version number ready to go. So if `0.
 
 ### Workflow
 
-Use the 'JS publish to NPM' workflow (`nodejs-publish.yml`) to publish the package from `main` or a tag. This workflow has to be manually dispatched through GitHub.
+Use the 'JS publish to NPM' workflow (`nodejs-publish.yml`) to publish the package from `master` or a tag. This workflow has to be manually dispatched through GitHub.
