@@ -1,3 +1,6 @@
+[workspace]
+members = ["nodejs"]
+
 [package]
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
 description = "Self encrypting files (convergent encryption plus obfuscation)"
