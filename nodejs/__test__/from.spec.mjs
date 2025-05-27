@@ -37,20 +37,19 @@ test('streamingDecryptFromStorage', async (t) => {
   const { dataMap, chunks } = encrypt(data)
   const infos = dataMap.infos()
 
-  const getChunkParallel = (hexStrXorNames, abc) => {
+  const getChunkParallel = (xorNames) => {
     let chunkData = []
-    for (const hexStrXorName of hexStrXorNames) {
-      const xorName = XorName.fromHex(hexStrXorName)
+    for (const xorName of xorNames) {
       let found = false
       for (const info of infos) {
-        if (Buffer.from(info.dstHash.asBytes()).equals(xorName.asBytes())) {
+        if (info.dstHash.toHex() === xorName.toHex()) {
           chunkData.push(chunks[info.index].content())
           found = true
           break
         }
       }
       if (!found) {
-        throw new Error(`No chunk found for XOR: ${xorNameHexStr}`)
+        throw new Error(`No chunk found for XOR: ${xorName.toHex()}`)
       }
     }
 
