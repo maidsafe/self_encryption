@@ -40,7 +40,7 @@ export declare function decrypt(dataMap: DataMap, chunks: Array<EncryptedChunk>)
  * This function retrieves encrypted chunks using the provided callback,
  * decrypts them according to the DataMap, and writes the result to a file.
  */
-export declare function decryptFromStorage(dataMap: DataMap, outputFile: string, getChunk: (...args: any[]) => any): void
+export declare function decryptFromStorage(dataMap: DataMap, outputFile: string, getChunk: (xorName: XorName) => Uint8Array): void
 /**
  * Decrypts data from storage in a streaming fashion using parallel chunk retrieval.
  *
