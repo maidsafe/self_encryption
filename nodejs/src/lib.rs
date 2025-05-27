@@ -282,27 +282,19 @@ pub fn decrypt_from_storage(
     env: Env,
     data_map: &DataMap,
     output_file: String,
-    get_chunk: JsFunction,
+    #[napi(ts_arg_type = "(xorName: XorName) => Uint8Array")] get_chunk: JsFunction,
 ) -> Result<()> {
     let output_path = Path::new(&output_file);
 
     let get_chunk_wrapper = |xor_name: self_encryption::XorName| -> self_encryption::Result<Bytes> {
-        let xor_name = hex::encode(xor_name.0);
+        let xor_name = XorName(xor_name.clone());
+        let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+        let xor_name = unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap();
 
         // Call the JavaScript function with the chunk name
-        let result = get_chunk
-            .call(
-                None,
-                &[env
-                    .create_string(&xor_name)
-                    .map_err(|e| {
-                        self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
-                    })?
-                    .into_unknown()],
-            )
-            .map_err(|e| {
-                self_encryption::Error::Generic(format!("`getChunk` call resulted in error: {e}\n"))
-            })?;
+        let result = get_chunk.call(None, &[xor_name]).map_err(|e| {
+            self_encryption::Error::Generic(format!("`getChunk` call resulted in error: {e}\n"))
+        })?;
 
         let data =
             unsafe { Uint8Array::from_napi_value(env.raw(), result.raw()) }.map_err(|e| {

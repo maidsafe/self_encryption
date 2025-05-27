@@ -13,11 +13,9 @@ test('decryptFromStorage', async (t) => {
   const { dataMap, chunks } = encrypt(data)
   const infos = dataMap.infos()
 
-  const getChunk = (xorNameHexStr) => {
-    const xorName = XorName.fromHex(xorNameHexStr)
-
+  const getChunk = (xorName) => {
     for (const info of infos) {
-      if (Buffer.from(info.dstHash.asBytes()).equals(xorName.asBytes())) {
+      if (info.dstHash.toHex() === xorName.toHex()) {
         return chunks[info.index].content()
       }
     }
@@ -74,8 +72,8 @@ test('streamingEncryptFromFile', async (t) => {
   })
 
   fileName6 = crypto.randomBytes(16).toString('hex')
-  decryptFromStorage(dataMap, fileName6, (xorNameHexStr) => {
-    return map.get(xorNameHexStr)
+  decryptFromStorage(dataMap, fileName6, (xorName) => {
+    return map.get(xorName.toHex())
   })
   const dataRead = await fs.readFile(fileName6)
 
@@ -91,8 +89,8 @@ test('encryptFromFile and decryptFromStorage', async (t) => {
   await fs.mkdir(dirName1)
   const { dataMap, chunkNames } = encryptFromFile(fileName3, dirName1)
 
-  const getChunk = (xorNameHexStr) => {
-    return fsBlocking.readFileSync(dirName1 + path.sep + xorNameHexStr)
+  const getChunk = (xorName) => {
+    return fsBlocking.readFileSync(dirName1 + path.sep + xorName.toHex())
   }
 
   fileName4 = crypto.randomBytes(16).toString('hex')
