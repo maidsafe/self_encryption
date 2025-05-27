@@ -47,7 +47,7 @@ export declare function decryptFromStorage(dataMap: DataMap, outputFile: string,
  * This function retrieves the encrypted chunks in parallel using the provided `getChunkParallel` function,
  * decrypts them, and writes the decrypted data directly to the specified output file path.
  */
-export declare function streamingDecryptFromStorage(dataMap: DataMap, outputFile: string, getChunkParallel: (...args: any[]) => any): void
+export declare function streamingDecryptFromStorage(dataMap: DataMap, outputFile: string, getChunkParallel: (xorNames: XorName[]) => Uint8Array): void
 export declare function streamingEncryptFromFile(filePath: string, chunkStore: (xorName: XorName, bytes: Uint8Array) => undefined): DataMap
 /**
  * Encrypt a file and store its chunks.
