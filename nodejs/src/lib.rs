@@ -327,22 +327,23 @@ pub fn streaming_decrypt_from_storage(
     env: Env,
     data_map: &DataMap,
     output_file: String,
-    get_chunk_parallel: JsFunction,
+    #[napi(ts_arg_type = "(xorNames: XorName[]) => Uint8Array")] get_chunk_parallel: JsFunction,
 ) -> Result<()> {
     let output_path = Path::new(&output_file);
 
     let get_chunk_parallel_wrapper =
         |xor_name: &[self_encryption::XorName]| -> self_encryption::Result<Vec<Bytes>> {
-            // Map `XorName` to hex strings
+            // `Vec<XorName>` -> `Vec<JsXorName> -> `Vec<JsUnknown>`
             let xor_names = xor_name
                 .iter()
-                .map(|x| env.create_string(&hex::encode(x.0)))
-                .collect::<Result<Vec<_>>>()
-                .map_err(|e| {
-                    self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
-                })?;
+                .map(|xor_name| {
+                    let xor_name = XorName(xor_name.clone());
+                    let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+                    unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap()
+                })
+                .collect::<Vec<_>>();
 
-            // Map the `Vec<XorName>` to a `Vec<JsString>`
+            // `Vec<JsUnknown>` -> JS `Array` -> `JsObject` -> `JsUnknown`
             let xor_names = Array::from_vec(&env, xor_names)
                 .map_err(|e| {
                     self_encryption::Error::Generic(format!("Could not create array: {e}\n"))
@@ -354,7 +355,7 @@ pub fn streaming_decrypt_from_storage(
                 })?
                 .into_unknown();
 
-            // Call the JavaScript function with the chunk name
+            // Call the JavaScript function with the XOR names
             let result = get_chunk_parallel.call(None, &[xor_names]).map_err(|e| {
                 self_encryption::Error::Generic(format!(
                     "`getChunkParallel` call resulted in error: {e}\n"
