@@ -94,6 +94,11 @@ impl XorName {
     }
 
     #[napi]
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0.0)
+    }
+
+    #[napi]
     pub fn from_hex(hex: String) -> Result<Self> {
         let mut bytes = [0u8; XOR_NAME_LEN];
         hex::decode_to_slice(hex, &mut bytes)
