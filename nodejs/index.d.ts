@@ -17,6 +17,14 @@
  * * `Error` - If the content hash doesn't match or deserialization fails
  */
 export declare function verifyChunk(name: XorName, bytes: Uint8Array): EncryptedChunk
+/** The minimum size (before compression) of an individual chunk of a file, defined as 1B. */
+export const MIN_CHUNK_SIZE: bigint
+/** The maximum size (before compression) of an individual chunk of a file, defaulting as 1MiB. */
+export const MAX_CHUNK_SIZE: bigint
+/** Controls the compression-speed vs compression-density tradeoffs. The higher the quality, the slower the compression. Range is 0 to 11. */
+export const COMPRESSION_QUALITY: number
+/** The minimum size (before compression) of data to be self-encrypted, defined as 3B. */
+export const MIN_ENCRYPTABLE_BYTES: bigint
 /**
  * Encrypt raw data into chunks.
  *
@@ -32,14 +40,15 @@ export declare function decrypt(dataMap: DataMap, chunks: Array<EncryptedChunk>)
  * This function retrieves encrypted chunks using the provided callback,
  * decrypts them according to the DataMap, and writes the result to a file.
  */
-export declare function decryptFromStorage(dataMap: DataMap, outputFile: string, getChunk: (...args: any[]) => any): void
+export declare function decryptFromStorage(dataMap: DataMap, outputFile: string, getChunk: (xorName: XorName) => Uint8Array): void
 /**
  * Decrypts data from storage in a streaming fashion using parallel chunk retrieval.
  *
  * This function retrieves the encrypted chunks in parallel using the provided `getChunkParallel` function,
  * decrypts them, and writes the decrypted data directly to the specified output file path.
  */
-export declare function streamingDecryptFromStorage(dataMap: DataMap, outputFile: string, getChunkParallel: (...args: any[]) => any): void
+export declare function streamingDecryptFromStorage(dataMap: DataMap, outputFile: string, getChunkParallel: (xorNames: XorName[]) => Uint8Array): void
+export declare function streamingEncryptFromFile(filePath: string, chunkStore: (xorName: XorName, bytes: Uint8Array) => undefined): DataMap
 /**
  * Encrypt a file and store its chunks.
  *
@@ -62,6 +71,7 @@ export declare class XorName {
   static fromContent(content: Uint8Array): XorName
   /** Get the underlying bytes of the XorName. */
   asBytes(): Uint8Array
+  toHex(): string
   static fromHex(hex: string): XorName
 }
 /**

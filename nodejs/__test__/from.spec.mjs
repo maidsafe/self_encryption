@@ -4,20 +4,18 @@ import fsBlocking from 'fs'
 import crypto from 'crypto'
 import path from 'path'
 
-import { XorName, decryptFromStorage, streamingDecryptFromStorage, encrypt, encryptFromFile } from '../index.js'
+import { XorName, decryptFromStorage, streamingDecryptFromStorage, streamingEncryptFromFile, encrypt, encryptFromFile } from '../index.js'
 
-let fileName1, fileName2, fileName3, fileName4, dirName1
+let fileName1, fileName2, fileName3, fileName4, fileName5, fileName6, dirName1
 
 test('decryptFromStorage', async (t) => {
   const data = Buffer.from('Hello, World!');
   const { dataMap, chunks } = encrypt(data)
   const infos = dataMap.infos()
 
-  const getChunk = (xorNameHexStr) => {
-    const xorName = XorName.fromHex(xorNameHexStr)
-
+  const getChunk = (xorName) => {
     for (const info of infos) {
-      if (Buffer.from(info.dstHash.asBytes()).equals(xorName.asBytes())) {
+      if (info.dstHash.toHex() === xorName.toHex()) {
         return chunks[info.index].content()
       }
     }
@@ -37,20 +35,19 @@ test('streamingDecryptFromStorage', async (t) => {
   const { dataMap, chunks } = encrypt(data)
   const infos = dataMap.infos()
 
-  const getChunkParallel = (hexStrXorNames, abc) => {
+  const getChunkParallel = (xorNames) => {
     let chunkData = []
-    for (const hexStrXorName of hexStrXorNames) {
-      const xorName = XorName.fromHex(hexStrXorName)
+    for (const xorName of xorNames) {
       let found = false
       for (const info of infos) {
-        if (Buffer.from(info.dstHash.asBytes()).equals(xorName.asBytes())) {
+        if (info.dstHash.toHex() === xorName.toHex()) {
           chunkData.push(chunks[info.index].content())
           found = true
           break
         }
       }
       if (!found) {
-        throw new Error(`No chunk found for XOR: ${xorNameHexStr}`)
+        throw new Error(`No chunk found for XOR: ${xorName.toHex()}`)
       }
     }
 
@@ -64,6 +61,25 @@ test('streamingDecryptFromStorage', async (t) => {
   t.deepEqual(dataRead, data)
 })
 
+test('streamingEncryptFromFile', async (t) => {
+  const data = Buffer.from('Hello, World!');
+  fileName5 = crypto.randomBytes(16).toString('hex')
+  await fs.writeFile(fileName5, data)
+
+  let map = new Map();
+  const dataMap = streamingEncryptFromFile(fileName5, (xorName, bytes) => {
+    map.set(xorName.toHex(), bytes);
+  })
+
+  fileName6 = crypto.randomBytes(16).toString('hex')
+  decryptFromStorage(dataMap, fileName6, (xorName) => {
+    return map.get(xorName.toHex())
+  })
+  const dataRead = await fs.readFile(fileName6)
+
+  t.deepEqual(dataRead, data)
+})
+
 test('encryptFromFile and decryptFromStorage', async (t) => {
   const data = Buffer.from('Hello, World!');
   fileName3 = crypto.randomBytes(16).toString('hex')
@@ -73,8 +89,8 @@ test('encryptFromFile and decryptFromStorage', async (t) => {
   await fs.mkdir(dirName1)
   const { dataMap, chunkNames } = encryptFromFile(fileName3, dirName1)
 
-  const getChunk = (xorNameHexStr) => {
-    return fsBlocking.readFileSync(dirName1 + path.sep + xorNameHexStr)
+  const getChunk = (xorName) => {
+    return fsBlocking.readFileSync(dirName1 + path.sep + xorName.toHex())
   }
 
   fileName4 = crypto.randomBytes(16).toString('hex')
@@ -90,5 +106,7 @@ test.after.always('cleanup temporary files', async t => {
   if (fileName2) await fs.rm(fileName2, rmOptions)
   if (fileName3) await fs.rm(fileName3, rmOptions)
   if (fileName4) await fs.rm(fileName4, rmOptions)
+  if (fileName5) await fs.rm(fileName5, rmOptions)
+  if (fileName6) await fs.rm(fileName6, rmOptions)
   if (dirName1) await fs.rm(dirName1, rmOptions)
 });

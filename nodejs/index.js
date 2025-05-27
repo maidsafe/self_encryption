@@ -310,9 +310,13 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { verifyChunk, XorName, ChunkInfo, DataMap, EncryptedChunk, encrypt, decrypt, decryptFromStorage, streamingDecryptFromStorage, encryptFromFile, EncryptFromFileResult, EncryptResult } = nativeBinding
+const { verifyChunk, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE, COMPRESSION_QUALITY, MIN_ENCRYPTABLE_BYTES, XorName, ChunkInfo, DataMap, EncryptedChunk, encrypt, decrypt, decryptFromStorage, streamingDecryptFromStorage, streamingEncryptFromFile, encryptFromFile, EncryptFromFileResult, EncryptResult } = nativeBinding
 
 module.exports.verifyChunk = verifyChunk
+module.exports.MIN_CHUNK_SIZE = MIN_CHUNK_SIZE
+module.exports.MAX_CHUNK_SIZE = MAX_CHUNK_SIZE
+module.exports.COMPRESSION_QUALITY = COMPRESSION_QUALITY
+module.exports.MIN_ENCRYPTABLE_BYTES = MIN_ENCRYPTABLE_BYTES
 module.exports.XorName = XorName
 module.exports.ChunkInfo = ChunkInfo
 module.exports.DataMap = DataMap
@@ -321,6 +325,7 @@ module.exports.encrypt = encrypt
 module.exports.decrypt = decrypt
 module.exports.decryptFromStorage = decryptFromStorage
 module.exports.streamingDecryptFromStorage = streamingDecryptFromStorage
+module.exports.streamingEncryptFromFile = streamingEncryptFromFile
 module.exports.encryptFromFile = encryptFromFile
 module.exports.EncryptFromFileResult = EncryptFromFileResult
 module.exports.EncryptResult = EncryptResult
