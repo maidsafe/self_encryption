@@ -4,9 +4,9 @@ import fsBlocking from 'fs'
 import crypto from 'crypto'
 import path from 'path'
 
-import { XorName, decryptFromStorage, streamingDecryptFromStorage, encrypt, encryptFromFile } from '../index.js'
+import { XorName, decryptFromStorage, streamingDecryptFromStorage, streamingEncryptFromFile, encrypt, encryptFromFile } from '../index.js'
 
-let fileName1, fileName2, fileName3, fileName4, dirName1
+let fileName1, fileName2, fileName3, fileName4, fileName5, fileName6, dirName1
 
 test('decryptFromStorage', async (t) => {
   const data = Buffer.from('Hello, World!');
@@ -64,6 +64,25 @@ test('streamingDecryptFromStorage', async (t) => {
   t.deepEqual(dataRead, data)
 })
 
+test('streamingEncryptFromFile', async (t) => {
+  const data = Buffer.from('Hello, World!');
+  fileName5 = crypto.randomBytes(16).toString('hex')
+  await fs.writeFile(fileName5, data)
+
+  let map = new Map();
+  const dataMap = streamingEncryptFromFile(fileName5, (xorName, bytes) => {
+    map.set(xorName.toHex(), bytes);
+  })
+
+  fileName6 = crypto.randomBytes(16).toString('hex')
+  decryptFromStorage(dataMap, fileName6, (xorNameHexStr) => {
+    return map.get(xorNameHexStr)
+  })
+  const dataRead = await fs.readFile(fileName6)
+
+  t.deepEqual(dataRead, data)
+})
+
 test('encryptFromFile and decryptFromStorage', async (t) => {
   const data = Buffer.from('Hello, World!');
   fileName3 = crypto.randomBytes(16).toString('hex')
@@ -90,5 +109,7 @@ test.after.always('cleanup temporary files', async t => {
   if (fileName2) await fs.rm(fileName2, rmOptions)
   if (fileName3) await fs.rm(fileName3, rmOptions)
   if (fileName4) await fs.rm(fileName4, rmOptions)
+  if (fileName5) await fs.rm(fileName5, rmOptions)
+  if (fileName6) await fs.rm(fileName6, rmOptions)
   if (dirName1) await fs.rm(dirName1, rmOptions)
 });

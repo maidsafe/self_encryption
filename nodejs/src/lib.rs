@@ -399,6 +399,39 @@ pub fn streaming_decrypt_from_storage(
     .map_err(map_error)
 }
 
+// Reads a file in chunks, encrypts them, and stores them using a provided functor. Returns a DataMap.
+#[napi]
+pub fn streaming_encrypt_from_file(
+    env: Env,
+    file_path: String,
+    #[napi(ts_arg_type = "(xorName: XorName, bytes: Uint8Array) => undefined")]
+    chunk_store: JsFunction,
+) -> Result<DataMap> {
+    let file_path = Path::new(&file_path);
+
+    let chunk_store_wrapper = |xor_name: self_encryption::XorName,
+                               bytes: Bytes|
+     -> self_encryption::Result<()> {
+        let xor_name = XorName(xor_name);
+        let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+        let xor_name = unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap();
+
+        let bytes = Uint8Array::from(bytes.to_vec());
+        let bytes = unsafe { Uint8Array::to_napi_value(env.raw(), bytes) }.unwrap();
+        let bytes = unsafe { napi::JsUnknown::from_napi_value(env.raw(), bytes) }.unwrap();
+
+        let _ = chunk_store.call(None, &[xor_name, bytes]).map_err(|e| {
+            self_encryption::Error::Generic(format!("`chunkStore` call resulted in error: {e}\n"))
+        })?;
+
+        Ok(())
+    };
+
+    self_encryption::streaming_encrypt_from_file(file_path, chunk_store_wrapper)
+        .map(|dm| DataMap(dm))
+        .map_err(map_error)
+}
+
 /// Encrypt a file and store its chunks.
 ///
 /// This function reads a file, splits it into chunks, encrypts them,
