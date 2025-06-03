@@ -25,7 +25,6 @@ rand = "~0.8.5"
 rand_chacha = "~0.3.1"
 rayon = "1.5.1"
 thiserror = "1.0"
-itertools = "~0.10.0"
 tempfile = "3.6.0"
 xor_name = "5.0.0"
 pyo3 = { version = "0.24.2", optional = true, features = ["extension-module"] }
