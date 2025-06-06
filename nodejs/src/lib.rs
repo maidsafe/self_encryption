@@ -94,6 +94,11 @@ impl XorName {
     }
 
     #[napi]
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0.0)
+    }
+
+    #[napi]
     pub fn from_hex(hex: String) -> Result<Self> {
         let mut bytes = [0u8; XOR_NAME_LEN];
         hex::decode_to_slice(hex, &mut bytes)
@@ -277,27 +282,19 @@ pub fn decrypt_from_storage(
     env: Env,
     data_map: &DataMap,
     output_file: String,
-    get_chunk: JsFunction,
+    #[napi(ts_arg_type = "(xorName: XorName) => Uint8Array")] get_chunk: JsFunction,
 ) -> Result<()> {
     let output_path = Path::new(&output_file);
 
     let get_chunk_wrapper = |xor_name: self_encryption::XorName| -> self_encryption::Result<Bytes> {
-        let xor_name = hex::encode(xor_name.0);
+        let xor_name = XorName(xor_name.clone());
+        let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+        let xor_name = unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap();
 
         // Call the JavaScript function with the chunk name
-        let result = get_chunk
-            .call(
-                None,
-                &[env
-                    .create_string(&xor_name)
-                    .map_err(|e| {
-                        self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
-                    })?
-                    .into_unknown()],
-            )
-            .map_err(|e| {
-                self_encryption::Error::Generic(format!("`getChunk` call resulted in error: {e}\n"))
-            })?;
+        let result = get_chunk.call(None, &[xor_name]).map_err(|e| {
+            self_encryption::Error::Generic(format!("`getChunk` call resulted in error: {e}\n"))
+        })?;
 
         let data =
             unsafe { Uint8Array::from_napi_value(env.raw(), result.raw()) }.map_err(|e| {
@@ -322,22 +319,23 @@ pub fn streaming_decrypt_from_storage(
     env: Env,
     data_map: &DataMap,
     output_file: String,
-    get_chunk_parallel: JsFunction,
+    #[napi(ts_arg_type = "(xorNames: XorName[]) => Uint8Array")] get_chunk_parallel: JsFunction,
 ) -> Result<()> {
     let output_path = Path::new(&output_file);
 
     let get_chunk_parallel_wrapper =
         |xor_name: &[self_encryption::XorName]| -> self_encryption::Result<Vec<Bytes>> {
-            // Map `XorName` to hex strings
+            // `Vec<XorName>` -> `Vec<JsXorName> -> `Vec<JsUnknown>`
             let xor_names = xor_name
                 .iter()
-                .map(|x| env.create_string(&hex::encode(x.0)))
-                .collect::<Result<Vec<_>>>()
-                .map_err(|e| {
-                    self_encryption::Error::Generic(format!("Could not create string: {e}\n"))
-                })?;
+                .map(|xor_name| {
+                    let xor_name = XorName(xor_name.clone());
+                    let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+                    unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap()
+                })
+                .collect::<Vec<_>>();
 
-            // Map the `Vec<XorName>` to a `Vec<JsString>`
+            // `Vec<JsUnknown>` -> JS `Array` -> `JsObject` -> `JsUnknown`
             let xor_names = Array::from_vec(&env, xor_names)
                 .map_err(|e| {
                     self_encryption::Error::Generic(format!("Could not create array: {e}\n"))
@@ -349,7 +347,7 @@ pub fn streaming_decrypt_from_storage(
                 })?
                 .into_unknown();
 
-            // Call the JavaScript function with the chunk name
+            // Call the JavaScript function with the XOR names
             let result = get_chunk_parallel.call(None, &[xor_names]).map_err(|e| {
                 self_encryption::Error::Generic(format!(
                     "`getChunkParallel` call resulted in error: {e}\n"
@@ -392,6 +390,39 @@ pub fn streaming_decrypt_from_storage(
         get_chunk_parallel_wrapper,
     )
     .map_err(map_error)
+}
+
+// Reads a file in chunks, encrypts them, and stores them using a provided functor. Returns a DataMap.
+#[napi]
+pub fn streaming_encrypt_from_file(
+    env: Env,
+    file_path: String,
+    #[napi(ts_arg_type = "(xorName: XorName, bytes: Uint8Array) => undefined")]
+    chunk_store: JsFunction,
+) -> Result<DataMap> {
+    let file_path = Path::new(&file_path);
+
+    let chunk_store_wrapper = |xor_name: self_encryption::XorName,
+                               bytes: Bytes|
+     -> self_encryption::Result<()> {
+        let xor_name = XorName(xor_name);
+        let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
+        let xor_name = unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap();
+
+        let bytes = Uint8Array::from(bytes.to_vec());
+        let bytes = unsafe { Uint8Array::to_napi_value(env.raw(), bytes) }.unwrap();
+        let bytes = unsafe { napi::JsUnknown::from_napi_value(env.raw(), bytes) }.unwrap();
+
+        let _ = chunk_store.call(None, &[xor_name, bytes]).map_err(|e| {
+            self_encryption::Error::Generic(format!("`chunkStore` call resulted in error: {e}\n"))
+        })?;
+
+        Ok(())
+    };
+
+    self_encryption::streaming_encrypt_from_file(file_path, chunk_store_wrapper)
+        .map(|dm| DataMap(dm))
+        .map_err(map_error)
 }
 
 /// Encrypt a file and store its chunks.
