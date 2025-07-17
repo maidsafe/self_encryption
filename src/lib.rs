@@ -173,8 +173,7 @@ pub fn encrypt(bytes: Bytes) -> Result<(DataMap, Vec<EncryptedChunk>)> {
     let file_size = bytes.len();
     if file_size < MIN_ENCRYPTABLE_BYTES {
         return Err(Error::Generic(format!(
-            "Too small for self-encryption! Required size at least {}",
-            MIN_ENCRYPTABLE_BYTES
+            "Too small for self-encryption! Required size at least {MIN_ENCRYPTABLE_BYTES}",
         )));
     }
 
@@ -495,7 +494,7 @@ pub fn decrypt(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
         chunk_map
             .get(&hash)
             .map(|chunk| chunk.content.clone())
-            .ok_or_else(|| Error::Generic(format!("Chunk not found for hash: {:?}", hash)))
+            .ok_or_else(|| Error::Generic(format!("Chunk not found for hash: {hash:?}")))
     };
 
     // Get the root map if we're dealing with a child map
@@ -588,8 +587,7 @@ where
 
     if file_size < MIN_ENCRYPTABLE_BYTES {
         return Err(Error::Generic(format!(
-            "Too small for self-encryption! Required size at least {}",
-            MIN_ENCRYPTABLE_BYTES
+            "Too small for self-encryption! Required size at least {MIN_ENCRYPTABLE_BYTES}",
         )));
     }
 
@@ -720,7 +718,10 @@ where
             .iter()
             .map(|info| {
                 let content = chunk_cache.get(&info.dst_hash).ok_or_else(|| {
-                    Error::Generic(format!("Chunk not found for hash: {:?}", info.dst_hash))
+                    Error::Generic(format!(
+                        "Chunk not found for hash: {hash:?}",
+                        hash = info.dst_hash
+                    ))
                 })?;
                 Ok(EncryptedChunk {
                     content: content.clone(),
@@ -751,7 +752,7 @@ where
 ///
 /// * `Result<Vec<u8>>` - The serialized bytes or an error
 pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
-    bincode::serialize(data).map_err(|e| Error::Generic(format!("Serialization error: {}", e)))
+    bincode::serialize(data).map_err(|e| Error::Generic(format!("Serialization error: {e}")))
 }
 
 /// Deserializes bytes into a data structure using bincode.
@@ -764,7 +765,7 @@ pub fn serialize<T: serde::Serialize>(data: &T) -> Result<Vec<u8>> {
 ///
 /// * `Result<T>` - The deserialized data structure or an error
 pub fn deserialize<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
-    bincode::deserialize(bytes).map_err(|e| Error::Generic(format!("Deserialization error: {}", e)))
+    bincode::deserialize(bytes).map_err(|e| Error::Generic(format!("Deserialization error: {e}")))
 }
 
 /// Verifies and deserializes a chunk by checking its content hash matches the provided name.
@@ -790,8 +791,7 @@ pub fn verify_chunk(name: XorName, bytes: &[u8]) -> Result<EncryptedChunk> {
     // Verify the hash matches
     if calculated_hash != name {
         return Err(Error::Generic(format!(
-            "Chunk content hash mismatch. Expected: {:?}, Got: {:?}",
-            name, calculated_hash
+            "Chunk content hash mismatch. Expected: {name:?}, Got: {calculated_hash:?}"
         )));
     }
 
@@ -900,7 +900,7 @@ mod tests {
 
         println!("\nFinal Data Map Info:");
         println!("Number of chunks: {}", shrunk_map.len());
-        println!("Original file size: {}", file_size);
+        println!("Original file size: {file_size}");
         println!("Is child: {}", shrunk_map.is_child());
 
         for (i, info) in shrunk_map.infos().iter().enumerate() {

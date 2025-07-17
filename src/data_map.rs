@@ -82,14 +82,14 @@ impl Debug for DataMap {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(formatter, "DataMap:")?;
         if let Some(child) = self.child {
-            writeln!(formatter, "    child: {}", child)?;
+            writeln!(formatter, "    child: {child}")?;
         }
         let len = self.chunk_identifiers.len();
         for (index, chunk) in self.chunk_identifiers.iter().enumerate() {
             if index + 1 == len {
-                write!(formatter, "        {:?}", chunk)?
+                write!(formatter, "        {chunk:?}")?
             } else {
-                writeln!(formatter, "        {:?}", chunk)?
+                writeln!(formatter, "        {chunk:?}")?
             }
         }
         Ok(())
@@ -124,7 +124,7 @@ fn debug_bytes<V: AsRef<[u8]>>(input: V) -> String {
     if input_ref.len() <= 6 {
         let mut ret = String::new();
         for byte in input_ref.iter() {
-            write!(ret, "{:02x}", byte).unwrap_or(());
+            write!(ret, "{byte:02x}").unwrap_or(());
         }
         return ret;
     }

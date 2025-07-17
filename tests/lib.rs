@@ -80,9 +80,9 @@ async fn cross_platform_check() -> Result<()> {
     );
 
     for (i, info) in data_map.infos().iter().enumerate() {
-        println!("ChunkInfo {}: src_hash = {:02x?}", i, info.src_hash.0);
-        println!("ChunkInfo {}: dst_hash = {:02x?}", i, info.dst_hash.0);
-        println!("ChunkInfo {}: size = {}", i, info.src_size);
+        println!("ChunkInfo {i}: src_hash = {:02x?}", info.src_hash.0);
+        println!("ChunkInfo {i}: dst_hash = {:02x?}", info.dst_hash.0);
+        println!("ChunkInfo {i}: size = {}", info.src_size);
     }
 
     // Store these values as the new reference once we're happy with the implementation
@@ -92,15 +92,13 @@ async fn cross_platform_check() -> Result<()> {
     for (i, (expected, got)) in ref_data_map.iter().zip(data_map.infos()).enumerate() {
         assert_eq!(
             expected.src_hash, got.src_hash,
-            "Chunk {} src_hash mismatch",
-            i
+            "Chunk {i} src_hash mismatch"
         );
         assert_eq!(
             expected.dst_hash, got.dst_hash,
-            "Chunk {} dst_hash mismatch",
-            i
+            "Chunk {i} dst_hash mismatch"
         );
-        assert_eq!(expected.src_size, got.src_size, "Chunk {} size mismatch", i);
+        assert_eq!(expected.src_size, got.src_size, "Chunk {i} size mismatch");
     }
 
     Ok(())
@@ -163,12 +161,12 @@ fn test_data_map_debug() {
 
     // Test Debug output without child
     let data_map = DataMap::new(chunk_infos.clone());
-    let debug_str = format!("{:?}", data_map);
+    let debug_str = format!("{data_map:?}");
     assert!(!debug_str.contains("child:"));
 
     // Test Debug output with child
     let data_map = DataMap::with_child(chunk_infos, 42);
-    let debug_str = format!("{:?}", data_map);
+    let debug_str = format!("{data_map:?}");
     assert!(debug_str.contains("child: 42"));
 }
 

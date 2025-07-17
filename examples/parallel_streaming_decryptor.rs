@@ -26,8 +26,8 @@ fn validate_paths(args: &Args) -> Result<()> {
     // Check data map file exists and is readable
     if !Path::new(&args.data_map).exists() {
         return Err(Error::Generic(format!(
-            "Data map file does not exist: {}",
-            args.data_map
+            "Data map file does not exist: {file}",
+            file = args.data_map
         )));
     }
 
@@ -35,14 +35,14 @@ fn validate_paths(args: &Args) -> Result<()> {
     let chunks_dir = Path::new(&args.chunks_dir);
     if !chunks_dir.exists() {
         return Err(Error::Generic(format!(
-            "Chunks directory does not exist: {}",
-            args.chunks_dir
+            "Chunks directory does not exist: {dir}",
+            dir = args.chunks_dir
         )));
     }
     if !chunks_dir.is_dir() {
         return Err(Error::Generic(format!(
-            "Chunks path is not a directory: {}",
-            args.chunks_dir
+            "Chunks path is not a directory: {dir}",
+            dir = args.chunks_dir
         )));
     }
 
@@ -51,8 +51,8 @@ fn validate_paths(args: &Args) -> Result<()> {
     if let Some(parent) = output_path.parent() {
         if !parent.exists() {
             return Err(Error::Generic(format!(
-                "Output directory does not exist: {}",
-                parent.display()
+                "Output directory does not exist: {dir}",
+                dir = parent.display()
             )));
         }
         // Try to verify write permissions
@@ -62,8 +62,8 @@ fn validate_paths(args: &Args) -> Result<()> {
             .unwrap_or(true)
         {
             return Err(Error::Generic(format!(
-                "Output directory is not writable: {}",
-                parent.display()
+                "Output directory is not writable: {dir}",
+                dir = parent.display()
             )));
         }
     }
@@ -89,7 +89,7 @@ fn main() -> Result<()> {
                 let mut chunk_data = Vec::new();
                 File::open(&chunk_path)
                     .and_then(|mut file| file.read_to_end(&mut chunk_data))
-                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
                 Ok(Bytes::from(chunk_data))
             })
             .collect()
@@ -98,7 +98,10 @@ fn main() -> Result<()> {
     // Use the streaming decryption function
     streaming_decrypt_from_storage(&data_map, Path::new(&args.output), get_chunk_parallel)?;
 
-    println!("Successfully decrypted file to: {}", args.output);
+    println!(
+        "Successfully decrypted file to: {output}",
+        output = args.output
+    );
 
     Ok(())
 }
@@ -106,9 +109,9 @@ fn main() -> Result<()> {
 // Helper function to load data map from a file
 fn load_data_map(path: &str) -> Result<DataMap> {
     let mut file =
-        File::open(path).map_err(|e| Error::Generic(format!("Failed to open data map: {}", e)))?;
+        File::open(path).map_err(|e| Error::Generic(format!("Failed to open data map: {e}")))?;
     let mut data = Vec::new();
     file.read_to_end(&mut data)
-        .map_err(|e| Error::Generic(format!("Failed to read data map: {}", e)))?;
+        .map_err(|e| Error::Generic(format!("Failed to read data map: {e}")))?;
     deserialize(&data)
 }
