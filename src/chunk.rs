@@ -9,7 +9,7 @@
 use bytes::Bytes;
 
 /// The actual encrypted content of the chunk
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncryptedChunk {
     /// The encrypted content of the chunk
     pub content: Bytes,
