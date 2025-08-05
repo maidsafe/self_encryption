@@ -89,7 +89,7 @@ fn main() -> Result<()> {
                 let mut chunk_data = Vec::new();
                 File::open(&chunk_path)
                     .and_then(|mut file| file.read_to_end(&mut chunk_data))
-                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
                 Ok(Bytes::from(chunk_data))
             })
             .collect()
@@ -106,9 +106,9 @@ fn main() -> Result<()> {
 // Helper function to load data map from a file
 fn load_data_map(path: &str) -> Result<DataMap> {
     let mut file =
-        File::open(path).map_err(|e| Error::Generic(format!("Failed to open data map: {}", e)))?;
+        File::open(path).map_err(|e| Error::Generic(format!("Failed to open data map: {e}")))?;
     let mut data = Vec::new();
     file.read_to_end(&mut data)
-        .map_err(|e| Error::Generic(format!("Failed to read data map: {}", e)))?;
+        .map_err(|e| Error::Generic(format!("Failed to read data map: {e}")))?;
     deserialize(&data)
 }

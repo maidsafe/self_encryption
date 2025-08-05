@@ -136,7 +136,7 @@ impl PyDataMap {
     #[staticmethod]
     pub fn from_json(json_str: &str) -> PyResult<Self> {
         let inner = serde_json::from_str(json_str)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {e}")))?;
         Ok(Self { inner })
     }
 
@@ -146,7 +146,7 @@ impl PyDataMap {
     ///     str: A JSON string representation of the DataMap.
     pub fn to_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.inner).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e))
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {e}"))
         })
     }
 
@@ -275,7 +275,7 @@ impl PyEncryptedChunk {
 pub fn encrypt(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
     let bytes = Bytes::copy_from_slice(data);
     let (data_map, chunks) = crate::encrypt(bytes).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Encryption failed: {}", e))
+        pyo3::exceptions::PyValueError::new_err(format!("Encryption failed: {e}"))
     })?;
     let py_chunks = chunks
         .into_iter()
@@ -308,7 +308,7 @@ pub fn decrypt(
         .map(|chunk| chunk.inner)
         .collect::<Vec<_>>();
     let bytes = crate::decrypt(&data_map.inner, &inner_chunks).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {}", e))
+        pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {e}"))
     })?;
     Ok(bytes.to_vec().into())
 }
@@ -335,7 +335,7 @@ pub fn encrypt_from_file(input_file: &str, output_dir: &str) -> PyResult<(PyData
     let input_path = Path::new(input_file);
     let output_path = Path::new(output_dir);
     let (data_map, chunk_names) = rust_encrypt_from_file(input_path, output_path).map_err(|e| {
-        pyo3::exceptions::PyOSError::new_err(format!("Failed to encrypt file: {}", e))
+        pyo3::exceptions::PyOSError::new_err(format!("Failed to encrypt file: {e}"))
     })?;
     let chunk_names = chunk_names.iter().map(|name| hex::encode(name.0)).collect();
     Ok((PyDataMap { inner: data_map }, chunk_names))
@@ -365,15 +365,15 @@ pub fn decrypt_from_storage(
         let name_str = hex::encode(name.0);
         let chunk = get_chunk
             .call1((name_str,))
-            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunk: {}", e)))?;
+            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunk: {e}")))?;
         let bytes = chunk
             .downcast::<PyBytes>()
-            .map_err(|e| crate::Error::Python(format!("get_chunk must return bytes: {}", e)))?;
+            .map_err(|e| crate::Error::Python(format!("get_chunk must return bytes: {e}")))?;
         Ok(Bytes::copy_from_slice(bytes.as_bytes()))
     };
 
     rust_decrypt_from_storage(&data_map.inner, output_path, get_chunk_wrapper)
-        .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("Decryption failed: {}", e)))
+        .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("Decryption failed: {e}")))
 }
 
 /// Decrypt data using streaming for better performance with large files.
@@ -400,16 +400,16 @@ pub fn streaming_decrypt_from_storage(
         let name_strs: Vec<String> = names.iter().map(|x| hex::encode(x.0)).collect();
         let chunks = get_chunks
             .call1((name_strs,))
-            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunks: {}", e)))?;
+            .map_err(|e| crate::Error::Python(format!("Failed to call get_chunks: {e}")))?;
         let chunks = chunks
             .try_iter()
-            .map_err(|e| crate::Error::Python(format!("get_chunks must return a list: {}", e)))?;
+            .map_err(|e| crate::Error::Python(format!("get_chunks must return a list: {e}")))?;
         let mut result = Vec::new();
         for chunk in chunks {
             let chunk = chunk
-                .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {}", e)))?;
+                .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {e}")))?;
             let bytes = chunk.downcast::<PyBytes>().map_err(|e| {
-                crate::Error::Python(format!("get_chunks must return bytes: {}", e))
+                crate::Error::Python(format!("get_chunks must return bytes: {e}"))
             })?;
             result.push(Bytes::copy_from_slice(bytes.as_bytes()));
         }
@@ -417,7 +417,7 @@ pub fn streaming_decrypt_from_storage(
     };
 
     rust_streaming_decrypt_from_storage(&data_map.inner, output_path, get_chunks_wrapper).map_err(
-        |e| pyo3::exceptions::PyOSError::new_err(format!("Streaming decryption failed: {}", e)),
+        |e| pyo3::exceptions::PyOSError::new_err(format!("Streaming decryption failed: {e}")),
     )
 }
 
