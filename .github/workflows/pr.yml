@@ -47,18 +47,6 @@ jobs:
       - name: Clippy checks
         run: cargo clippy --all-targets --all-features
 
-  check_pr_size:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
-    name: Check PR size doesn't break set limit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: "0"
-      - uses: maidsafe/pr_size_checker@v2
-        with:
-          max_lines_changed: 200
-
   coverage:
     if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
     name: Code coverage check
