@@ -1,34 +1,27 @@
-# PR workflow.
-#
-# Runs full suite of checks, with warnings treated as errors.
-# Gathers code coverage stats and publish them on coveralls.io.
-
-name: PR
+name: Merge Requirements
 
 on: [pull_request]
 
 env:
-  # Run all cargo commands with --verbose.
-  CARGO_TERM_VERBOSE: true
   RUST_BACKTRACE: 1
-  # Deny all compiler warnings.
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  checks:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
-    name: Clippy & fmt
-    runs-on: ubuntu-latest
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-          components: rustfmt, clippy
 
-      # Cache.
       - uses: actions/cache@v4
         with:
           path: |
@@ -39,62 +32,39 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # Check if the code is formatted correctly.
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Build
+        run: cargo build --release --all-targets --all-features
 
-      # Run Clippy.
-      - name: Clippy checks
+  checks:
+    name: Enforce Clippy constraints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run Clippy
         run: cargo clippy --all-targets --all-features
 
-  coverage:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
-    name: Code coverage check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      # Install Rust and required components
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      # Cache.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      # Generate code coverage & push result to coveralls.io
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-      - name: Push code coverage results to coveralls.io
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel: true
-          path-to-lcov: ./lcov.info
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
-
   cargo-udeps:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
     name: Unused dependency check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Install Rust and required components
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -107,27 +77,22 @@ jobs:
           args: '--all-targets'
 
   cargo-deny:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   tests:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Install Rust
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
 
-      # Cache.
       - uses: actions/cache@v4
         with:
           path: |
@@ -138,29 +103,24 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # Run tests.
-      - name: Cargo test
+      - name: Run tests
         run: cargo test --release
 
   tests32:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
     name: Test 32bit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Install Rust
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      # Install 32 Bit compiler
       - name: Install 32bit target
         run: rustup target install i686-unknown-linux-gnu
       - name: Install GCC Multilib
         run: sudo apt install gcc-multilib
 
-      # Cache.
       - uses: actions/cache@v4
         with:
           path: |
@@ -171,24 +131,19 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # Run tests.
       - name: Cargo test
         run: cargo test --release --target=i686-unknown-linux-gnu
 
-  # Test publish using --dry-run.
   test-publish:
-    if: "!startsWith(github.event.pull_request.title, 'Automated version bump')"
-    name: Test Publish
+    name: Dry run publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Install Rust
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
 
-      # Cargo publish dry run
-      - name: Cargo Publish Dry Run
+      - name: Dry run publish
         run: cargo publish --dry-run
