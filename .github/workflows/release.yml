@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  # It's arguable we don't need this job in the release workflow because we've already checked if
+  # the code can build in the merge workflow, but there's litte harm running it here as an extra
+  # safety measure, even though we're not doing anything with the built artifacts.
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run cargo build
+        run: cargo build --release --workspace
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # `release-plz` cannot create tags unless the checkout uses the token
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+          token: ${{ secrets.SELF_ENCRYPTION_PAT }}
+      - uses: dtolnay/rust-toolchain@stable
+     
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      # This is required to allow `release-plz` to create tags
+      - shell: bash
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - uses: cargo-bins/cargo-binstall@main
+      - shell: bash
+        run: cargo binstall --no-confirm release-plz
+
+      - name: publish crates
+        shell: bash
+        run: |
+          cargo login "${{ secrets.CRATES_IO_TOKEN }}"
+          release-plz release --git-token ${{ secrets.SELF_ENCRYPTION_PAT }}
