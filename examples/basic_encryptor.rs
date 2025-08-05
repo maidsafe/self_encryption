@@ -165,16 +165,12 @@ async fn main() {
                     match file.write_all(&encoded[..]) {
                         Ok(_) => println!("Data map written to {data_map_file:?}"),
                         Err(error) => {
-                            println!(
-                                "Failed to write data map to {data_map_file:?} - {error:?}"
-                            );
+                            println!("Failed to write data map to {data_map_file:?} - {error:?}");
                         }
                     }
                 }
                 Err(error) => {
-                    println!(
-                        "Failed to create data map at {data_map_file:?} - {error:?}"
-                    );
+                    println!("Failed to create data map at {data_map_file:?} - {error:?}");
                 }
             }
         } else {
