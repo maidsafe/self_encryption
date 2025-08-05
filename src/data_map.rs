@@ -139,13 +139,13 @@ impl Serialize for DataMap {
                 chunk_identifiers: &'a Vec<ChunkInfo>,
                 child: &'a Option<usize>,
             }
-            
+
             let versioned = VersionedDataMap {
                 version: 1u8,
                 chunk_identifiers: &self.chunk_identifiers,
                 child: &self.child,
             };
-            
+
             versioned.serialize(serializer)
         }
     }
@@ -223,19 +223,17 @@ impl<'de> Deserialize<'de> for DataMap {
             // Since we can't peek with serde, we try the versioned format first
             // If it starts with a reasonable version number (1), it's the new format
             match VersionedDataMap::deserialize(deserializer) {
-                Ok(versioned) if versioned.version == 1 => {
-                    Ok(DataMap {
-                        chunk_identifiers: versioned.chunk_identifiers,
-                        child: versioned.child,
-                    })
-                }
+                Ok(versioned) if versioned.version == 1 => Ok(DataMap {
+                    chunk_identifiers: versioned.chunk_identifiers,
+                    child: versioned.child,
+                }),
                 _ => {
                     // If it failed or has wrong version, it might be the old format
                     // For the old format, we need to re-read from the beginning
                     // This is a limitation - we can't truly try both formats with serde
                     // In practice, this means we need external knowledge of the format
                     Err(de::Error::custom(
-                        "Cannot determine binary format version. Migration required."
+                        "Cannot determine binary format version. Migration required.",
                     ))
                 }
             }
@@ -427,7 +425,7 @@ mod tests {
         let data_map = DataMap::new(chunks);
 
         let bytes = data_map.to_bytes().unwrap();
-        
+
         // First byte should be the version (1)
         assert!(bytes.len() > 0);
         assert_eq!(bytes[0], 1u8);
