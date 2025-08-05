@@ -79,7 +79,7 @@ struct Args {
 }
 
 fn to_hex(ch: u8) -> String {
-    fmt::format(format_args!("{:02x}", ch))
+    fmt::format(format_args!("{ch:02x}"))
 }
 
 fn file_name(name: XorName) -> String {
@@ -115,7 +115,7 @@ impl DiskBasedStorage {
         let mut file = File::create(&path)?;
         file.write_all(&data[..])
             .map(|_| {
-                println!("Chunk written to {:?}", path);
+                println!("Chunk written to {path:?}");
             })
             .map_err(From::from)
     }
@@ -128,7 +128,7 @@ async fn main() {
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
     if args.flag_help {
-        println!("{:?}", args)
+        println!("{args:?}")
     }
 
     let mut chunk_store_dir = env::temp_dir();
@@ -145,7 +145,7 @@ async fn main() {
             let mut data = Vec::new();
             match file.read_to_end(&mut data) {
                 Ok(_) => (),
-                Err(error) => return println!("{}", error),
+                Err(error) => return println!("{error}"),
             }
 
             let (data_map, encrypted_chunks) = encrypt(Bytes::from(data)).unwrap();
@@ -163,19 +163,17 @@ async fn main() {
                 Ok(mut file) => {
                     let encoded = serialize(&data_map).unwrap();
                     match file.write_all(&encoded[..]) {
-                        Ok(_) => println!("Data map written to {:?}", data_map_file),
+                        Ok(_) => println!("Data map written to {data_map_file:?}"),
                         Err(error) => {
                             println!(
-                                "Failed to write data map to {:?} - {:?}",
-                                data_map_file, error
+                                "Failed to write data map to {data_map_file:?} - {error:?}"
                             );
                         }
                     }
                 }
                 Err(error) => {
                     println!(
-                        "Failed to create data map at {:?} - {:?}",
-                        data_map_file, error
+                        "Failed to create data map at {data_map_file:?} - {error:?}"
                     );
                 }
             }
@@ -214,7 +212,7 @@ async fn main() {
                         let content =
                             decrypt(&DataMap::new(keys), encrypted_chunks.as_ref()).unwrap();
                         match file.write_all(&content[..]) {
-                            Err(error) => println!("File write failed - {:?}", error),
+                            Err(error) => println!("File write failed - {error:?}"),
                             Ok(_) => {
                                 println!("File decrypted to {:?}", args.arg_destination.unwrap())
                             }
@@ -228,7 +226,7 @@ async fn main() {
                 }
             }
         } else {
-            println!("Failed to open data map at {:?}", data_map_file);
+            println!("Failed to open data map at {data_map_file:?}");
         }
     }
 }

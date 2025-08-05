@@ -71,10 +71,10 @@ impl StorageBackend {
         Box::new(move |hash| {
             let path = base_path.join(hex::encode(hash));
             let mut file = File::open(&path)
-                .map_err(|e| Error::Generic(format!("Failed to open chunk file: {}", e)))?;
+                .map_err(|e| Error::Generic(format!("Failed to open chunk file: {e}")))?;
             let mut data = Vec::new();
             file.read_to_end(&mut data)
-                .map_err(|e| Error::Generic(format!("Failed to read chunk data: {}", e)))?;
+                .map_err(|e| Error::Generic(format!("Failed to read chunk data: {e}")))?;
             Ok(Bytes::from(data))
         })
     }
@@ -98,7 +98,7 @@ impl StorageBackend {
     }
 
     fn debug_storage_state(&self, prefix: &str) -> Result<()> {
-        println!("\n=== {} ===", prefix);
+        println!("\n=== {prefix} ===");
         if let Ok(guard) = self.memory.lock() {
             println!("Memory storage contains {} chunks", guard.len());
             for (hash, data) in guard.iter() {
@@ -138,7 +138,7 @@ fn test_cross_backend_encryption_decryption() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     for (name, use_memory_store, _use_memory_retrieve) in &[("memory-to-memory", true, true)] {
-        println!("\nRunning test case: {}", name);
+        println!("\nRunning test case: {name}");
 
         let input_path = temp_dir.path().join("input.dat");
         let mut input_file = File::create(&input_path)?;
@@ -244,10 +244,10 @@ fn test_concurrent_backend_access() -> Result<()> {
         // Setup paths with unique identifiers
         let input_path = temp_dir
             .path()
-            .join(format!("input_{}_{}.dat", count, size));
+            .join(format!("input_{count}_{size}.dat"));
         let output_path = temp_dir
             .path()
-            .join(format!("output_{}_{}.dat", count, size));
+            .join(format!("output_{count}_{size}.dat"));
 
         // Write test data
         File::create(&input_path)?.write_all(&data)?;
@@ -320,7 +320,7 @@ fn test_cross_platform_compatibility() -> Result<()> {
 
     for size in &[3073, 1024 * 1024] {
         // Start with smaller subset for testing
-        println!("Testing size: {}", size);
+        println!("Testing size: {size}");
 
         // Create deterministic data
         let mut content = vec![0u8; *size];
@@ -329,7 +329,7 @@ fn test_cross_platform_compatibility() -> Result<()> {
         }
         let original_data = Bytes::from(content);
 
-        let input_path = temp_dir.path().join(format!("input_{}.dat", size));
+        let input_path = temp_dir.path().join(format!("input_{size}.dat"));
         let mut input_file = File::create(&input_path)?;
         input_file.write_all(&original_data)?;
 
@@ -372,7 +372,7 @@ fn test_platform_specific_sizes() -> Result<()> {
     ];
 
     for (name, size) in test_cases {
-        println!("Testing size: {} ({} bytes)", name, size);
+        println!("Testing size: {name} ({size} bytes)");
 
         let original_data = random_bytes(size);
 
@@ -404,9 +404,7 @@ fn test_platform_specific_sizes() -> Result<()> {
         assert_eq!(
             original_data.as_ref(),
             decrypted_bytes.as_ref(),
-            "Data mismatch for {} (size: {})",
-            name,
-            size
+            "Data mismatch for {name} (size: {size})"
         );
     }
 
@@ -431,7 +429,7 @@ fn test_encrypt_from_file_stores_all_chunks() -> Result<()> {
     // Now encrypt from file
     let (data_map, chunk_names) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
 
-    println!("Expected chunks: {}", expected_chunk_count);
+    println!("Expected chunks: {expected_chunk_count}");
     println!("Got chunk names: {}", chunk_names.len());
 
     // Verify we got all chunks
@@ -472,7 +470,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
     ];
 
     for (size_name, size) in test_cases {
-        println!("\n=== Testing {} file ===", size_name);
+        println!("\n=== Testing {size_name} file ===");
         let original_data = random_bytes(size);
 
         // 1. In-memory encryption (encrypt)
@@ -483,7 +481,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
 
         // 2. File-based encryption (encrypt_from_file)
         println!("\n2. Testing file-based encryption (encrypt_from_file):");
-        let input_path = temp_dir.path().join(format!("input_{}.dat", size_name));
+        let input_path = temp_dir.path().join(format!("input_{size_name}.dat"));
         File::create(&input_path)?.write_all(&original_data)?;
         let (data_map2, chunk_names) = encrypt_from_file(&input_path, storage.disk_dir.path())?;
         println!("- Generated {} chunks", chunk_names.len());
@@ -510,7 +508,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
             let chunk_path = storage.disk_dir.path().join(hex::encode(hash));
             File::create(&chunk_path)?.write_all(&chunk.content)?;
         }
-        let output_path1 = temp_dir.path().join(format!("output1_{}.dat", size_name));
+        let output_path1 = temp_dir.path().join(format!("output1_{size_name}.dat"));
         let mut retrieve_fn = storage.retrieve_from_disk();
         decrypt_from_storage(&data_map1, &output_path1, &mut retrieve_fn)?;
 
@@ -527,7 +525,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
         println!("\nA.3 Testing streaming_decrypt_from_storage() with encrypt() result:");
         let output_path1_stream = temp_dir
             .path()
-            .join(format!("output1_stream_{}.dat", size_name));
+            .join(format!("output1_stream_{size_name}.dat"));
 
         // Create parallel chunk retrieval function
         let chunk_dir = storage.disk_dir.path().to_owned();
@@ -539,7 +537,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
                     let mut chunk_data = Vec::new();
                     File::open(&chunk_path)
                         .and_then(|mut file| file.read_to_end(&mut chunk_data))
-                        .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                        .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
                     Ok(Bytes::from(chunk_data))
                 })
                 .collect()
@@ -577,7 +575,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
 
         // E. Test decrypt_from_storage() with file-based encryption result
         println!("\nB.2 Testing decrypt_from_storage() with encrypt_from_file() result:");
-        let output_path2 = temp_dir.path().join(format!("output2_{}.dat", size_name));
+        let output_path2 = temp_dir.path().join(format!("output2_{size_name}.dat"));
         let mut retrieve_fn = storage.retrieve_from_disk();
         decrypt_from_storage(&data_map2, &output_path2, &mut retrieve_fn)?;
 
@@ -594,7 +592,7 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
         println!("\nB.3 Testing streaming_decrypt_from_storage() with encrypt_from_file() result:");
         let output_path2_stream = temp_dir
             .path()
-            .join(format!("output2_stream_{}.dat", size_name));
+            .join(format!("output2_stream_{size_name}.dat"));
         streaming_decrypt_from_storage(&data_map2, &output_path2_stream, get_chunk_parallel)?;
 
         let mut decrypted = Vec::new();
@@ -645,14 +643,13 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
                 File::open(path2)?.read_to_end(&mut content2)?;
                 assert_eq!(
                     content1, content2,
-                    "Output files don't match: {:?} vs {:?}",
-                    path1, path2
+                    "Output files don't match: {path1:?} vs {path2:?}"
                 );
             }
         }
         println!("✓ All output files match");
 
-        println!("\n{} test completed successfully", size_name);
+        println!("\n{size_name} test completed successfully");
     }
 
     Ok(())
@@ -682,7 +679,7 @@ fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
                 let mut chunk_data = Vec::new();
                 File::open(&chunk_path)
                     .and_then(|mut file| file.read_to_end(&mut chunk_data))
-                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {}", e)))?;
+                    .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
                 Ok(Bytes::from(chunk_data))
             })
             .collect()
@@ -757,8 +754,8 @@ fn test_chunk_verification() -> Result<()> {
         File::open(&chunk_path)?.read_to_end(&mut chunk_content)?;
 
         match verify_chunk(info.dst_hash, &chunk_content) {
-            Ok(_) => println!("✓ Chunk {} verified successfully", i),
-            Err(e) => println!("✗ Chunk {} verification failed: {}", i, e),
+            Ok(_) => println!("✓ Chunk {i} verified successfully"),
+            Err(e) => println!("✗ Chunk {i} verification failed: {e}"),
         }
     }
 
