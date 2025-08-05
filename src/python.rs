@@ -274,9 +274,8 @@ impl PyEncryptedChunk {
 #[pyfunction]
 pub fn encrypt(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
     let bytes = Bytes::copy_from_slice(data);
-    let (data_map, chunks) = crate::encrypt(bytes).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Encryption failed: {e}"))
-    })?;
+    let (data_map, chunks) = crate::encrypt(bytes)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Encryption failed: {e}")))?;
     let py_chunks = chunks
         .into_iter()
         .map(|chunk| PyEncryptedChunk { inner: chunk })
@@ -307,9 +306,8 @@ pub fn decrypt(
         .into_iter()
         .map(|chunk| chunk.inner)
         .collect::<Vec<_>>();
-    let bytes = crate::decrypt(&data_map.inner, &inner_chunks).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {e}"))
-    })?;
+    let bytes = crate::decrypt(&data_map.inner, &inner_chunks)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Decryption failed: {e}")))?;
     Ok(bytes.to_vec().into())
 }
 
@@ -408,9 +406,9 @@ pub fn streaming_decrypt_from_storage(
         for chunk in chunks {
             let chunk = chunk
                 .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {e}")))?;
-            let bytes = chunk.downcast::<PyBytes>().map_err(|e| {
-                crate::Error::Python(format!("get_chunks must return bytes: {e}"))
-            })?;
+            let bytes = chunk
+                .downcast::<PyBytes>()
+                .map_err(|e| crate::Error::Python(format!("get_chunks must return bytes: {e}")))?;
             result.push(Bytes::copy_from_slice(bytes.as_bytes()));
         }
         Ok(result)

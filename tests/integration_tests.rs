@@ -242,12 +242,8 @@ fn test_concurrent_backend_access() -> Result<()> {
         let count = processed.fetch_add(1, Ordering::SeqCst);
 
         // Setup paths with unique identifiers
-        let input_path = temp_dir
-            .path()
-            .join(format!("input_{count}_{size}.dat"));
-        let output_path = temp_dir
-            .path()
-            .join(format!("output_{count}_{size}.dat"));
+        let input_path = temp_dir.path().join(format!("input_{count}_{size}.dat"));
+        let output_path = temp_dir.path().join(format!("output_{count}_{size}.dat"));
 
         // Write test data
         File::create(&input_path)?.write_all(&data)?;
