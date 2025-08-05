@@ -33,7 +33,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: cargo build --release --all-targets --all-features
+        run: cargo build --release
 
   checks:
     name: Enforce Clippy constraints
