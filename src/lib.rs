@@ -113,7 +113,7 @@ pub use self::{
 };
 use bytes::Bytes;
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{Read, Write},
     path::Path,
 };
@@ -523,10 +523,14 @@ pub fn decrypt(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
     decrypt_full_set(&root_map, &root_chunks)
 }
 
-/// Decrypts data from storage in a streaming fashion using parallel chunk retrieval.
+/// Decrypts data from storage using streaming approach, processing chunks in batches
+/// to minimize memory usage.
 ///
-/// This function retrieves the encrypted chunks in parallel using the provided `get_chunk_parallel` function,
-/// decrypts them, and writes the decrypted data directly to the specified output file path.
+/// This function implements true streaming by:
+/// 1. Processing chunks in ordered batches
+/// 2. Fetching one batch at a time
+/// 3. Decrypting and writing each batch immediately to disk
+/// 4. Continuing until all chunks are processed
 ///
 /// # Arguments
 ///
@@ -543,7 +547,7 @@ pub fn streaming_decrypt_from_storage<F>(
     get_chunk_parallel: F,
 ) -> Result<()>
 where
-    F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+    F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
     let root_map = if data_map.is_child() {
         get_root_data_map_parallel(data_map.clone(), &get_chunk_parallel)?
@@ -551,25 +555,56 @@ where
         data_map.clone()
     };
 
-    // Retrieve all chunks in parallel
-    let chunk_hashes: Vec<_> = root_map.infos().iter().map(|info| info.dst_hash).collect();
-    let encrypted_chunks = get_chunk_parallel(&chunk_hashes)?
-        .into_iter()
-        .map(|content| EncryptedChunk { content })
-        .collect::<Vec<_>>();
-
-    // Open the output file for writing
-    let mut output_file = File::create(output_filepath).map_err(Error::from)?;
-
-    // Decrypt and write data in order
+    // Get all chunk information and source hashes
+    let mut chunk_infos = root_map.infos().to_vec();
+    // Sort chunks by index to ensure proper order during processing
+    chunk_infos.sort_by_key(|info| info.index);
     let src_hashes = extract_hashes(&root_map);
 
-    for (info, chunk) in root_map.infos().iter().zip(encrypted_chunks.iter()) {
-        let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
-        output_file
-            .write_all(&decrypted_chunk)
-            .map_err(Error::from)?;
+    // Process chunks in batches to minimize memory usage
+    // Use a reasonable batch size - could be made configurable
+    const BATCH_SIZE: usize = 10;
+
+    for batch_start in (0..chunk_infos.len()).step_by(BATCH_SIZE) {
+        let batch_end = (batch_start + BATCH_SIZE).min(chunk_infos.len());
+        let batch_infos = &chunk_infos[batch_start..batch_end];
+
+        // Extract chunk hashes for this batch
+        let batch_hashes: Vec<_> = batch_infos.iter().map(|info| (info.index, info.dst_hash)).collect();
+
+        // Fetch only the chunks for this batch
+        let mut fetched_chunks = get_chunk_parallel(&batch_hashes)?;
+        // Shall be ordered to allow sequential appended to file
+        fetched_chunks.sort_by_key(|(index, _content)| *index);
+
+        let batch_chunks = fetched_chunks
+            .into_iter()
+            .map(|(_index, content)| EncryptedChunk { content })
+            .collect::<Vec<_>>();
+
+        // Process and write this batch immediately to disk
+        for (info, chunk) in batch_infos.iter().zip(batch_chunks.iter()) {
+            let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
+
+            // Append each decrypted chunk directly to the output file
+            // This avoids keeping the entire file in memory
+            append_to_file(output_filepath, &decrypted_chunk)?;
+        }
     }
+
+    Ok(())
+}
+
+/// Appends content to a file, creating it if it doesn't exist.
+/// This function is memory-efficient as it doesn't keep the file handle open.
+fn append_to_file(file_path: &Path, content: &Bytes) -> std::io::Result<()> {
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(file_path)?;
+
+    file.write_all(content)?;
+    file.sync_all()?; // Ensure data is written to disk
 
     Ok(())
 }
@@ -680,7 +715,7 @@ where
 /// * `Result<DataMap>` - The root data map or an error if retrieval or decryption fails.
 pub fn get_root_data_map_parallel<F>(data_map: DataMap, get_chunk_parallel: &F) -> Result<DataMap>
 where
-    F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+    F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
     // Create a cache for chunks to avoid redundant retrievals
     let mut chunk_cache = std::collections::HashMap::new();
@@ -691,7 +726,7 @@ where
         chunk_cache: &mut std::collections::HashMap<XorName, Bytes>,
     ) -> Result<DataMap>
     where
-        F: Fn(&[XorName]) -> Result<Vec<Bytes>>,
+        F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
     {
         // If this is the root data map (no child level), return it
         if !data_map.is_child() {
@@ -702,13 +737,13 @@ where
         let missing_hashes: Vec<_> = data_map
             .infos()
             .iter()
-            .map(|info| info.dst_hash)
-            .filter(|hash| !chunk_cache.contains_key(hash))
+            .map(|info| (info.index, info.dst_hash))
+            .filter(|(_i, hash)| !chunk_cache.contains_key(hash))
             .collect();
 
         if !missing_hashes.is_empty() {
             let new_chunks = get_chunk_parallel(&missing_hashes)?;
-            for (hash, chunk_data) in missing_hashes.iter().zip(new_chunks.into_iter()) {
+            for ((_i, hash), (_j, chunk_data)) in missing_hashes.iter().zip(new_chunks.into_iter()) {
                 let _ = chunk_cache.insert(*hash, chunk_data);
             }
         }

@@ -5,7 +5,7 @@ use crate::{
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyTuple, PyInt};
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -46,7 +46,7 @@ impl PyXorName {
     ///
     /// Returns:
     ///     bytes: The 32-byte array.
-    pub fn as_bytes(&self) -> Cow<[u8]> {
+    pub fn as_bytes(&self) -> Cow<'_, [u8]> {
         self.inner.0.to_vec().into()
     }
 }
@@ -251,7 +251,7 @@ impl PyEncryptedChunk {
     ///
     /// Returns:
     ///     bytes: The SHA256 hash of the encrypted chunk.
-    pub fn hash(&self) -> Cow<[u8]> {
+    pub fn hash(&self) -> Cow<'_, [u8]> {
         XorName::from_content(&self.inner.content).0.to_vec().into()
     }
 }
@@ -301,7 +301,7 @@ pub fn encrypt(data: &[u8]) -> PyResult<(PyDataMap, Vec<PyEncryptedChunk>)> {
 pub fn decrypt(
     data_map: &PyDataMap,
     chunks: Vec<PyEncryptedChunk>,
-) -> PyResult<std::borrow::Cow<[u8]>> {
+) -> PyResult<std::borrow::Cow<'_, [u8]>> {
     let inner_chunks = chunks
         .into_iter()
         .map(|chunk| chunk.inner)
@@ -382,7 +382,10 @@ pub fn decrypt_from_storage(
 /// Args:
 ///     data_map (PyDataMap): The data map containing chunk metadata.
 ///     output_file (str): Path where the decrypted data will be written.
-///     get_chunks (callable): Function that takes a list of chunk names and returns their bytes.
+///     get_chunks (callable): Function that takes a list of (index, chunk_name) tuples 
+///                           and returns a list of (index, bytes) tuples.
+///                           Example: get_chunks([(0, "abc123"), (1, "def456")]) 
+///                           should return [(0, b"chunk0_data"), (1, b"chunk1_data")]
 ///
 /// Raises:
 ///     OSError: If chunks cannot be retrieved or output cannot be written.
@@ -394,8 +397,9 @@ pub fn streaming_decrypt_from_storage(
     get_chunks: Bound<'_, PyAny>,
 ) -> PyResult<()> {
     let output_path = Path::new(output_file);
-    let get_chunks_wrapper = |names: &[XorName]| -> crate::Result<Vec<Bytes>> {
-        let name_strs: Vec<String> = names.iter().map(|x| hex::encode(x.0)).collect();
+    let get_chunks_wrapper = |names: &[(usize, XorName)]| -> crate::Result<Vec<(usize, Bytes)>> {
+        let name_strs: Vec<(usize, String)> =
+            names.iter().map(|(i, x)| (*i, hex::encode(x.0))).collect();
         let chunks = get_chunks
             .call1((name_strs,))
             .map_err(|e| crate::Error::Python(format!("Failed to call get_chunks: {e}")))?;
@@ -406,10 +410,29 @@ pub fn streaming_decrypt_from_storage(
         for chunk in chunks {
             let chunk = chunk
                 .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {e}")))?;
-            let bytes = chunk
+            
+            // Downcast to individual components instead of tuple
+            let chunk_tuple = chunk
+                .downcast::<PyTuple>()
+                .map_err(|e| crate::Error::Python(format!("get_chunks must return tuple: {e}")))?;
+            
+            if chunk_tuple.len() != 2 {
+                return Err(crate::Error::Python("get_chunks must return tuples of length 2".to_string()));
+            }
+            
+            let index_item = chunk_tuple.get_item(0)?;
+            let index = index_item
+                .downcast::<PyInt>()
+                .map_err(|e| crate::Error::Python(format!("First element must be integer: {e}")))?
+                .extract::<usize>()
+                .map_err(|e| crate::Error::Python(format!("Failed to extract index: {e}")))?;
+            
+            let bytes_item = chunk_tuple.get_item(1)?;
+            let bytes = bytes_item
                 .downcast::<PyBytes>()
-                .map_err(|e| crate::Error::Python(format!("get_chunks must return bytes: {e}")))?;
-            result.push(Bytes::copy_from_slice(bytes.as_bytes()));
+                .map_err(|e| crate::Error::Python(format!("Second element must be bytes: {e}")))?;
+            
+            result.push((index, Bytes::copy_from_slice(bytes.as_bytes())));
         }
         Ok(result)
     };

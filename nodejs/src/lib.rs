@@ -324,11 +324,11 @@ pub fn streaming_decrypt_from_storage(
     let output_path = Path::new(&output_file);
 
     let get_chunk_parallel_wrapper =
-        |xor_name: &[self_encryption::XorName]| -> self_encryption::Result<Vec<Bytes>> {
+        |xor_name: &[(usize, self_encryption::XorName)]| -> self_encryption::Result<Vec<(usize, Bytes)>> {
             // `Vec<XorName>` -> `Vec<JsXorName> -> `Vec<JsUnknown>`
             let xor_names = xor_name
                 .iter()
-                .map(|xor_name| {
+                .map(|(i, xor_name)| {
                     let xor_name = XorName(xor_name.clone());
                     let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
                     unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap()
@@ -378,7 +378,7 @@ pub fn streaming_decrypt_from_storage(
                     ))
                 })?;
 
-                data_vec.push(Bytes::copy_from_slice(item.as_ref()));
+                data_vec.push((i as usize, Bytes::copy_from_slice(item.as_ref())));
             }
 
             Ok(data_vec)
