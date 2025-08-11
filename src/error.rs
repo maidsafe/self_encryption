@@ -10,6 +10,9 @@ use bincode::ErrorKind;
 use std::io::Error as IoError;
 use thiserror::Error;
 
+#[cfg(feature = "python")]
+use pyo3::PyErr;
+
 /// Specialisation of `std::Result` for crate.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -41,4 +44,11 @@ pub enum Error {
     Poison,
     #[error("Python error: {}", _0)]
     Python(String),
+}
+
+#[cfg(feature = "python")]
+impl From<PyErr> for Error {
+    fn from(err: PyErr) -> Self {
+        Error::Python(err.to_string())
+    }
 }

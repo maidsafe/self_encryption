@@ -81,16 +81,16 @@ fn main() -> Result<()> {
     let data_map = load_data_map(&args.data_map)?;
 
     // Implement the parallel chunk retrieval function
-    let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
+    let get_chunk_parallel = |hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
         hashes
             .par_iter()
-            .map(|hash| {
+            .map(|(i, hash)| {
                 let chunk_path = Path::new(&args.chunks_dir).join(hex::encode(hash));
                 let mut chunk_data = Vec::new();
                 File::open(&chunk_path)
                     .and_then(|mut file| file.read_to_end(&mut chunk_data))
                     .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
-                Ok(Bytes::from(chunk_data))
+                Ok((*i, Bytes::from(chunk_data)))
             })
             .collect()
     };

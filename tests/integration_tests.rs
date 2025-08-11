@@ -525,16 +525,16 @@ fn test_comprehensive_encryption_decryption() -> Result<()> {
 
         // Create parallel chunk retrieval function
         let chunk_dir = storage.disk_dir.path().to_owned();
-        let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
+        let get_chunk_parallel = |hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
             hashes
                 .par_iter()
-                .map(|hash| {
+                .map(|(i, hash)| {
                     let chunk_path = chunk_dir.join(hex::encode(hash));
                     let mut chunk_data = Vec::new();
                     File::open(&chunk_path)
                         .and_then(|mut file| file.read_to_end(&mut chunk_data))
                         .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
-                    Ok(Bytes::from(chunk_data))
+                    Ok((*i, Bytes::from(chunk_data)))
                 })
                 .collect()
         };
@@ -667,16 +667,16 @@ fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
 
     // Implement parallel chunk retrieval function
     let chunk_dir = storage.disk_dir.path().to_owned();
-    let get_chunk_parallel = |hashes: &[XorName]| -> Result<Vec<Bytes>> {
+    let get_chunk_parallel = |hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
         hashes
             .par_iter()
-            .map(|hash| {
+            .map(|(i, hash)| {
                 let chunk_path = chunk_dir.join(hex::encode(hash));
                 let mut chunk_data = Vec::new();
                 File::open(&chunk_path)
                     .and_then(|mut file| file.read_to_end(&mut chunk_data))
                     .map_err(|e| Error::Generic(format!("Failed to read chunk: {e}")))?;
-                Ok(Bytes::from(chunk_data))
+                Ok((*i, Bytes::from(chunk_data)))
             })
             .collect()
     };
