@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
+## [0.33.0] - 2025-08-12
+
+### Fixed
+- Streaming decryption: resolved issue where `streaming_decrypt_from_storage` resulted in 
+  repeated content due to file append behavior.
+- Streaming decryption: corrected streaming behavior to properly process chunks in ordered 
+  batches for memory-efficient decryption.
+
+### Changed
+- Parallel chunk retrieval function signature: `streaming_decrypt_from_storage` now expects
+  chunk retrieval functions to accept and return index-hash tuples `(usize, XorName)` instead
+  of just hashes, enabling proper ordering during batch processing [BREAKING].
+
 ## [0.32.0] - 2025-08-05
 
 ### Added
