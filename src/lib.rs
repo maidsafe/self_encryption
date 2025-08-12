@@ -583,20 +583,33 @@ where
             .collect::<Vec<_>>();
 
         // Process and write this batch immediately to disk
-        for (info, chunk) in batch_infos.iter().zip(batch_chunks.iter()) {
+        for (i, (info, chunk)) in batch_infos.iter().zip(batch_chunks.iter()).enumerate() {
             let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
 
-            // Append each decrypted chunk directly to the output file
-            // This avoids keeping the entire file in memory
-            append_to_file(output_filepath, &decrypted_chunk)?;
+            // For the first chunk in the entire process, create/overwrite the file
+            // For subsequent chunks, append to the file
+            if batch_start == 0 && i == 0 {
+                // First chunk: create/overwrite the file
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true) // Ensure we start with a clean file
+                    .open(output_filepath)?;
+                file.write_all(&decrypted_chunk)?;
+                file.sync_all()?;
+            } else {
+                // Subsequent chunks: append to the file
+                append_to_file(output_filepath, &decrypted_chunk)?;
+            }
         }
     }
 
     Ok(())
 }
 
-/// Appends content to a file, creating it if it doesn't exist.
+/// Appends content to an existing file.
 /// This function is memory-efficient as it doesn't keep the file handle open.
+/// Note: This should only be used for chunks after the first one, as it appends to existing content.
 fn append_to_file(file_path: &Path, content: &Bytes) -> std::io::Result<()> {
     let mut file = OpenOptions::new()
         .append(true)
