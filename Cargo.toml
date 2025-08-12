@@ -11,7 +11,7 @@ license = "GPL-3.0-only"
 name = "self_encryption"
 readme = "README.md"
 repository = "https://github.com/maidsafe/self_encryption"
-version = "0.32.0"
+version = "0.33.0"
 
 [features]
 default = []
