@@ -5,7 +5,7 @@ use crate::{
 };
 use bytes::Bytes;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyTuple, PyInt};
+use pyo3::types::{PyBytes, PyInt, PyTuple};
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -382,9 +382,9 @@ pub fn decrypt_from_storage(
 /// Args:
 ///     data_map (PyDataMap): The data map containing chunk metadata.
 ///     output_file (str): Path where the decrypted data will be written.
-///     get_chunks (callable): Function that takes a list of (index, chunk_name) tuples 
+///     get_chunks (callable): Function that takes a list of (index, chunk_name) tuples
 ///                           and returns a list of (index, bytes) tuples.
-///                           Example: get_chunks([(0, "abc123"), (1, "def456")]) 
+///                           Example: get_chunks([(0, "abc123"), (1, "def456")])
 ///                           should return [(0, b"chunk0_data"), (1, b"chunk1_data")]
 ///
 /// Raises:
@@ -410,28 +410,30 @@ pub fn streaming_decrypt_from_storage(
         for chunk in chunks {
             let chunk = chunk
                 .map_err(|e| crate::Error::Python(format!("Failed to iterate chunks: {e}")))?;
-            
+
             // Downcast to individual components instead of tuple
             let chunk_tuple = chunk
                 .downcast::<PyTuple>()
                 .map_err(|e| crate::Error::Python(format!("get_chunks must return tuple: {e}")))?;
-            
+
             if chunk_tuple.len() != 2 {
-                return Err(crate::Error::Python("get_chunks must return tuples of length 2".to_string()));
+                return Err(crate::Error::Python(
+                    "get_chunks must return tuples of length 2".to_string(),
+                ));
             }
-            
+
             let index_item = chunk_tuple.get_item(0)?;
             let index = index_item
                 .downcast::<PyInt>()
                 .map_err(|e| crate::Error::Python(format!("First element must be integer: {e}")))?
                 .extract::<usize>()
                 .map_err(|e| crate::Error::Python(format!("Failed to extract index: {e}")))?;
-            
+
             let bytes_item = chunk_tuple.get_item(1)?;
             let bytes = bytes_item
                 .downcast::<PyBytes>()
                 .map_err(|e| crate::Error::Python(format!("Second element must be bytes: {e}")))?;
-            
+
             result.push((index, Bytes::copy_from_slice(bytes.as_bytes())));
         }
         Ok(result)
