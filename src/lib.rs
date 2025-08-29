@@ -96,7 +96,6 @@ mod encrypt;
 mod error;
 #[cfg(feature = "python")]
 mod python;
-/// Stream encryption and decryption
 mod stream;
 pub mod test_helpers;
 mod utils;
@@ -109,7 +108,7 @@ pub use xor_name::XorName;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    stream::{StreamSelfDecryptor, StreamSelfEncryptor},
+    stream::{streaming_decrypt, StreamingDecrypt},
 };
 use bytes::Bytes;
 use std::{
@@ -570,7 +569,10 @@ where
         let batch_infos = &chunk_infos[batch_start..batch_end];
 
         // Extract chunk hashes for this batch
-        let batch_hashes: Vec<_> = batch_infos.iter().map(|info| (info.index, info.dst_hash)).collect();
+        let batch_hashes: Vec<_> = batch_infos
+            .iter()
+            .map(|info| (info.index, info.dst_hash))
+            .collect();
 
         // Fetch only the chunks for this batch
         let mut fetched_chunks = get_chunk_parallel(&batch_hashes)?;
@@ -756,7 +758,8 @@ where
 
         if !missing_hashes.is_empty() {
             let new_chunks = get_chunk_parallel(&missing_hashes)?;
-            for ((_i, hash), (_j, chunk_data)) in missing_hashes.iter().zip(new_chunks.into_iter()) {
+            for ((_i, hash), (_j, chunk_data)) in missing_hashes.iter().zip(new_chunks.into_iter())
+            {
                 let _ = chunk_cache.insert(*hash, chunk_data);
             }
         }
