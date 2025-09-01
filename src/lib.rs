@@ -97,6 +97,9 @@ mod error;
 #[cfg(feature = "python")]
 mod python;
 mod stream;
+/// Contains old disk dependent streaming decryptor/encryptor,
+/// which using old DataMap format that doesn't enforce additional datamap chunks to be used.
+mod stream_old;
 pub mod test_helpers;
 mod utils;
 
@@ -109,6 +112,7 @@ pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
     stream::{streaming_decrypt, StreamingDecrypt},
+    stream_old::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
 use std::{
