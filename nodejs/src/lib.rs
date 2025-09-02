@@ -287,7 +287,7 @@ pub fn decrypt_from_storage(
     let output_path = Path::new(&output_file);
 
     let get_chunk_wrapper = |xor_name: self_encryption::XorName| -> self_encryption::Result<Bytes> {
-        let xor_name = XorName(xor_name.clone());
+        let xor_name = XorName(xor_name);
         let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
         let xor_name = unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap();
 
@@ -328,8 +328,8 @@ pub fn streaming_decrypt_from_storage(
             // `Vec<XorName>` -> `Vec<JsXorName> -> `Vec<JsUnknown>`
             let xor_names = xor_name
                 .iter()
-                .map(|(i, xor_name)| {
-                    let xor_name = XorName(xor_name.clone());
+                .map(|(_i, xor_name)| {
+                    let xor_name = XorName(*xor_name);
                     let xor_name = unsafe { XorName::to_napi_value(env.raw(), xor_name) }.unwrap();
                     unsafe { napi::JsUnknown::from_napi_value(env.raw(), xor_name) }.unwrap()
                 })
@@ -421,7 +421,7 @@ pub fn streaming_encrypt_from_file(
     };
 
     self_encryption::streaming_encrypt_from_file(file_path, chunk_store_wrapper)
-        .map(|dm| DataMap(dm))
+        .map(DataMap)
         .map_err(map_error)
 }
 
