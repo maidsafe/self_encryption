@@ -96,7 +96,8 @@ mod encrypt;
 mod error;
 #[cfg(feature = "python")]
 mod python;
-mod stream;
+mod stream_decrypt;
+mod stream_encrypt;
 /// Contains old disk dependent streaming decryptor/encryptor,
 /// which using old DataMap format that doesn't enforce additional datamap chunks to be used.
 mod stream_old;
@@ -111,7 +112,8 @@ pub use xor_name::XorName;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    stream::{streaming_decrypt, StreamingDecrypt},
+    stream_decrypt::{streaming_decrypt, StreamingDecrypt},
+    stream_encrypt::{streaming_encrypt_from_file, StreamingEncrypt},
     stream_old::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
@@ -626,97 +628,6 @@ fn append_to_file(file_path: &Path, content: &Bytes) -> std::io::Result<()> {
     file.sync_all()?; // Ensure data is written to disk
 
     Ok(())
-}
-
-/// Reads a file in chunks, encrypts them, and stores them using a provided functor.
-/// Returns a DataMap.
-pub fn streaming_encrypt_from_file<F>(file_path: &Path, mut chunk_store: F) -> Result<DataMap>
-where
-    F: FnMut(XorName, Bytes) -> Result<()>,
-{
-    use std::io::{BufReader, Read};
-
-    let file = File::open(file_path)?;
-    let file_size = file.metadata()?.len() as usize;
-
-    if file_size < MIN_ENCRYPTABLE_BYTES {
-        return Err(Error::Generic(format!(
-            "Too small for self-encryption! Required size at least {MIN_ENCRYPTABLE_BYTES}"
-        )));
-    }
-
-    let num_chunks = get_num_chunks(file_size);
-    if num_chunks < 3 {
-        return Err(Error::Generic(
-            "File must be large enough to generate at least 3 chunks".to_string(),
-        ));
-    }
-
-    let mut reader = BufReader::with_capacity(MAX_CHUNK_SIZE, file);
-    let mut chunk_infos = Vec::with_capacity(num_chunks);
-
-    // Ring buffer to hold all source hashes
-    let mut src_hash_buffer = Vec::with_capacity(num_chunks);
-    let mut first_chunks = Vec::with_capacity(2);
-
-    // First pass: collect all source hashes
-    for chunk_index in 0..num_chunks {
-        let (start, end) = get_start_end_positions(file_size, chunk_index);
-        let chunk_size = end - start;
-        let mut chunk_data = vec![0u8; chunk_size];
-        reader.read_exact(&mut chunk_data)?;
-
-        let chunk_bytes = Bytes::from(chunk_data);
-        let src_hash = XorName::from_content(&chunk_bytes);
-        src_hash_buffer.push(src_hash);
-
-        if chunk_index < 2 {
-            first_chunks.push((chunk_index, chunk_bytes, chunk_size));
-        } else {
-            // Process chunks after the first two immediately
-            let pki = get_pad_key_and_iv(chunk_index, &src_hash_buffer);
-            let encrypted_content = encrypt::encrypt_chunk(chunk_bytes, pki)?;
-            let dst_hash = XorName::from_content(&encrypted_content);
-
-            chunk_store(dst_hash, encrypted_content)?;
-
-            chunk_infos.push(ChunkInfo {
-                index: chunk_index,
-                dst_hash,
-                src_hash,
-                src_size: chunk_size,
-            });
-        }
-    }
-
-    // Process first two chunks now that we have all hashes
-    for (chunk_index, chunk_data, chunk_size) in first_chunks {
-        let pki = get_pad_key_and_iv(chunk_index, &src_hash_buffer);
-        let encrypted_content = encrypt::encrypt_chunk(chunk_data, pki)?;
-        let dst_hash = XorName::from_content(&encrypted_content);
-
-        chunk_store(dst_hash, encrypted_content)?;
-
-        chunk_infos.insert(
-            chunk_index,
-            ChunkInfo {
-                index: chunk_index,
-                dst_hash,
-                src_hash: src_hash_buffer[chunk_index],
-                src_size: chunk_size,
-            },
-        );
-    }
-
-    // Create initial data map and shrink it
-    let data_map = DataMap::new(chunk_infos);
-    let (shrunk_map, _) = shrink_data_map(data_map, |hash, content| {
-        chunk_store(hash, content)?;
-        Ok(())
-    })?;
-
-    // Return the shrunk map - decrypt will handle getting back to the root map
-    Ok(shrunk_map)
 }
 
 /// Recursively gets the root data map by decrypting child data maps using parallel chunk retrieval.
