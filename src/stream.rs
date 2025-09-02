@@ -9,18 +9,22 @@
 //! Streaming decryption functionality for memory-efficient processing of large encrypted files.
 
 use crate::{
-    decrypt::decrypt_chunk, get_root_data_map_parallel, utils::extract_hashes, utils::get_chunk_index, ChunkInfo, DataMap,
-    Result,
+    decrypt::decrypt_chunk, get_root_data_map_parallel, utils::extract_hashes,
+    utils::get_chunk_index, ChunkInfo, DataMap, Result,
 };
 use bytes::Bytes;
 use std::ops::Range;
 use xor_name::XorName;
 
+/// Batch size for streaming decrypt chunk fetching
+/// With each batch, we fetch 10 chunks in parallel and decrypt them
+const STREAM_DECRYPT_BATCH_SIZE: usize = 10;
+
 /// Iterator that yields decrypted chunks as `Bytes` in streaming fashion.
 ///
 /// This provides memory-efficient decryption by processing chunks in batches
 /// and yielding them one at a time without buffering the entire file.
-/// 
+///
 /// In addition to sequential streaming, this struct also supports random access
 /// to any byte range within the encrypted file using methods like `get_range()`,
 /// `range()`, and other convenience methods.
@@ -31,7 +35,6 @@ pub struct StreamingDecrypt<F> {
     current_batch_start: usize,
     current_batch_chunks: Vec<Bytes>,
     current_batch_index: usize,
-    batch_size: usize,
 }
 
 impl<F> StreamingDecrypt<F>
@@ -44,12 +47,7 @@ where
     ///
     /// * `data_map` - The data map containing chunk information
     /// * `get_chunk_parallel` - Function to retrieve chunks in parallel
-    /// * `batch_size` - Number of chunks to process in each batch (defaults to 10)
-    pub fn new(
-        data_map: &DataMap,
-        get_chunk_parallel: F,
-        batch_size: Option<usize>,
-    ) -> Result<Self> {
+    pub fn new(data_map: &DataMap, get_chunk_parallel: F) -> Result<Self> {
         let root_map = if data_map.is_child() {
             get_root_data_map_parallel(data_map.clone(), &get_chunk_parallel)?
         } else {
@@ -67,7 +65,6 @@ where
             current_batch_start: 0,
             current_batch_chunks: Vec::new(),
             current_batch_index: 0,
-            batch_size: batch_size.unwrap_or(10),
         })
     }
 
@@ -77,7 +74,8 @@ where
             return Ok(false); // No more chunks
         }
 
-        let batch_end = (self.current_batch_start + self.batch_size).min(self.chunk_infos.len());
+        let batch_end =
+            (self.current_batch_start + STREAM_DECRYPT_BATCH_SIZE).min(self.chunk_infos.len());
         let batch_infos = &self.chunk_infos[self.current_batch_start..batch_end];
 
         // Extract chunk hashes for this batch
@@ -107,7 +105,9 @@ where
 
     /// Returns the original file size for random access operations.
     pub fn file_size(&self) -> usize {
-        self.chunk_infos.iter().fold(0, |acc, chunk| acc + chunk.src_size)
+        self.chunk_infos
+            .iter()
+            .fold(0, |acc, chunk| acc + chunk.src_size)
     }
 
     /// Decrypts and returns a specific byte range from the encrypted data.
@@ -156,7 +156,7 @@ where
     /// };
     ///
     /// // Create streaming decrypt instance
-    /// let stream = streaming_decrypt(&data_map, get_chunks, Some(5))?;
+    /// let stream = streaming_decrypt(&data_map, get_chunks)?;
     ///
     /// // Random access: get bytes 1000-2000
     /// let range_data = stream.get_range(1000, 1000)?;
@@ -166,15 +166,15 @@ where
     /// ```
     pub fn get_range(&self, start: usize, len: usize) -> Result<Bytes> {
         let file_size = self.file_size();
-        
+
         // Validate range
         if start >= file_size {
             return Ok(Bytes::new());
         }
-        
+
         let end_pos = std::cmp::min(start + len, file_size);
         let actual_len = end_pos - start;
-        
+
         if actual_len == 0 {
             return Ok(Bytes::new());
         }
@@ -196,11 +196,10 @@ where
 
         // Fetch the required chunks
         let fetched_chunks = (self.get_chunk_parallel)(&required_hashes)?;
-        
+
         // Create a mapping for quick lookup
-        let chunk_map: std::collections::HashMap<usize, Bytes> = fetched_chunks
-            .into_iter()
-            .collect();
+        let chunk_map: std::collections::HashMap<usize, Bytes> =
+            fetched_chunks.into_iter().collect();
 
         // Decrypt the chunks in order and collect the bytes
         let mut all_bytes = Vec::new();
@@ -273,14 +272,14 @@ where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
     /// Convenience method to get a range using Range syntax.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// use self_encryption::{streaming_decrypt, encrypt, test_helpers::random_bytes};
     /// use bytes::Bytes;
     /// use xor_name::XorName;
     /// use std::collections::HashMap;
-    /// 
+    ///
     /// # fn main() -> self_encryption::Result<()> {
     /// let original_data = random_bytes(10000);
     /// let (data_map, encrypted_chunks) = encrypt(original_data)?;
@@ -298,7 +297,7 @@ where
     ///     }
     ///     Ok(results)
     /// };
-    /// let stream = streaming_decrypt(&data_map, get_chunks, Some(5))?;
+    /// let stream = streaming_decrypt(&data_map, get_chunks)?;
     /// let _chunk_bytes = stream.range(1000..2000)?;
     /// # Ok(())
     /// # }
@@ -338,7 +337,7 @@ where
 /// This function provides memory-efficient decryption by processing chunks in batches
 /// and yielding them one at a time. It's ideal for large files where loading the entire
 /// decrypted content into memory at once would be impractical.
-/// 
+///
 /// The returned `StreamingDecrypt` struct supports both sequential iteration and random
 /// access to any byte range within the encrypted file.
 ///
@@ -346,7 +345,6 @@ where
 ///
 /// * `data_map` - The data map containing chunk information
 /// * `get_chunk_parallel` - A function that retrieves chunks in parallel given chunk hashes
-/// * `batch_size` - Optional batch size for chunk processing (defaults to 10)
 ///
 /// # Returns
 ///
@@ -355,7 +353,7 @@ where
 /// # Examples
 ///
 /// ## Sequential Processing
-/// 
+///
 /// ```rust
 /// use self_encryption::{streaming_decrypt, encrypt, test_helpers::random_bytes};
 /// use bytes::Bytes;
@@ -386,7 +384,7 @@ where
 /// };
 ///
 /// // Create streaming decrypt iterator
-/// let stream = streaming_decrypt(&data_map, get_chunks, Some(5))?;
+/// let stream = streaming_decrypt(&data_map, get_chunks)?;
 ///
 /// // Process each decrypted chunk sequentially
 /// for chunk_result in stream {
@@ -403,9 +401,9 @@ where
 /// # Ok(())
 /// # }
 /// ```
-/// 
+///
 /// ## Random Access
-/// 
+///
 /// ```rust
 /// use self_encryption::{streaming_decrypt, encrypt, test_helpers::random_bytes};
 /// use bytes::Bytes;
@@ -432,7 +430,7 @@ where
 ///     Ok(results)
 /// };
 ///
-/// let stream = streaming_decrypt(&data_map, get_chunks, Some(5))?;
+/// let stream = streaming_decrypt(&data_map, get_chunks)?;
 ///
 /// // Random access examples
 /// let chunk_bytes = stream.range(1000..2000)?;
@@ -453,12 +451,11 @@ where
 pub fn streaming_decrypt<F>(
     data_map: &DataMap,
     get_chunk_parallel: F,
-    batch_size: Option<usize>,
 ) -> Result<StreamingDecrypt<F>>
 where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
-    StreamingDecrypt::new(data_map, get_chunk_parallel, batch_size)
+    StreamingDecrypt::new(data_map, get_chunk_parallel)
 }
 
 #[cfg(test)]
@@ -497,7 +494,7 @@ mod tests {
         };
 
         // Test streaming decryption
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
         let mut decrypted_data = Vec::new();
 
         for chunk_result in stream {
@@ -539,7 +536,7 @@ mod tests {
         };
 
         // Test streaming decryption with different batch sizes
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(3))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
         let mut decrypted_data = Vec::new();
         let mut chunk_count = 0;
 
@@ -587,7 +584,7 @@ mod tests {
         };
 
         // Test that streaming properly handles errors
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
         let mut found_error = false;
 
         for chunk_result in stream {
@@ -643,7 +640,7 @@ mod tests {
         };
 
         // Method 1: Use streaming_decrypt to collect all chunks
-        let stream = streaming_decrypt(&data_map, &get_chunks_parallel, Some(3))?;
+        let stream = streaming_decrypt(&data_map, &get_chunks_parallel)?;
         let mut stream_result = Vec::new();
         for chunk_result in stream {
             let chunk = chunk_result?;
@@ -678,7 +675,7 @@ mod tests {
     #[test]
     fn test_random_access_basic() -> Result<()> {
         // Create test data
-        let original_data = random_bytes(10_000); 
+        let original_data = random_bytes(10_000);
         let (data_map, encrypted_chunks) = encrypt(original_data.clone())?;
 
         // Create storage map
@@ -704,7 +701,7 @@ mod tests {
             Ok(results)
         };
 
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
 
         // Test basic range access
         let range_start = 1000;
@@ -742,13 +739,13 @@ mod tests {
             Ok(results)
         };
 
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(3))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
 
         // Test range method
         let range_data = stream.range(1000..2000)?;
         assert_eq!(range_data.as_ref(), &original_data[1000..2000]);
 
-        // Test range_from method  
+        // Test range_from method
         let from_data = stream.range_from(3000)?;
         assert_eq!(from_data.as_ref(), &original_data[3000..]);
 
@@ -788,7 +785,7 @@ mod tests {
             Ok(results)
         };
 
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
 
         // Test range beyond file size
         let beyond_range = stream.get_range(2000, 500)?;
@@ -836,7 +833,7 @@ mod tests {
             Ok(results)
         };
 
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(3))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
 
         // Test ranges that cross chunk boundaries
         let cross_boundary = stream.get_range(1_000_000, 2_000_000)?; // Should span multiple chunks
@@ -875,7 +872,7 @@ mod tests {
             Ok(results)
         };
 
-        let stream = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, get_chunks)?;
 
         // Test file_size method
         assert_eq!(stream.file_size(), 1234);
@@ -911,11 +908,11 @@ mod tests {
         };
 
         // Get data via random access
-        let stream = streaming_decrypt(&data_map, &get_chunks, Some(2))?;
+        let stream = streaming_decrypt(&data_map, &get_chunks)?;
         let random_access_data = stream.range_full()?;
 
         // Get data via sequential iteration
-        let stream2 = streaming_decrypt(&data_map, get_chunks, Some(2))?;
+        let stream2 = streaming_decrypt(&data_map, get_chunks)?;
         let mut sequential_data = Vec::new();
         for chunk_result in stream2 {
             sequential_data.extend_from_slice(&chunk_result?);
