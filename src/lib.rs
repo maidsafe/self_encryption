@@ -115,12 +115,12 @@ pub use self::{
     error::{Error, Result},
     stream_decrypt::{streaming_decrypt, DecryptionStream},
     stream_encrypt::{stream_encrypt, ChunkStream, EncryptionStream},
-    stream_file::streaming_encrypt_from_file,
+    stream_file::{streaming_decrypt_from_storage, streaming_encrypt_from_file},
     stream_old::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io::{Read, Write},
     path::Path,
 };
@@ -528,108 +528,6 @@ pub fn decrypt(data_map: &DataMap, chunks: &[EncryptedChunk]) -> Result<Bytes> {
         .collect::<Result<_>>()?;
 
     decrypt_full_set(&root_map, &root_chunks)
-}
-
-/// Decrypts data from storage using streaming approach, processing chunks in batches
-/// to minimize memory usage.
-///
-/// This function implements true streaming by:
-/// 1. Processing chunks in ordered batches
-/// 2. Fetching one batch at a time
-/// 3. Decrypting and writing each batch immediately to disk
-/// 4. Continuing until all chunks are processed
-///
-/// # Arguments
-///
-/// * `data_map` - The data map containing chunk information
-/// * `output_filepath` - The path to write the decrypted data to
-/// * `get_chunk_parallel` - A function that retrieves chunks in parallel given a list of XorName hashes
-///
-/// # Returns
-///
-/// * `Result<()>` - An empty result or an error if decryption fails
-pub fn streaming_decrypt_from_storage<F>(
-    data_map: &DataMap,
-    output_filepath: &Path,
-    get_chunk_parallel: F,
-) -> Result<()>
-where
-    F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
-{
-    let root_map = if data_map.is_child() {
-        get_root_data_map_parallel(data_map.clone(), &get_chunk_parallel)?
-    } else {
-        data_map.clone()
-    };
-
-    // Get all chunk information and source hashes
-    let mut chunk_infos = root_map.infos().to_vec();
-    // Sort chunks by index to ensure proper order during processing
-    chunk_infos.sort_by_key(|info| info.index);
-    let src_hashes = extract_hashes(&root_map);
-
-    // Process chunks in batches to minimize memory usage
-    // Use a reasonable batch size - could be made configurable
-    const BATCH_SIZE: usize = 10;
-
-    for batch_start in (0..chunk_infos.len()).step_by(BATCH_SIZE) {
-        let batch_end = (batch_start + BATCH_SIZE).min(chunk_infos.len());
-        let batch_infos = &chunk_infos[batch_start..batch_end];
-
-        // Extract chunk hashes for this batch
-        let batch_hashes: Vec<_> = batch_infos
-            .iter()
-            .map(|info| (info.index, info.dst_hash))
-            .collect();
-
-        // Fetch only the chunks for this batch
-        let mut fetched_chunks = get_chunk_parallel(&batch_hashes)?;
-        // Shall be ordered to allow sequential appended to file
-        fetched_chunks.sort_by_key(|(index, _content)| *index);
-
-        let batch_chunks = fetched_chunks
-            .into_iter()
-            .map(|(_index, content)| EncryptedChunk { content })
-            .collect::<Vec<_>>();
-
-        // Process and write this batch immediately to disk
-        for (i, (info, chunk)) in batch_infos.iter().zip(batch_chunks.iter()).enumerate() {
-            let decrypted_chunk = decrypt_chunk(info.index, &chunk.content, &src_hashes)?;
-
-            // For the first chunk in the entire process, create/overwrite the file
-            // For subsequent chunks, append to the file
-            if batch_start == 0 && i == 0 {
-                // First chunk: create/overwrite the file
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true) // Ensure we start with a clean file
-                    .open(output_filepath)?;
-                file.write_all(&decrypted_chunk)?;
-                file.sync_all()?;
-            } else {
-                // Subsequent chunks: append to the file
-                append_to_file(output_filepath, &decrypted_chunk)?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Appends content to an existing file.
-/// This function is memory-efficient as it doesn't keep the file handle open.
-/// Note: This should only be used for chunks after the first one, as it appends to existing content.
-fn append_to_file(file_path: &Path, content: &Bytes) -> std::io::Result<()> {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(file_path)?;
-
-    file.write_all(content)?;
-    file.sync_all()?; // Ensure data is written to disk
-
-    Ok(())
 }
 
 /// Recursively gets the root data map by decrypting child data maps using parallel chunk retrieval.
