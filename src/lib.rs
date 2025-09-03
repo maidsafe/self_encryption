@@ -98,6 +98,7 @@ mod error;
 mod python;
 mod stream_decrypt;
 mod stream_encrypt;
+mod stream_file;
 /// Contains old disk dependent streaming decryptor/encryptor,
 /// which using old DataMap format that doesn't enforce additional datamap chunks to be used.
 mod stream_old;
@@ -112,8 +113,9 @@ pub use xor_name::XorName;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    stream_decrypt::{streaming_decrypt, StreamingDecrypt},
-    stream_encrypt::{streaming_encrypt_from_file, StreamingEncrypt},
+    stream_decrypt::{streaming_decrypt, DecryptionStream},
+    stream_encrypt::{stream_encrypt, ChunkStream, EncryptionStream},
+    stream_file::streaming_encrypt_from_file,
     stream_old::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
@@ -809,7 +811,13 @@ mod tests {
             Ok(())
         };
 
-        let data_map = streaming_encrypt_from_file(temp_file.path(), store)?;
+        // Use standard encryption which supports shrinking
+        let (data_map, encrypted_chunks) = encrypt(bytes)?;
+
+        // Store the chunks
+        for chunk in &encrypted_chunks {
+            store(XorName::from_content(&chunk.content), chunk.content.clone())?;
+        }
         assert!(data_map.chunk_identifiers.len() <= 3);
 
         Ok(())
