@@ -28,7 +28,7 @@ const STREAM_DECRYPT_BATCH_SIZE: usize = 10;
 /// In addition to sequential streaming, this struct also supports random access
 /// to any byte range within the encrypted file using methods like `get_range()`,
 /// `range()`, and other convenience methods.
-pub struct StreamingDecrypt<F> {
+pub struct DecryptionStream<F> {
     chunk_infos: Vec<ChunkInfo>,
     src_hashes: Vec<XorName>,
     get_chunk_parallel: F,
@@ -37,7 +37,7 @@ pub struct StreamingDecrypt<F> {
     current_batch_index: usize,
 }
 
-impl<F> StreamingDecrypt<F>
+impl<F> DecryptionStream<F>
 where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
@@ -237,7 +237,7 @@ where
     }
 }
 
-impl<F> Iterator for StreamingDecrypt<F>
+impl<F> Iterator for DecryptionStream<F>
 where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
@@ -267,7 +267,7 @@ where
     }
 }
 
-impl<F> StreamingDecrypt<F>
+impl<F> DecryptionStream<F>
 where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
@@ -338,7 +338,7 @@ where
 /// and yielding them one at a time. It's ideal for large files where loading the entire
 /// decrypted content into memory at once would be impractical.
 ///
-/// The returned `StreamingDecrypt` struct supports both sequential iteration and random
+/// The returned `DecryptionStream` struct supports both sequential iteration and random
 /// access to any byte range within the encrypted file.
 ///
 /// # Arguments
@@ -348,7 +348,7 @@ where
 ///
 /// # Returns
 ///
-/// * `Result<StreamingDecrypt<F>>` - An iterator that yields `Result<Bytes>` for each decrypted chunk
+/// * `Result<DecryptionStream<F>>` - An iterator that yields `Result<Bytes>` for each decrypted chunk
 ///
 /// # Examples
 ///
@@ -451,11 +451,11 @@ where
 pub fn streaming_decrypt<F>(
     data_map: &DataMap,
     get_chunk_parallel: F,
-) -> Result<StreamingDecrypt<F>>
+) -> Result<DecryptionStream<F>>
 where
     F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
 {
-    StreamingDecrypt::new(data_map, get_chunk_parallel)
+    DecryptionStream::new(data_map, get_chunk_parallel)
 }
 
 #[cfg(test)]
