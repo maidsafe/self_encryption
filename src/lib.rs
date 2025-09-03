@@ -99,9 +99,6 @@ mod python;
 mod stream_decrypt;
 mod stream_encrypt;
 mod stream_file;
-/// Contains old disk dependent streaming decryptor/encryptor,
-/// which using old DataMap format that doesn't enforce additional datamap chunks to be used.
-mod stream_old;
 pub mod test_helpers;
 mod utils;
 
@@ -116,7 +113,6 @@ pub use self::{
     stream_decrypt::{streaming_decrypt, DecryptionStream},
     stream_encrypt::{stream_encrypt, ChunkStream, EncryptionStream},
     stream_file::{streaming_decrypt_from_storage, streaming_encrypt_from_file},
-    stream_old::{StreamSelfDecryptor, StreamSelfEncryptor},
 };
 use bytes::Bytes;
 use std::{
