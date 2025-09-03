@@ -13,11 +13,7 @@ use crate::{
     DataMap, Error, Result, MAX_CHUNK_SIZE, MIN_ENCRYPTABLE_BYTES,
 };
 use bytes::Bytes;
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    path::Path,
-};
+use std::{fs::File, path::Path};
 use xor_name::XorName;
 
 /// Streaming encrypt from file
@@ -71,6 +67,8 @@ pub fn streaming_encrypt_from_file<F>(file_path: &Path, mut chunk_store: F) -> R
 where
     F: FnMut(XorName, Bytes) -> Result<()>,
 {
+    use std::io::{BufReader, Read};
+
     let file = File::open(file_path)?;
     let file_size = file.metadata()?.len() as usize;
 
@@ -124,37 +122,34 @@ where
         }
     }
 
-    // Now process the first two chunks with complete source hash information
-    for (chunk_index, chunk_bytes, chunk_size) in first_chunks {
+    // Process first two chunks now that we have all hashes
+    for (chunk_index, chunk_data, chunk_size) in first_chunks {
         let pki = get_pad_key_and_iv(chunk_index, &src_hash_buffer);
-        let encrypted_content = crate::encrypt::encrypt_chunk(chunk_bytes, pki)?;
+        let encrypted_content = crate::encrypt::encrypt_chunk(chunk_data, pki)?;
         let dst_hash = XorName::from_content(&encrypted_content);
 
         chunk_store(dst_hash, encrypted_content)?;
 
-        chunk_infos.push(ChunkInfo {
-            index: chunk_index,
-            dst_hash,
-            src_hash: src_hash_buffer[chunk_index],
-            src_size: chunk_size,
-        });
+        chunk_infos.insert(
+            chunk_index,
+            ChunkInfo {
+                index: chunk_index,
+                dst_hash,
+                src_hash: src_hash_buffer[chunk_index],
+                src_size: chunk_size,
+            },
+        );
     }
 
-    // Sort by index to ensure correct order
-    chunk_infos.sort_by_key(|info| info.index);
-
+    // Create initial data map and shrink it
     let data_map = DataMap::new(chunk_infos);
+    let (shrunk_map, _) = shrink_data_map(data_map, |hash, content| {
+        chunk_store(hash, content)?;
+        Ok(())
+    })?;
 
-    // Apply shrinking like the regular encrypt function
-    let (final_data_map, shrink_chunks) = shrink_data_map(data_map, &mut chunk_store)?;
-
-    // Store any additional chunks created by shrinking
-    for chunk in shrink_chunks {
-        let hash = XorName::from_content(&chunk.content);
-        chunk_store(hash, chunk.content)?;
-    }
-
-    Ok(final_data_map)
+    // Return the shrunk map - decrypt will handle getting back to the root map
+    Ok(shrunk_map)
 }
 
 #[cfg(test)]
