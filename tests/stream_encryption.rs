@@ -29,10 +29,10 @@ fn create_temp_file_with_data(data: &[u8]) -> Result<NamedTempFile> {
 
 /// Helper function to collect chunks from stream_encrypt
 fn collect_stream_encrypt_chunks(
-    file_size: usize,
+    data_size: usize,
     data_iter: impl Iterator<Item = Bytes>,
 ) -> Result<(DataMap, HashMap<XorName, Vec<u8>>)> {
-    let mut stream = stream_encrypt(file_size, data_iter)?;
+    let mut stream = stream_encrypt(data_size, data_iter)?;
     let mut chunks = HashMap::new();
 
     // Collect all chunks
@@ -41,7 +41,7 @@ fn collect_stream_encrypt_chunks(
         chunks.insert(hash, content.to_vec());
     }
 
-    // Get the datamap (this will be unshrunk)
+    // Get the datamap
     let datamap = stream
         .datamap()
         .expect("Should have DataMap after iteration")

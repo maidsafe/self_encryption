@@ -75,8 +75,8 @@ where
 pub struct EncryptionStream<I> {
     /// Input data iterator
     data_iter: I,
-    /// Total expected file size
-    file_size: usize,
+    /// Total expected data size
+    data_size: usize,
     /// Buffer for accumulating data into complete chunks
     buffer: Vec<u8>,
     /// Number of chunks processed so far
@@ -109,7 +109,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `file_size` - The total size of the file to be encrypted
+    /// * `data_size` - The total size of the data to be encrypted
     /// * `data_iter` - Iterator providing data chunks as `Bytes`
     ///
     /// # Returns
@@ -124,10 +124,10 @@ where
     ///
     /// # fn main() -> self_encryption::Result<()> {
     /// let file_data = b"Hello, world! This is test data for streaming encryption.".repeat(1000);
-    /// let file_size = file_data.len();
+    /// let data_size = file_data.len();
     /// let data_iter = file_data.chunks(1024).map(|chunk| Bytes::from(chunk.to_vec()));
     ///
-    /// let mut stream = stream_encrypt(file_size, data_iter)?;
+    /// let mut stream = stream_encrypt(data_size, data_iter)?;
     /// let mut encrypted_chunks = Vec::new();
     ///
     /// // Use the clean chunks() API
@@ -141,15 +141,15 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    fn new(file_size: usize, data_iter: I) -> Result<Self> {
-        if file_size < crate::MIN_ENCRYPTABLE_BYTES {
+    fn new(data_size: usize, data_iter: I) -> Result<Self> {
+        if data_size < crate::MIN_ENCRYPTABLE_BYTES {
             return Err(Error::Generic(format!(
                 "File too small for self-encryption! Required size at least {}",
                 crate::MIN_ENCRYPTABLE_BYTES
             )));
         }
 
-        let total_chunks = get_num_chunks(file_size);
+        let total_chunks = get_num_chunks(data_size);
         if total_chunks < 3 {
             return Err(Error::Generic(
                 "File must be large enough to generate at least 3 chunks".to_string(),
@@ -158,7 +158,7 @@ where
 
         Ok(Self {
             data_iter,
-            file_size,
+            data_size,
             buffer: Vec::new(),
             chunks_processed: 0,
             total_chunks,
@@ -177,7 +177,7 @@ where
     fn try_process_chunks(&mut self) -> Result<Option<ChunkOrDataMap>> {
         while self.chunks_processed < self.total_chunks {
             let chunk_index = self.chunks_processed;
-            let (chunk_start, chunk_end) = get_start_end_positions(self.file_size, chunk_index);
+            let (chunk_start, chunk_end) = get_start_end_positions(self.data_size, chunk_index);
             let chunk_size = chunk_end - chunk_start;
 
             // Check if we have enough data for this chunk
@@ -258,7 +258,7 @@ where
     fn get_processed_bytes(&self) -> usize {
         let mut processed = 0;
         for i in 0..self.chunks_processed {
-            let (start, end) = get_start_end_positions(self.file_size, i);
+            let (start, end) = get_start_end_positions(self.data_size, i);
             processed += end - start;
         }
         processed
@@ -564,7 +564,7 @@ impl<I> EncryptionStream<I> {
 ///
 /// # Arguments
 ///
-/// * `file_size` - The total size of the file to be encrypted
+/// * `data_size` - The total size of the data to be encrypted
 /// * `data_iter` - An iterator providing data chunks as `Bytes`
 ///
 /// # Returns
@@ -582,13 +582,13 @@ impl<I> EncryptionStream<I> {
 /// # fn main() -> self_encryption::Result<()> {
 /// // Create test data
 /// let file_data = b"Hello, world! ".repeat(5000); // ~65KB
-/// let file_size = file_data.len();
+/// let data_size = file_data.len();
 ///
 /// // Create iterator over data chunks
 /// let data_iter = file_data.chunks(1024).map(|chunk| Bytes::from(chunk.to_vec()));
 ///
 /// // Stream encrypt the data - now much cleaner!
-/// let mut stream = stream_encrypt(file_size, data_iter)?;
+/// let mut stream = stream_encrypt(data_size, data_iter)?;
 ///
 /// for chunk_result in stream.chunks() {
 ///     let (hash, content) = chunk_result?;
@@ -619,7 +619,7 @@ impl<I> EncryptionStream<I> {
 /// # let file_path = temp_file.path();
 ///
 /// let file = File::open(file_path)?;
-/// let file_size = file.metadata()?.len() as usize;
+/// let data_size = file.metadata()?.len() as usize;
 /// let mut reader = BufReader::new(file);
 ///
 /// // Create iterator that reads file in chunks
@@ -636,7 +636,7 @@ impl<I> EncryptionStream<I> {
 /// });
 ///
 /// // Process the file - much cleaner!
-/// let mut stream = stream_encrypt(file_size, data_iter)?;
+/// let mut stream = stream_encrypt(data_size, data_iter)?;
 /// for chunk_result in stream.chunks() {
 ///     let (hash, content) = chunk_result?;
 ///     // Store chunk to your preferred backend
@@ -647,11 +647,11 @@ impl<I> EncryptionStream<I> {
 /// # Ok(())
 /// # }
 /// ```
-pub fn stream_encrypt<I>(file_size: usize, data_iter: I) -> Result<EncryptionStream<I>>
+pub fn stream_encrypt<I>(data_size: usize, data_iter: I) -> Result<EncryptionStream<I>>
 where
     I: Iterator<Item = Bytes>,
 {
-    EncryptionStream::new(file_size, data_iter)
+    EncryptionStream::new(data_size, data_iter)
 }
 
 #[cfg(test)]
@@ -662,14 +662,14 @@ mod tests {
 
     #[test]
     fn test_stream_encrypt_basic() -> Result<()> {
-        let file_size = 50_000; // 50KB
-        let original_data = random_bytes(file_size);
+        let data_size = 50_000; // 50KB
+        let original_data = random_bytes(data_size);
         let data_iter = original_data
             .chunks(1024)
             .map(|chunk| Bytes::from(chunk.to_vec()));
 
         let mut encrypted_chunks = Vec::new();
-        let mut stream = stream_encrypt(file_size, data_iter)?;
+        let mut stream = stream_encrypt(data_size, data_iter)?;
 
         // Clean iteration with new API!
         for chunk_result in stream.chunks() {
@@ -692,12 +692,12 @@ mod tests {
 
     #[test]
     fn test_stream_encrypt_single_chunk() -> Result<()> {
-        let file_size = 10_000; // Small file
-        let original_data = random_bytes(file_size);
+        let data_size = 10_000; // Small file
+        let original_data = random_bytes(data_size);
         let data_iter = std::iter::once(original_data);
 
         let mut chunks = Vec::new();
-        let mut stream = stream_encrypt(file_size, data_iter)?;
+        let mut stream = stream_encrypt(data_size, data_iter)?;
 
         for chunk_result in stream.chunks() {
             let (hash, content) = chunk_result?;
@@ -713,15 +713,15 @@ mod tests {
 
     #[test]
     fn test_stream_encrypt_large_file() -> Result<()> {
-        let file_size = 5_000_000; // 5MB
-        let original_data = random_bytes(file_size);
+        let data_size = 5_000_000; // 5MB
+        let original_data = random_bytes(data_size);
         let chunk_size = 64 * 1024; // 64KB chunks
         let data_iter = original_data
             .chunks(chunk_size)
             .map(|chunk| Bytes::from(chunk.to_vec()));
 
         let mut encrypted_chunks = Vec::new();
-        let mut stream = stream_encrypt(file_size, data_iter)?;
+        let mut stream = stream_encrypt(data_size, data_iter)?;
 
         for chunk_result in stream.chunks() {
             let (hash, content) = chunk_result?;
@@ -739,16 +739,16 @@ mod tests {
 
     #[test]
     fn test_stream_encrypt_memory_efficiency() -> Result<()> {
-        let file_size = 10_000_000; // 10MB
+        let data_size = 10_000_000; // 10MB
         let chunk_size = 8192; // Small input chunks to test buffering
 
         // Create iterator that tracks memory usage
-        let original_data = random_bytes(file_size);
+        let original_data = random_bytes(data_size);
         let data_iter = original_data
             .chunks(chunk_size)
             .map(|chunk| Bytes::from(chunk.to_vec()));
 
-        let mut stream = stream_encrypt(file_size, data_iter)?;
+        let mut stream = stream_encrypt(data_size, data_iter)?;
         let _max_buffer_size = 0;
         let mut encrypted_count = 0;
 
@@ -769,11 +769,11 @@ mod tests {
 
     #[test]
     fn test_stream_encrypt_too_small() {
-        let file_size = 2; // Too small (less than MIN_ENCRYPTABLE_BYTES = 3)
-        let data = vec![42u8; file_size];
+        let data_size = 2; // Too small (less than MIN_ENCRYPTABLE_BYTES = 3)
+        let data = vec![42u8; data_size];
         let data_iter = std::iter::once(Bytes::from(data));
 
-        let result = stream_encrypt(file_size, data_iter);
+        let result = stream_encrypt(data_size, data_iter);
         assert!(
             result.is_err(),
             "Should reject files that are too small for self-encryption"
@@ -783,8 +783,8 @@ mod tests {
     #[test]
     fn test_stream_encrypt_consistency() -> Result<()> {
         // Test that streaming encryption produces same result as standard encryption
-        let file_size = 200_000;
-        let original_data = random_bytes(file_size);
+        let data_size = 200_000;
+        let original_data = random_bytes(data_size);
 
         // Standard encryption
         let (_standard_data_map, standard_chunks) = crate::encrypt(original_data.clone())?;
@@ -794,7 +794,7 @@ mod tests {
             .chunks(4096)
             .map(|chunk| Bytes::from(chunk.to_vec()));
         let mut streaming_chunks = Vec::new();
-        let mut stream = stream_encrypt(file_size, data_iter)?;
+        let mut stream = stream_encrypt(data_size, data_iter)?;
 
         for chunk_result in stream.chunks() {
             let (hash, content) = chunk_result?;
