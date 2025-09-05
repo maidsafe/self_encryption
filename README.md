@@ -23,6 +23,7 @@ Self encrypting files (convergent encryption plus obfuscation)
 - [Implementation Details](#implementation-details)
 - [License](#license)
 - [Contributing](#contributing)
+- [Release Process](#release-process)
 
 ## Overview
 
@@ -292,3 +293,16 @@ Want to contribute? Great :tada:
 There are many ways to give back to the project, whether it be writing new code, fixing bugs, or just reporting errors. All forms of contributions are encouraged!
 
 For instructions on how to contribute, see our [Guide to contributing](https://github.com/maidsafe/QA/blob/master/CONTRIBUTING.md).
+
+## Release Process
+
+To prepare a new release:
+
+1. **Create a PR with version bump and changelog**: 
+   - Update version in `Cargo.toml` based on [Semantic Versioning](https://semver.org/)
+   - Add new version entry to `CHANGELOG.md` with release date and changes
+   - Example: [PR #416](https://github.com/maidsafe/self_encryption/pull/416)
+
+2. **Run the release workflow manually**: 
+   - After PR is merged, go to [GitHub Actions](https://github.com/maidsafe/self_encryption/actions/workflows/release.yml)
+   - Click "Run workflow" to trigger the automated release process

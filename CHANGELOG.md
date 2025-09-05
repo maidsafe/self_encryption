@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
+## [0.34.0] - 2025-09-05
+
+### Added
+- Easy-to-use streaming functions: new `stream_encrypt` and `streaming_decrypt` functions provide 
+  simplified APIs for streaming encryption/decryption without requiring manual stream management.
+- In-memory streaming encryption: streaming encryption now operates entirely in memory, 
+  eliminating disk I/O dependencies for better performance.
+- Random access streaming decryption: added random access functionality for streaming decryption,
+  enabling flexible data retrieval patterns.
+
+### Changed
+- Streaming API improvements: greatly enhanced streaming functionality with better memory 
+  management and performance optimizations.
+- Code organization: consolidated streaming functionality and removed legacy streaming code for 
+  better maintainability.
+
+### Removed
+- Legacy streaming implementation: removed outdated stream_old code as part of codebase cleanup.
+
 ## [0.33.0] - 2025-08-12
 
 ### Fixed
