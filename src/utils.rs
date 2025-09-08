@@ -59,25 +59,39 @@ pub(crate) fn get_pki(
 
 // Returns the number of chunks according to file size.
 pub(crate) fn get_num_chunks(file_size: usize) -> usize {
+    get_num_chunks_with_variable_max(file_size, crate::MAX_CHUNK_SIZE)
+}
+
+// Returns the number of chunks according to file size.
+pub(crate) fn get_num_chunks_with_variable_max(file_size: usize, max_chunk_size: usize) -> usize {
     if file_size < (3 * crate::MIN_CHUNK_SIZE) {
         return 0;
     }
-    if file_size < (3 * crate::MAX_CHUNK_SIZE) {
+    if file_size < (3 * max_chunk_size) {
         return 3;
     }
-    if file_size % crate::MAX_CHUNK_SIZE == 0 {
-        file_size / crate::MAX_CHUNK_SIZE
+    if file_size % max_chunk_size == 0 {
+        file_size / max_chunk_size
     } else {
-        (file_size / crate::MAX_CHUNK_SIZE) + 1
+        (file_size / max_chunk_size) + 1
     }
 }
 
 // Returns the size of a chunk according to file size.
 pub(crate) fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
+    get_chunk_size_with_variable_max(file_size, chunk_index, crate::MAX_CHUNK_SIZE)
+}
+
+// Returns the size of a chunk according to file size.
+pub(crate) fn get_chunk_size_with_variable_max(
+    file_size: usize,
+    chunk_index: usize,
+    max_chunk_size: usize,
+) -> usize {
     if file_size < 3 * crate::MIN_CHUNK_SIZE {
         return 0;
     }
-    if file_size < 3 * crate::MAX_CHUNK_SIZE {
+    if file_size < 3 * max_chunk_size {
         if chunk_index < 2 {
             return file_size / 3;
         } else {
@@ -85,23 +99,23 @@ pub(crate) fn get_chunk_size(file_size: usize, chunk_index: usize) -> usize {
             return file_size - (2 * (file_size / 3));
         }
     }
-    let total_chunks = get_num_chunks(file_size);
+    let total_chunks = get_num_chunks_with_variable_max(file_size, max_chunk_size);
     if chunk_index < total_chunks - 2 {
-        return crate::MAX_CHUNK_SIZE;
+        return max_chunk_size;
     }
-    let remainder = file_size % crate::MAX_CHUNK_SIZE;
+    let remainder = file_size % max_chunk_size;
     let penultimate = (total_chunks - 2) == chunk_index;
     if remainder == 0 {
-        return crate::MAX_CHUNK_SIZE;
+        return max_chunk_size;
     }
     if remainder < crate::MIN_CHUNK_SIZE {
         if penultimate {
-            crate::MAX_CHUNK_SIZE - crate::MIN_CHUNK_SIZE
+            max_chunk_size - crate::MIN_CHUNK_SIZE
         } else {
             crate::MIN_CHUNK_SIZE + remainder
         }
     } else if penultimate {
-        crate::MAX_CHUNK_SIZE
+        max_chunk_size
     } else {
         remainder
     }
