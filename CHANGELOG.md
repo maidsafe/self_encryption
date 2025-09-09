@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
+## [0.34.1] - 2025-09-09
+
+### Fixed
+- random streaming decryption handling different MAX_CHUNK_SIZE scheme.
+
 ## [0.34.0] - 2025-09-05
 
 ### Added
