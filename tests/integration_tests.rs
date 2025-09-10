@@ -694,6 +694,115 @@ fn test_streaming_decrypt_with_parallel_retrieval() -> Result<()> {
 }
 
 #[test]
+fn test_streaming_decrypt_from_storage_with_parallel_random_chunks() -> Result<()> {
+    use std::collections::HashMap;
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+    
+    let temp_dir = TempDir::new()?;
+
+    // Generate 100MB content
+    let content_size = 100 * 1024 * 1024; // 100MB
+    let original_data = random_bytes(content_size);
+    println!("Generated {} bytes of test data", content_size);
+
+    // Encrypt to get datamap and encrypted_chunks
+    let (data_map, encrypted_chunks) = encrypt(original_data.clone())?;
+    println!("Encrypted into {} chunks", encrypted_chunks.len());
+
+    // Create a storage map from encrypted_chunks using their hashes as keys
+    let mut chunk_storage = HashMap::new();
+    for chunk in encrypted_chunks.iter() {
+        let hash = XorName::from_content(&chunk.content);
+        chunk_storage.insert(hash, chunk.content.clone());
+    }
+
+    // Create destination file for streaming_decrypt_from_storage
+    let output_path = temp_dir.path().join("decrypted_output.dat");
+
+    // Create parallel chunk fetcher that returns chunks in random order
+    // This is the key function that simulates a parallel storage system where
+    // multiple chunks are requested and returned in random order
+    let parallel_chunk_fetcher = |chunk_requests: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
+        let mut results = Vec::new();
+        
+        println!("Parallel fetch request for {} chunks", chunk_requests.len());
+        
+        // Collect all requested chunks first
+        for &(index, hash) in chunk_requests {
+            if let Some(content) = chunk_storage.get(&hash) {
+                results.push((index, content.clone()));
+                println!("  Found chunk {} with hash: {}", index, hex::encode(hash));
+            } else {
+                return Err(Error::Generic(format!(
+                    "Chunk not found for hash: {}", 
+                    hex::encode(hash)
+                )));
+            }
+        }
+        
+        // Randomize the order before returning to simulate parallel retrieval
+        // where chunks arrive in non-deterministic order
+        let mut rng = thread_rng();
+        results.shuffle(&mut rng);
+        
+        Ok(results)
+    };
+    
+    streaming_decrypt_from_storage(&data_map, &output_path, parallel_chunk_fetcher)?;
+    println!("Successfully decrypted to file using streaming: {:?}", output_path);
+
+    // Read back the decrypted content from disk
+    let mut decrypted_data = Vec::new();
+    File::open(&output_path)?.read_to_end(&mut decrypted_data)?;
+    println!("Read back {} bytes from decrypted file", decrypted_data.len());
+
+    // Compare hash first using XorName (which provides content hashing)
+    let original_hash = XorName::from_content(&original_data);
+    let decrypted_hash = XorName::from_content(&decrypted_data);
+
+    if original_hash != decrypted_hash {
+        println!("Hash mismatch detected!");
+        println!("Original hash: {}", hex::encode(original_hash));
+        println!("Decrypted hash: {}", hex::encode(decrypted_hash));
+        
+        // Further compare the raw content for debugging
+        assert_eq!(
+            original_data.len(),
+            decrypted_data.len(),
+            "Data length mismatch: original={}, decrypted={}",
+            original_data.len(),
+            decrypted_data.len()
+        );
+
+        // Find first difference
+        for (i, (orig, decr)) in original_data.iter().zip(decrypted_data.iter()).enumerate() {
+            if orig != decr {
+                panic!(
+                    "First difference at byte {}: original=0x{:02x}, decrypted=0x{:02x}",
+                    i, orig, decr
+                );
+            }
+        }
+        
+        panic!("Hashes don't match but raw content is identical - this shouldn't happen");
+    } else {
+        println!("✓ Hash comparison passed!");
+        
+        // Do a final raw content comparison for completeness
+        assert_eq!(
+            original_data.as_ref(),
+            decrypted_data.as_slice(),
+            "Raw content mismatch despite matching hashes"
+        );
+        println!("✓ Raw content comparison passed!");
+    }
+
+    println!("Test completed successfully - 100MB data encrypted and streaming decrypted correctly with parallel randomized chunk fetching");
+    Ok(())
+}
+
+#[test]
 fn test_chunk_verification() -> Result<()> {
     let storage = StorageBackend::new()?;
     let temp_dir = TempDir::new()?;
