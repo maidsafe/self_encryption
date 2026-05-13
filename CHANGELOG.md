@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
+## [0.36.0] - 2026-05-13
+
+### Added
+- Added `streaming_decrypt_with_batch_size` and `DecryptionStream::new_with_batch_size` for
+  per-stream tuning of decrypt chunk fetch batches.
+- Added `DEFAULT_STREAM_DECRYPT_BATCH_SIZE` and `stream_decrypt_batch_size` to expose the default
+  stream decrypt batch size.
+
+### Changed
+- `streaming_decrypt` continues to use `STREAM_DECRYPT_BATCH_SIZE`, but invalid values and `0` now
+  fall back to the default batch size.
+
 ## [0.35.0] - 2026-03-13
 
 ### Added

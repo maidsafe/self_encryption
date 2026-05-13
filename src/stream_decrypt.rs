@@ -9,8 +9,8 @@
 //! Streaming decryption functionality for memory-efficient processing of large encrypted files.
 
 use crate::{
-    decrypt::decrypt_chunk, get_root_data_map_parallel, utils::extract_hashes, ChunkInfo, DataMap,
-    Result, STREAM_DECRYPT_BATCH_SIZE,
+    decrypt::decrypt_chunk, get_root_data_map_parallel, stream_decrypt_batch_size,
+    utils::extract_hashes, ChunkInfo, DataMap, Result,
 };
 use bytes::Bytes;
 use std::collections::HashMap;
@@ -33,6 +33,7 @@ pub struct DecryptionStream<F> {
     current_batch_start: usize,
     current_batch_chunks: Vec<Bytes>,
     current_batch_index: usize,
+    batch_size: usize,
 }
 
 impl<F> DecryptionStream<F>
@@ -46,6 +47,27 @@ where
     /// * `data_map` - The data map containing chunk information
     /// * `get_chunk_parallel` - Function to retrieve chunks in parallel
     pub fn new(data_map: &DataMap, get_chunk_parallel: F) -> Result<Self> {
+        Self::new_with_batch_size(data_map, get_chunk_parallel, stream_decrypt_batch_size())
+    }
+
+    /// Creates a new streaming decrypt iterator with an explicit batch size.
+    ///
+    /// # Arguments
+    ///
+    /// * `data_map` - The data map containing chunk information
+    /// * `get_chunk_parallel` - Function to retrieve chunks in parallel
+    /// * `batch_size` - Number of chunks to fetch/decrypt per batch. Must be greater than 0.
+    pub fn new_with_batch_size(
+        data_map: &DataMap,
+        get_chunk_parallel: F,
+        batch_size: usize,
+    ) -> Result<Self> {
+        if batch_size == 0 {
+            return Err(crate::Error::Generic(
+                "stream decrypt batch size must be > 0".to_string(),
+            ));
+        }
+
         let root_map = if data_map.is_child() {
             get_root_data_map_parallel(data_map.clone(), &get_chunk_parallel)?
         } else {
@@ -65,6 +87,7 @@ where
             current_batch_start: 0,
             current_batch_chunks: Vec::new(),
             current_batch_index: 0,
+            batch_size,
         })
     }
 
@@ -74,8 +97,10 @@ where
             return Ok(false); // No more chunks
         }
 
-        let batch_end =
-            (self.current_batch_start + *STREAM_DECRYPT_BATCH_SIZE).min(self.chunk_infos.len());
+        let batch_end = self
+            .current_batch_start
+            .saturating_add(self.batch_size)
+            .min(self.chunk_infos.len());
         let batch_infos = self
             .chunk_infos
             .get(self.current_batch_start..batch_end)
@@ -100,9 +125,7 @@ where
 
         // Decrypt each chunk and store the results
         self.current_batch_chunks.clear();
-        for (info, (_index, encrypted_content)) in
-            batch_infos.iter().zip(fetched_chunks.into_iter())
-        {
+        for (info, (_index, encrypted_content)) in batch_infos.iter().zip(fetched_chunks) {
             let decrypted_chunk = decrypt_chunk(
                 info.index,
                 &encrypted_content,
@@ -507,6 +530,21 @@ where
     DecryptionStream::new(data_map, get_chunk_parallel)
 }
 
+/// Creates a streaming decrypt iterator with an explicit batch size.
+///
+/// This is the preferred API for callers that need to tune download
+/// throughput without relying on process-wide environment variables.
+pub fn streaming_decrypt_with_batch_size<F>(
+    data_map: &DataMap,
+    get_chunk_parallel: F,
+    batch_size: usize,
+) -> Result<DecryptionStream<F>>
+where
+    F: Fn(&[(usize, XorName)]) -> Result<Vec<(usize, Bytes)>>,
+{
+    DecryptionStream::new_with_batch_size(data_map, get_chunk_parallel, batch_size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -597,6 +635,71 @@ mod tests {
 
         assert_eq!(decrypted_data, original_data.to_vec());
         assert!(chunk_count > 1, "Should have processed multiple chunks");
+        Ok(())
+    }
+
+    #[test]
+    fn test_streaming_decrypt_explicit_batch_size() -> Result<()> {
+        let original_data = random_bytes(9_000_000);
+        let (data_map, encrypted_chunks) = encrypt(original_data.clone())?;
+
+        let mut storage = HashMap::new();
+        for chunk in encrypted_chunks {
+            let hash = crate::hash::content_hash(&chunk.content);
+            let _ = storage.insert(hash, chunk.content.to_vec());
+        }
+
+        let observed_batch_sizes = std::cell::RefCell::new(Vec::new());
+        let get_chunks = |hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
+            observed_batch_sizes.borrow_mut().push(hashes.len());
+            let mut results = Vec::new();
+            for &(index, hash) in hashes {
+                if let Some(data) = storage.get(&hash) {
+                    results.push((index, Bytes::from(data.clone())));
+                } else {
+                    return Err(Error::Generic(format!(
+                        "Chunk not found: {}",
+                        hex::encode(hash)
+                    )));
+                }
+            }
+            Ok(results)
+        };
+
+        let stream = streaming_decrypt_with_batch_size(&data_map, get_chunks, 2)?;
+        let mut decrypted_data = Vec::new();
+        for chunk_result in stream {
+            let chunk = chunk_result?;
+            decrypted_data.extend_from_slice(&chunk);
+        }
+
+        assert_eq!(decrypted_data, original_data.to_vec());
+        let observed = observed_batch_sizes.borrow();
+        assert!(
+            observed.len() >= 2,
+            "expected multiple fetch batches, got {:?}",
+            observed
+        );
+        assert!(
+            observed.iter().all(|size| *size <= 2),
+            "all batches should respect explicit size, got {:?}",
+            observed
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_streaming_decrypt_explicit_batch_size_rejects_zero() -> Result<()> {
+        let original_data = random_bytes(50_000);
+        let (data_map, _encrypted_chunks) = encrypt(original_data)?;
+        let get_chunks =
+            |_hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> { Ok(Vec::new()) };
+
+        let err = match streaming_decrypt_with_batch_size(&data_map, get_chunks, 0) {
+            Ok(_) => panic!("zero batch size should fail"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("> 0"), "got: {}", err);
         Ok(())
     }
 
@@ -979,6 +1082,7 @@ mod tests {
             current_batch_start: 0,
             current_batch_chunks: Vec::new(),
             current_batch_index: 0,
+            batch_size: stream_decrypt_batch_size(),
         };
 
         // Use the new get_chunk_index_from_infos method instead of the utility function

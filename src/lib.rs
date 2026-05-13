@@ -111,7 +111,7 @@ pub use xor_name::XorName;
 pub use self::{
     data_map::{ChunkInfo, DataMap},
     error::{Error, Result},
-    stream_decrypt::{streaming_decrypt, DecryptionStream},
+    stream_decrypt::{streaming_decrypt, streaming_decrypt_with_batch_size, DecryptionStream},
     stream_encrypt::{stream_encrypt, ChunkStream, EncryptionStream},
 };
 use bytes::Bytes;
@@ -124,12 +124,27 @@ pub use xor_name;
 /// Batch size for streaming decrypt chunk fetching.
 ///
 /// Can be overridden by the `STREAM_DECRYPT_BATCH_SIZE` environment variable.
+/// Invalid values and `0` fall back to [`DEFAULT_STREAM_DECRYPT_BATCH_SIZE`].
 pub static STREAM_DECRYPT_BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
     std::env::var("STREAM_DECRYPT_BATCH_SIZE")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(10)
+        .filter(|n| *n > 0)
+        .unwrap_or(DEFAULT_STREAM_DECRYPT_BATCH_SIZE)
 });
+
+/// Default batch size for streaming decrypt chunk fetching.
+pub const DEFAULT_STREAM_DECRYPT_BATCH_SIZE: usize = 10;
+
+/// Read the current streaming decrypt batch size.
+///
+/// This reads the legacy `STREAM_DECRYPT_BATCH_SIZE` environment variable on
+/// first use, falling back to [`DEFAULT_STREAM_DECRYPT_BATCH_SIZE`]. New code
+/// that needs explicit per-stream tuning should use
+/// [`streaming_decrypt_with_batch_size`].
+pub fn stream_decrypt_batch_size() -> usize {
+    *STREAM_DECRYPT_BATCH_SIZE
+}
 
 /// The minimum size (before compression) of data to be self-encrypted, defined as 3B.
 pub const MIN_ENCRYPTABLE_BYTES: usize = 3 * MIN_CHUNK_SIZE;
@@ -547,8 +562,7 @@ where
 
         if !missing_hashes.is_empty() {
             let new_chunks = get_chunk_parallel(&missing_hashes)?;
-            for ((_i, hash), (_j, chunk_data)) in missing_hashes.iter().zip(new_chunks.into_iter())
-            {
+            for ((_i, hash), (_j, chunk_data)) in missing_hashes.iter().zip(new_chunks) {
                 let _ = chunk_cache.insert(*hash, chunk_data);
             }
         }

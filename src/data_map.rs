@@ -48,7 +48,7 @@ impl DataMap {
     /// The algorithm requires this to be a sorted list to allow get_pad_iv_key to obtain the
     /// correct pre-encryption hashes for decryption/encryption.
     pub fn new(mut keys: Vec<ChunkInfo>) -> Self {
-        keys.sort_by(|a, b| a.index.cmp(&b.index));
+        keys.sort_by_key(|a| a.index);
         Self {
             chunk_identifiers: keys,
             child: None,
@@ -57,7 +57,7 @@ impl DataMap {
 
     /// Creates a new DataMap with a specified child value
     pub fn with_child(mut keys: Vec<ChunkInfo>, child: usize) -> Self {
-        keys.sort_by(|a, b| a.index.cmp(&b.index));
+        keys.sort_by_key(|a| a.index);
         Self {
             chunk_identifiers: keys,
             child: Some(child),
