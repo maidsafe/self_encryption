@@ -21,6 +21,9 @@ use xor_name::XorName;
 ///
 /// This provides memory-efficient decryption by processing chunks in batches
 /// and yielding them one at a time without buffering the entire file.
+/// The configured batch size caps the number of chunk hashes passed to each
+/// fetch callback invocation for both sequential iteration and random-access
+/// range reads.
 ///
 /// In addition to sequential streaming, this struct also supports random access
 /// to any byte range within the encrypted file using methods like `get_range()`,
@@ -51,6 +54,12 @@ where
     }
 
     /// Creates a new streaming decrypt iterator with an explicit batch size.
+    ///
+    /// The batch size limits how many chunks are fetched/decrypted per
+    /// callback invocation. This applies to sequential iterator consumption
+    /// and to random-access APIs such as [`Self::get_range`] and
+    /// [`Self::range`]. Range APIs still return the complete requested byte
+    /// range; large ranges may therefore perform multiple batched fetches.
     ///
     /// # Arguments
     ///
@@ -233,23 +242,22 @@ where
         // Sort by index to ensure correct order
         required_hashes.sort_by_key(|(index, _)| *index);
 
-        // Fetch the required chunks
-        let fetched_chunks = (self.get_chunk_parallel)(&required_hashes)?;
-
-        // Create a mapping for quick lookup
-        let chunk_map: HashMap<usize, Bytes> = fetched_chunks.into_iter().collect();
-
         // Decrypt the chunks in order and collect the bytes
         let mut all_bytes = Vec::new();
-        for chunk_index in start_chunk..=end_chunk {
-            if let Some(encrypted_content) = chunk_map.get(&chunk_index) {
-                let decrypted = decrypt_chunk(
-                    chunk_index,
-                    encrypted_content,
-                    &self.src_hashes,
-                    self.child_level,
-                )?;
-                all_bytes.extend_from_slice(&decrypted);
+        for batch_hashes in required_hashes.chunks(self.batch_size) {
+            let fetched_chunks = (self.get_chunk_parallel)(batch_hashes)?;
+            let chunk_map: HashMap<usize, Bytes> = fetched_chunks.into_iter().collect();
+
+            for (chunk_index, _) in batch_hashes {
+                if let Some(encrypted_content) = chunk_map.get(chunk_index) {
+                    let decrypted = decrypt_chunk(
+                        *chunk_index,
+                        encrypted_content,
+                        &self.src_hashes,
+                        self.child_level,
+                    )?;
+                    all_bytes.extend_from_slice(&decrypted);
+                }
             }
         }
 
@@ -533,7 +541,9 @@ where
 /// Creates a streaming decrypt iterator with an explicit batch size.
 ///
 /// This is the preferred API for callers that need to tune download
-/// throughput without relying on process-wide environment variables.
+/// throughput without relying on process-wide environment variables. The
+/// batch size caps the number of chunks requested from the fetch callback per
+/// invocation for both iterator reads and random-access range reads.
 pub fn streaming_decrypt_with_batch_size<F>(
     data_map: &DataMap,
     get_chunk_parallel: F,
@@ -683,6 +693,52 @@ mod tests {
         assert!(
             observed.iter().all(|size| *size <= 2),
             "all batches should respect explicit size, got {:?}",
+            observed
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_access_respects_explicit_batch_size() -> Result<()> {
+        let original_data = random_bytes(9_000_000);
+        let (data_map, encrypted_chunks) = encrypt(original_data.clone())?;
+
+        let mut storage = HashMap::new();
+        for chunk in encrypted_chunks {
+            let hash = crate::hash::content_hash(&chunk.content);
+            let _ = storage.insert(hash, chunk.content.to_vec());
+        }
+
+        let observed_batch_sizes = std::cell::RefCell::new(Vec::new());
+        let get_chunks = |hashes: &[(usize, XorName)]| -> Result<Vec<(usize, Bytes)>> {
+            observed_batch_sizes.borrow_mut().push(hashes.len());
+            let mut results = Vec::new();
+            for &(index, hash) in hashes {
+                if let Some(data) = storage.get(&hash) {
+                    results.push((index, Bytes::from(data.clone())));
+                } else {
+                    return Err(Error::Generic(format!(
+                        "Chunk not found: {}",
+                        hex::encode(hash)
+                    )));
+                }
+            }
+            Ok(results)
+        };
+
+        let stream = streaming_decrypt_with_batch_size(&data_map, get_chunks, 2)?;
+        let decrypted_data = stream.range_full()?;
+
+        assert_eq!(decrypted_data, original_data);
+        let observed = observed_batch_sizes.borrow();
+        assert!(
+            observed.len() >= 2,
+            "expected multiple range fetch batches, got {:?}",
+            observed
+        );
+        assert!(
+            observed.iter().all(|size| *size <= 2),
+            "range fetches should respect explicit size, got {:?}",
             observed
         );
         Ok(())
