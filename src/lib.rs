@@ -656,6 +656,7 @@ mod tests {
     use crate::test_helpers::random_bytes;
     use std::{
         io::Write,
+        process::Command,
         sync::{Arc, Mutex},
     };
     use tempfile::NamedTempFile;
@@ -680,6 +681,72 @@ mod tests {
             });
         }
         DataMap::new(chunks)
+    }
+
+    fn assert_stream_decrypt_batch_size_from_env(
+        env_value: Option<&str>,
+        expected: usize,
+    ) -> Result<()> {
+        let mut child = Command::new(std::env::current_exe()?);
+        let _ = child
+            .arg("--ignored")
+            .arg("--exact")
+            .arg("tests::stream_decrypt_batch_size_env_child")
+            .arg("--nocapture")
+            .env(
+                "SELF_ENCRYPTION_STREAM_DECRYPT_BATCH_SIZE_EXPECTED",
+                expected.to_string(),
+            );
+
+        if let Some(value) = env_value {
+            let _ = child.env("STREAM_DECRYPT_BATCH_SIZE", value);
+        } else {
+            let _ = child.env_remove("STREAM_DECRYPT_BATCH_SIZE");
+        }
+
+        let output = child.output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(
+            output.status.success(),
+            "child env test failed\nstdout:\n{}\nstderr:\n{}",
+            stdout,
+            stderr
+        );
+        assert!(
+            stdout.contains("stream_decrypt_batch_size_env_child observed"),
+            "child env test did not run\nstdout:\n{}\nstderr:\n{}",
+            stdout,
+            stderr
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_stream_decrypt_batch_size_env_fallbacks() -> Result<()> {
+        assert_stream_decrypt_batch_size_from_env(None, DEFAULT_STREAM_DECRYPT_BATCH_SIZE)?;
+        assert_stream_decrypt_batch_size_from_env(
+            Some("not-a-number"),
+            DEFAULT_STREAM_DECRYPT_BATCH_SIZE,
+        )?;
+        assert_stream_decrypt_batch_size_from_env(Some("0"), DEFAULT_STREAM_DECRYPT_BATCH_SIZE)?;
+        assert_stream_decrypt_batch_size_from_env(Some("64"), 64)?;
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn stream_decrypt_batch_size_env_child() -> Result<()> {
+        let expected = match std::env::var("SELF_ENCRYPTION_STREAM_DECRYPT_BATCH_SIZE_EXPECTED") {
+            Ok(expected) => expected.parse::<usize>()?,
+            Err(_) => return Ok(()),
+        };
+
+        let observed = stream_decrypt_batch_size();
+        println!("stream_decrypt_batch_size_env_child observed {observed}");
+        assert_eq!(observed, expected);
+        Ok(())
     }
 
     #[test]
