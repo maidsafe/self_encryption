@@ -38,7 +38,7 @@ def base_ref() -> str | None:
         return f"origin/{ref}"
     # On push, compare against first parent where available.
     try:
-        return run(["git", "rev-parse", "HEAD^@"])
+        return run(["git", "rev-parse", "HEAD^1"])
     except Exception:
         return None
 
