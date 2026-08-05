@@ -6,8 +6,8 @@ Self encrypting files (convergent encryption plus obfuscation)
 |:---:|:-----------:|
 |[![](https://img.shields.io/crates/v/self_encryption.svg)](https://crates.io/crates/self_encryption)|[![Documentation](https://docs.rs/self_encryption/badge.svg)](https://docs.rs/self_encryption)|
 
-| [MaidSafe website](https://maidsafe.net) | [SAFE Dev Forum](https://forum.safedev.org) | [SAFE Network Forum](https://safenetforum.org) |
-|:----------------------------------------:|:-------------------------------------------:|:----------------------------------------------:|
+| [Autonomi](https://autonomi.com) | [Documentation](https://docs.autonomi.com) | [Discord](https://discord.gg/autonomi) |
+|:--------------------------------:|:------------------------------------------:|:--------------------------------------:|
 
 ## Table of Contents
 - [Overview](#overview)
@@ -31,7 +31,7 @@ A version of [convergent encryption](http://en.wikipedia.org/wiki/convergent_enc
 
 **Important Security Note**: While this library provides very secure encryption of the data, the returned secret key **requires the same secure handling as would be necessary for any secret key**.
 
-![image of self encryption](https://github.com/maidsafe/self_encryption/blob/master/img/self_encryption.png?raw=true)
+![image of self encryption](img/self_encryption.png)
 
 ## Documentation
 - [Self Encrypting Data Whitepaper](https://docs.maidsafe.net/Whitepapers/pdf/SelfEncryptingData.pdf)
@@ -292,8 +292,6 @@ Want to contribute? Great :tada:
 
 There are many ways to give back to the project, whether it be writing new code, fixing bugs, or just reporting errors. All forms of contributions are encouraged!
 
-For instructions on how to contribute, see our [Guide to contributing](https://github.com/maidsafe/QA/blob/master/CONTRIBUTING.md).
-
 ## Release Process
 
 To prepare a new release:
@@ -301,8 +299,8 @@ To prepare a new release:
 1. **Create a PR with version bump and changelog**: 
    - Update version in `Cargo.toml` based on [Semantic Versioning](https://semver.org/)
    - Add new version entry to `CHANGELOG.md` with release date and changes
-   - Example: [PR #416](https://github.com/maidsafe/self_encryption/pull/416)
+   - Example: [PR #416](https://github.com/WithAutonomi/self_encryption/pull/416)
 
 2. **Run the release workflow manually**: 
-   - After PR is merged, go to [GitHub Actions](https://github.com/maidsafe/self_encryption/actions/workflows/release.yml)
+   - After PR is merged, go to [GitHub Actions](https://github.com/WithAutonomi/self_encryption/actions/workflows/release.yml)
    - Click "Run workflow" to trigger the automated release process
