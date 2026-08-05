@@ -77,6 +77,15 @@ ignore = [
     "RUSTSEC-2020-0159",
     "RUSTSEC-2020-0071",
     "RUSTSEC-2025-0141",
+    # TEMPORARY - both are pyo3 0.24.2 and both are fixed by the same upgrade.
+    # Remedy is pyo3 >= 0.29.0, five minor versions ahead and across the Bound
+    # API migration, so it needs real work in src/python.rs rather than a version
+    # bump. Tracked in V2-877 - remove BOTH entries when that lands.
+    #   0176: out-of-bounds read in nth / nth_back for PyList and PyTuple
+    #         iterators. Only reachable through the `python` feature.
+    #   0177: PyCFunction::new_closure lacked a Sync bound.
+    { id = "RUSTSEC-2026-0176", reason = "pyo3 upgrade tracked in V2-877" },
+    { id = "RUSTSEC-2026-0177", reason = "pyo3 upgrade tracked in V2-877" },
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.

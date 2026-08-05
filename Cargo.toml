@@ -3,14 +3,16 @@ members = ["nodejs"]
 
 [package]
 authors = ["MaidSafe Developers <dev@maidsafe.net>"]
-description = "Self encrypting files (convergent encryption plus obfuscation)"
+categories = ["cryptography", "filesystem"]
+description = "Self-encrypting, content-addressed storage - convergent encryption that splits data into obfuscated chunks. The peer-reviewed core of Autonomi."
 documentation = "https://docs.rs/self_encryption"
 edition = "2018"
-homepage = "https://maidsafe.net"
+homepage = "https://autonomi.com"
+keywords = ["encryption", "convergent", "storage", "autonomi", "deduplication"]
 license = "GPL-3.0"
 name = "self_encryption"
 readme = "README.md"
-repository = "https://github.com/maidsafe/self_encryption"
+repository = "https://github.com/WithAutonomi/self_encryption"
 version = "0.36.0"
 
 [features]
