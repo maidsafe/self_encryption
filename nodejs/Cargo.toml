@@ -3,7 +3,7 @@ edition = "2024"
 name = "self-encryption-nodejs"
 version = "0.1.0"
 description = "NodeJS bindings for Self Encryption"
-license = "GPL-3.0"
+license = "MIT OR Apache-2.0"
 
 [lib]
 crate-type = ["cdylib"]

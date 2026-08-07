@@ -17,7 +17,7 @@
       ]
     }
   },
-  "license": "GPL-3.0",
+  "license": "MIT OR Apache-2.0",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@types/node": "^22.13.10",
