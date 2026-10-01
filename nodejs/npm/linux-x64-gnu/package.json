@@ -16,7 +16,7 @@
   "files": [
     "self-encryption.linux-x64-gnu.node"
   ],
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "engines": {
     "node": ">= 10"
   },
