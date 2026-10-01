@@ -16,7 +16,7 @@
   "files": [
     "self-encryption.win32-x64-msvc.node"
   ],
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "engines": {
     "node": ">= 10"
   }
