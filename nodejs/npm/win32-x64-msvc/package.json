@@ -14,7 +14,9 @@
   ],
   "main": "self-encryption.win32-x64-msvc.node",
   "files": [
-    "self-encryption.win32-x64-msvc.node"
+    "self-encryption.win32-x64-msvc.node",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
   ],
   "license": "MIT OR Apache-2.0",
   "engines": {

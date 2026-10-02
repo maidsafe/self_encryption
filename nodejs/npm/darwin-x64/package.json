@@ -14,7 +14,9 @@
   ],
   "main": "self-encryption.darwin-x64.node",
   "files": [
-    "self-encryption.darwin-x64.node"
+    "self-encryption.darwin-x64.node",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
   ],
   "license": "MIT OR Apache-2.0",
   "engines": {

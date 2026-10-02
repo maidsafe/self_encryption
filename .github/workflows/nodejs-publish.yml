@@ -47,6 +47,12 @@ jobs:
           path: ./nodejs/artifacts
       - name: Move artifacts
         run: npm run artifacts
+      - name: Add the licence texts to every package
+        run: |
+          for dir in . npm/*/; do
+            cp ../LICENSE-MIT ../LICENSE-APACHE "$dir"
+          done
+        shell: bash
       - name: List packages
         run: ls -R ./npm
         shell: bash
