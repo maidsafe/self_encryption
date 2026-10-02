@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
+## [Unreleased]
+
+### Changed
+- Relicensed from GPL-3.0 with a linking exception to MIT OR Apache-2.0, at your option. The
+  `LICENSE` file is replaced by `LICENSE-MIT` and `LICENSE-APACHE`, and the crate, Python and
+  Node.js package metadata declare `MIT OR Apache-2.0`. The last release under GPL-3.0 with the
+  linking exception is 0.36.0.
+
 ## [0.36.0] - 2026-05-13
 
 ### Added
