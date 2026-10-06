@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *When editing this file, please respect a line length of 100.*
 
-## [Unreleased]
+## [0.36.1] - 2026-10-06
 
 ### Changed
 - Relicensed from GPL-3.0 with a linking exception to MIT OR Apache-2.0, at your option. The
